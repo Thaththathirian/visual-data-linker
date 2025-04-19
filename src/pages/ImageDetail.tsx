@@ -8,7 +8,7 @@ import DataTable from "@/components/Table/DataTable";
 import Breadcrumb from "@/components/Navigation/Breadcrumb";
 import { toast } from "sonner";
 import frameAssembly1 from "@/data/images/frame-assembly-1.json";
-import frameAssemblyImage from "@/assets/frame-assembly-1.png";
+// Remove the problematic import and use placeholder
 
 const ImageDetail: React.FC = () => {
   const { imageName } = useParams<{ imageName: string }>();
@@ -111,13 +111,9 @@ const ImageDetail: React.FC = () => {
   ];
 
   const getImagePath = () => {
+    // Always use public placeholder image for frame-assembly-1
     if (imageName === 'frame-assembly-1') {
-      // Try to use the specific image, fallback to a placeholder
-      try {
-        return frameAssemblyImage;
-      } catch {
-        return "/lovable-uploads/bedf96be-6a0a-4e22-a17a-0390c7baf82e.png";
-      }
+      return "/lovable-uploads/bedf96be-6a0a-4e22-a17a-0390c7baf82e.png";
     } else {
       return `/src/assets/${imageName}.png`;
     }
