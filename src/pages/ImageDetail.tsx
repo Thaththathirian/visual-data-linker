@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { parseCSV } from "@/utils/csvParser";
@@ -8,6 +7,7 @@ import DataTable from "@/components/Table/DataTable";
 import Breadcrumb from "@/components/Navigation/Breadcrumb";
 import { toast } from "sonner";
 import frameAssembly1 from "@/data/images/frame-assembly-1.json";
+import frameAssemblyImage from "@/assets/frame-assembly-1.png";
 
 const ImageDetail: React.FC = () => {
   const { imageName } = useParams<{ imageName: string }>();
@@ -109,10 +109,9 @@ const ImageDetail: React.FC = () => {
     },
   ];
 
-  // Determine the image path based on the image name
   const getImagePath = () => {
     if (imageName === 'frame-assembly-1') {
-      return "/lovable-uploads/bedf96be-6a0a-4e22-a17a-0390c7baf82e.png";
+      return frameAssemblyImage;
     } else {
       return `/src/assets/${imageName}.png`;
     }
