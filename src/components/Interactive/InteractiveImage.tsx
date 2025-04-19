@@ -52,6 +52,16 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
     };
   }, [imagePath]);
 
+  const handleCircleHover = (number: string | null) => {
+    onCircleHover(number);
+  };
+
+  const handleCircleClick = (number: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onCircleClick(number);
+  };
+
   return (
     <div ref={containerRef} className="relative w-full h-full overflow-hidden bg-white rounded-lg">
       <img
@@ -84,8 +94,8 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
             <motion.div
               className="flex items-center justify-center rounded-full bg-custom-blue text-white cursor-pointer"
               style={{
-                width: "28px",
-                height: "28px",
+                width: "26px",
+                height: "26px",
                 fontSize: "12px",
               }}
               whileHover={{ 
@@ -93,9 +103,9 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
                 scale: 1.05
               }}
               transition={{ duration: 0.2 }}
-              onHoverStart={() => onCircleHover(coord.number)}
-              onHoverEnd={() => onCircleHover(null)}
-              onClick={() => onCircleClick(coord.number)}
+              onMouseEnter={() => handleCircleHover(coord.number)}
+              onMouseLeave={() => handleCircleHover(null)}
+              onClick={(e) => handleCircleClick(coord.number, e)}
             >
               {coord.number}
             </motion.div>

@@ -8,7 +8,6 @@ import DataTable from "@/components/Table/DataTable";
 import Breadcrumb from "@/components/Navigation/Breadcrumb";
 import { toast } from "sonner";
 import frameAssembly1 from "@/data/images/frame-assembly-1.json";
-// Remove the problematic import and use placeholder
 
 const ImageDetail: React.FC = () => {
   const { imageName } = useParams<{ imageName: string }>();
@@ -39,18 +38,23 @@ const ImageDetail: React.FC = () => {
           setTableData(parsedData);
         } else {
           // For other images
-          const imageDataModule = await import(`../data/images/${imageName}.json`);
-          setImageData(imageDataModule.default);
-          
-          // Fetch the CSV file and parse it
-          const response = await fetch(`/src/data/tables/${imageName}.csv`);
-          if (!response.ok) {
-            throw new Error('Failed to load CSV data');
+          try {
+            const imageDataModule = await import(`../data/images/${imageName}.json`);
+            setImageData(imageDataModule.default);
+            
+            // Fetch the CSV file and parse it
+            const response = await fetch(`/src/data/tables/${imageName}.csv`);
+            if (!response.ok) {
+              throw new Error('Failed to load CSV data');
+            }
+            
+            const csvText = await response.text();
+            const parsedData = parseCSV(csvText);
+            setTableData(parsedData);
+          } catch (err) {
+            console.error("Error loading image data:", err);
+            throw new Error(`Failed to load data for image: ${imageName}`);
           }
-          
-          const csvText = await response.text();
-          const parsedData = parseCSV(csvText);
-          setTableData(parsedData);
         }
         
         setLoading(false);
@@ -111,26 +115,22 @@ const ImageDetail: React.FC = () => {
   ];
 
   const getImagePath = () => {
-    // Always use public placeholder image for frame-assembly-1
-    if (imageName === 'frame-assembly-1') {
-      return "/lovable-uploads/bedf96be-6a0a-4e22-a17a-0390c7baf82e.png";
-    } else {
-      return `/src/assets/${imageName}.png`;
-    }
+    // Use path that matches your file organization
+    return `/lovable-uploads/bedf96be-6a0a-4e22-a17a-0390c7baf82e.png`;
   };
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="mb-6">
+      <div className="mb-4">
         <Breadcrumb items={breadcrumbItems} />
       </div>
 
-      <h1 className="text-2xl font-bold mb-6 capitalize">
+      <h1 className="text-xl font-bold mb-4 capitalize">
         {imageData.imageName.replace(/-/g, " ")}
       </h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white p-4 rounded-lg shadow">
+        <div className="lg:col-span-2 bg-white p-4 rounded-lg shadow h-[580px]">
           <InteractiveImage
             imagePath={getImagePath()}
             imageData={imageData}
@@ -139,13 +139,15 @@ const ImageDetail: React.FC = () => {
           />
         </div>
 
-        <div className="bg-white p-4 rounded-lg shadow h-[500px] lg:h-auto">
-          <h2 className="text-xl font-semibold mb-4">Parts List</h2>
-          <DataTable
-            data={tableData}
-            highlightedNumber={highlightedNumber}
-            onRowClick={handleCircleClick}
-          />
+        <div className="bg-white p-4 rounded-lg shadow h-[580px]">
+          <h2 className="text-lg font-semibold mb-2">Parts List</h2>
+          <div className="h-[530px]">
+            <DataTable
+              data={tableData}
+              highlightedNumber={highlightedNumber}
+              onRowClick={handleCircleHover}
+            />
+          </div>
         </div>
       </div>
     </div>
