@@ -5,20 +5,20 @@ export const parseCSV = (csvContent: string): TableRow[] => {
   const lines = csvContent.trim().split('\n');
   const headers = lines[0].split(',');
   
-  return lines.slice(1).map(line => {
+  return lines.slice(1).map((line, index) => {
     const values = line.split(',');
-    const tableRow: Record<string, any> = {};
+    const data: Record<string, any> = {};
     
-    headers.forEach((header, index) => {
-      tableRow[header] = values[index];
+    headers.forEach((header, idx) => {
+      data[header.trim()] = values[idx]?.trim() || '';
     });
     
     return {
-      id: parseInt(tableRow.id),
-      number: tableRow.number,
-      name: tableRow.name,
-      description: tableRow.description,
-      partNumber: tableRow.partNumber,
+      id: index + 1,
+      number: data.numbers || '',
+      name: '',  // This will be populated based on description
+      description: data.description || '',
+      partNumber: data['part no.'] || '',
     };
   });
 };

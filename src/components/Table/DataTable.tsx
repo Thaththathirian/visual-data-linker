@@ -2,6 +2,14 @@
 import React, { useRef, useEffect } from "react";
 import { TableRow } from "@/types";
 import { motion } from "framer-motion";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow as ShadcnTableRow,
+} from "@/components/ui/table";
 
 interface DataTableProps {
   data: TableRow[];
@@ -28,24 +36,16 @@ const DataTable: React.FC<DataTableProps> = ({
 
   return (
     <div className="overflow-y-auto h-full border rounded-lg">
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50 sticky top-0">
-          <tr>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              #
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Name
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Description
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Part #
-            </th>
-          </tr>
-        </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
+      <Table>
+        <TableHeader className="bg-gray-50 sticky top-0">
+          <ShadcnTableRow>
+            <TableHead className="text-xs font-medium">#</TableHead>
+            <TableHead className="text-xs font-medium">Part #</TableHead>
+            <TableHead className="text-xs font-medium">Description</TableHead>
+            <TableHead className="text-xs font-medium">Qty</TableHead>
+          </ShadcnTableRow>
+        </TableHeader>
+        <TableBody>
           {data.map((row) => (
             <motion.tr
               key={row.id}
@@ -64,22 +64,14 @@ const DataTable: React.FC<DataTableProps> = ({
               }
               transition={{ duration: 1.5, repeat: Infinity }}
             >
-              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                {row.number}
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                {row.name}
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                {row.description}
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                {row.partNumber}
-              </td>
+              <TableCell className="font-medium">{row.number}</TableCell>
+              <TableCell>{row.partNumber}</TableCell>
+              <TableCell>{row.description}</TableCell>
+              <TableCell>{row.name}</TableCell>
             </motion.tr>
           ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </div>
   );
 };

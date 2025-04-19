@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { Search, User, Store } from "lucide-react";
@@ -36,7 +37,7 @@ const Header: React.FC = () => {
 
         {/* Search Box - Only on larger screens or when active */}
         <div className={`relative ${isSearchActive ? 'fixed top-4 left-0 right-0 z-50 bg-white p-4 md:static md:p-0 md:z-auto' : 'hidden md:block'}`}>
-          <SearchComponent onClose={() => setIsSearchActive(false)} />
+          <SearchComponent />
         </div>
 
         {/* Right Side Icons */}

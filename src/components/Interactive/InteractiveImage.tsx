@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { ImageData } from "@/types";
@@ -49,13 +50,13 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
         observer.unobserve(containerRef.current);
       }
     };
-  }, []);
+  }, [imagePath]);
 
   return (
-    <div ref={containerRef} className="relative w-full h-full overflow-hidden">
+    <div ref={containerRef} className="relative w-full h-full overflow-hidden bg-white rounded-lg">
       <img
         ref={imageRef}
-        src={imagePath || "/placeholder.svg"}
+        src={imagePath}
         alt={imageData.imageName}
         className="w-full h-auto max-w-full"
         onError={(e) => {
@@ -69,18 +70,16 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
         const scaledY = coord.y * scale;
 
         return (
-          <motion.div
+          <div
             key={coord.id}
             className="absolute"
             style={{
               left: `${scaledX}px`,
               top: `${scaledY}px`,
               transform: "translate(-50%, -50%)",
+              pointerEvents: "auto",
+              zIndex: 10
             }}
-            whileHover={{ scale: 1.05 }}
-            onHoverStart={() => onCircleHover(coord.number)}
-            onHoverEnd={() => onCircleHover(null)}
-            onClick={() => onCircleClick(coord.number)}
           >
             <motion.div
               className="flex items-center justify-center rounded-full bg-custom-blue text-white cursor-pointer"
@@ -89,12 +88,18 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
                 height: "28px",
                 fontSize: "12px",
               }}
-              whileHover={{ backgroundColor: "#F97316" }}
+              whileHover={{ 
+                backgroundColor: "#F97316",
+                scale: 1.05
+              }}
               transition={{ duration: 0.2 }}
+              onHoverStart={() => onCircleHover(coord.number)}
+              onHoverEnd={() => onCircleHover(null)}
+              onClick={() => onCircleClick(coord.number)}
             >
               {coord.number}
             </motion.div>
-          </motion.div>
+          </div>
         );
       })}
     </div>

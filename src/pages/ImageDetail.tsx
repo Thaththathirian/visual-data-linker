@@ -7,6 +7,7 @@ import InteractiveImage from "@/components/Interactive/InteractiveImage";
 import DataTable from "@/components/Table/DataTable";
 import Breadcrumb from "@/components/Navigation/Breadcrumb";
 import { toast } from "sonner";
+import frameAssembly1 from "@/data/images/frame-assembly-1.json";
 
 const ImageDetail: React.FC = () => {
   const { imageName } = useParams<{ imageName: string }>();
@@ -17,27 +18,39 @@ const ImageDetail: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const apiUrl = import.meta.env.VITE_API_URL || '';
-
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
         
-        // In a real app, you would fetch this data from your API
-        // For this demo, we're importing it directly
-        const imageDataModule = await import(`../data/images/${imageName}.json`);
-        setImageData(imageDataModule.default);
-        
-        // Fetch the CSV file and parse it
-        const response = await fetch(`/src/data/tables/${imageName}.csv`);
-        if (!response.ok) {
-          throw new Error('Failed to load CSV data');
+        // For frame-assembly-1, use the JSON data directly
+        if (imageName === 'frame-assembly-1') {
+          setImageData(frameAssembly1);
+          
+          // Fetch the CSV file and parse it
+          const response = await fetch(`/src/data/tables/${imageName}.csv`);
+          if (!response.ok) {
+            throw new Error('Failed to load CSV data');
+          }
+          
+          const csvText = await response.text();
+          const parsedData = parseCSV(csvText);
+          setTableData(parsedData);
+        } else {
+          // For other images
+          const imageDataModule = await import(`../data/images/${imageName}.json`);
+          setImageData(imageDataModule.default);
+          
+          // Fetch the CSV file and parse it
+          const response = await fetch(`/src/data/tables/${imageName}.csv`);
+          if (!response.ok) {
+            throw new Error('Failed to load CSV data');
+          }
+          
+          const csvText = await response.text();
+          const parsedData = parseCSV(csvText);
+          setTableData(parsedData);
         }
-        
-        const csvText = await response.text();
-        const parsedData = parseCSV(csvText);
-        setTableData(parsedData);
         
         setLoading(false);
       } catch (err) {
@@ -96,6 +109,15 @@ const ImageDetail: React.FC = () => {
     },
   ];
 
+  // Determine the image path based on the image name
+  const getImagePath = () => {
+    if (imageName === 'frame-assembly-1') {
+      return "/lovable-uploads/bedf96be-6a0a-4e22-a17a-0390c7baf82e.png";
+    } else {
+      return `/src/assets/${imageName}.png`;
+    }
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-6">
@@ -109,7 +131,7 @@ const ImageDetail: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 bg-white p-4 rounded-lg shadow">
           <InteractiveImage
-            imagePath={`/src/assets/${imageName}.png`}
+            imagePath={getImagePath()}
             imageData={imageData}
             onCircleHover={handleCircleHover}
             onCircleClick={handleCircleClick}
