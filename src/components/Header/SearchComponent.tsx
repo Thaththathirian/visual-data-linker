@@ -21,7 +21,7 @@ export const SearchComponent: React.FC<SearchComponentProps> = ({ onClose }) => 
       return;
     }
 
-    // Mock search results with proper type literals
+    // Updated mock results with correct literal types
     const mockResults: SearchResult[] = [
       { type: "image", name: "Page 1 Circle", path: "/image/page-1-circle" },
       { type: "image", name: "Sewing Machine X200", path: "/image/sewing-machine-x200" },
