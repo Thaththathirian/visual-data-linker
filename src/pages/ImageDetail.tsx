@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { parseCSV } from "@/utils/csvParser";
@@ -6,6 +7,7 @@ import DataTable from "@/components/Table/DataTable";
 import Breadcrumb from "@/components/Navigation/Breadcrumb";
 import { toast } from "sonner";
 import frameAssembly1 from "@/data/images/frame-assembly-1.json";
+import { TableRow, ImageData } from "@/types"; // Added the missing import for TableRow
 
 const ImageDetail: React.FC = () => {
   const { imageName } = useParams<{ imageName: string }>();
@@ -21,7 +23,7 @@ const ImageDetail: React.FC = () => {
       try {
         setLoading(true);
         if (imageName === 'frame-assembly-1') {
-          setImageData(frameAssembly1);
+          setImageData(frameAssembly1 as ImageData);
           const response = await fetch(`/src/data/tables/${imageName}.csv`);
           if (!response.ok) {
             throw new Error('Failed to load CSV data');
@@ -32,7 +34,7 @@ const ImageDetail: React.FC = () => {
         } else {
           try {
             const imageDataModule = await import(`../data/images/${imageName}.json`);
-            setImageData(imageDataModule.default);
+            setImageData(imageDataModule.default as ImageData);
             const response = await fetch(`/src/data/tables/${imageName}.csv`);
             if (!response.ok) {
               throw new Error('Failed to load CSV data');
@@ -97,7 +99,7 @@ const ImageDetail: React.FC = () => {
 
   const breadcrumbItems = [
     {
-      label: imageData?.imageName.replace(/-/g, " "),
+      label: imageData.imageName.replace(/-/g, " "),
       path: `/image/${imageName}`,
     },
   ];
@@ -109,7 +111,7 @@ const ImageDetail: React.FC = () => {
       </div>
 
       <h1 className="text-xl font-bold mb-4 capitalize">
-        {imageData?.imageName.replace(/-/g, " ")}
+        {imageData.imageName.replace(/-/g, " ")}
       </h1>
 
       <div className="flex flex-col lg:flex-row gap-6">
