@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { parseCSV } from "@/utils/csvParser";
@@ -111,7 +112,12 @@ const ImageDetail: React.FC = () => {
 
   const getImagePath = () => {
     if (imageName === 'frame-assembly-1') {
-      return frameAssemblyImage;
+      // Try to use the specific image, fallback to a placeholder
+      try {
+        return frameAssemblyImage;
+      } catch {
+        return "/lovable-uploads/bedf96be-6a0a-4e22-a17a-0390c7baf82e.png";
+      }
     } else {
       return `/src/assets/${imageName}.png`;
     }
