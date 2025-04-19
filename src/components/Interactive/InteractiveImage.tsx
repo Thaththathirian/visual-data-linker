@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
-import { ImageData, Coordinate } from "@/types";
+import { ImageData } from "@/types";
 
 interface InteractiveImageProps {
   imagePath: string;
@@ -21,7 +20,6 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
 
-  // Calculate the position scale based on the original image size and current display size
   useEffect(() => {
     const updateScale = () => {
       if (imageRef.current && imageRef.current.naturalWidth) {
@@ -40,7 +38,6 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
       observer.observe(containerRef.current);
     }
 
-    // Initial update
     if (imageRef.current && imageRef.current.complete) {
       updateScale();
     } else if (imageRef.current) {
@@ -67,7 +64,6 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
         }}
       />
 
-      {/* Circles for each coordinate */}
       {imageData.coordinates.map((coord) => {
         const scaledX = coord.x * scale;
         const scaledY = coord.y * scale;
@@ -81,7 +77,7 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
               top: `${scaledY}px`,
               transform: "translate(-50%, -50%)",
             }}
-            whileHover={{ scale: 1.2 }}
+            whileHover={{ scale: 1.05 }}
             onHoverStart={() => onCircleHover(coord.number)}
             onHoverEnd={() => onCircleHover(null)}
             onClick={() => onCircleClick(coord.number)}
@@ -94,7 +90,7 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
                 fontSize: "12px",
               }}
               whileHover={{ backgroundColor: "#F97316" }}
-              transition={{ duration: 0.3 }}
+              transition={{ duration: 0.2 }}
             >
               {coord.number}
             </motion.div>
