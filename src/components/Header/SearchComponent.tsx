@@ -35,24 +35,24 @@ const SearchComponent = () => {
 
   return (
     <div className="relative w-full max-w-lg mx-auto">
-      <div className="flex items-center border rounded-lg px-3 py-2 bg-white">
-        <Search className="h-5 w-5 text-gray-400" />
+      <div className="flex items-center border rounded-lg px-2 py-1 bg-white">
+        <Search className="h-4 w-4 text-gray-400" />
         <Input
           type="text"
           placeholder="Search parts or images..."
           value={searchTerm}
           onChange={(e) => handleSearch(e.target.value)}
-          className="flex-1 border-0 focus:ring-0 text-xl px-4 py-2 w-full"
+          className="flex-1 border-0 focus:ring-0 text-sm px-2 py-1 h-8 w-full"
         />
       </div>
       {searchTerm && (
-        <div className="absolute left-0 mt-2 w-full bg-white border rounded-md shadow-md z-10">
+        <div className="absolute left-0 mt-1 w-full bg-white border rounded-md shadow-md z-10">
           {isSearching ? (
-            <div className="px-4 py-2 text-gray-500">Searching...</div>
+            <div className="px-3 py-1 text-gray-500 text-sm">Searching...</div>
           ) : searchResults.length > 0 ? (
             <ul>
               {searchResults.map((result, index) => (
-                <li key={index} className="px-4 py-2 hover:bg-gray-100">
+                <li key={index} className="px-3 py-1 hover:bg-gray-100 text-sm">
                   <a href={result.path} className="block">
                     {result.name} ({result.type})
                   </a>
@@ -60,7 +60,7 @@ const SearchComponent = () => {
               ))}
             </ul>
           ) : (
-            <div className="px-4 py-2 text-gray-500">No results found.</div>
+            <div className="px-3 py-1 text-gray-500 text-sm">No results found.</div>
           )}
         </div>
       )}

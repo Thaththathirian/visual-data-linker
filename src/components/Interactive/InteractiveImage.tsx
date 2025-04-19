@@ -52,27 +52,18 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
     };
   }, [imagePath]);
 
-  const handleCircleHover = (number: string | null) => {
-    onCircleHover(number);
-  };
-
-  const handleCircleClick = (number: string, e: React.MouseEvent) => {
+  const handleCircleClick = (e: React.MouseEvent, number: string) => {
     e.preventDefault();
     e.stopPropagation();
-    onCircleClick(number);
   };
 
   return (
-    <div ref={containerRef} className="relative w-full h-full overflow-hidden bg-white rounded-lg">
+    <div ref={containerRef} className="relative w-full overflow-auto bg-white rounded-lg">
       <img
         ref={imageRef}
         src={imagePath}
         alt={imageData.imageName}
-        className="w-full h-auto max-w-full"
-        onError={(e) => {
-          const target = e.target as HTMLImageElement;
-          target.src = "/placeholder.svg";
-        }}
+        className="w-full h-auto"
       />
 
       {imageData.coordinates.map((coord) => {
@@ -103,9 +94,9 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
                 scale: 1.05
               }}
               transition={{ duration: 0.2 }}
-              onMouseEnter={() => handleCircleHover(coord.number)}
-              onMouseLeave={() => handleCircleHover(null)}
-              onClick={(e) => handleCircleClick(coord.number, e)}
+              onMouseEnter={() => onCircleHover(coord.number)}
+              onMouseLeave={() => onCircleHover(null)}
+              onClick={(e) => handleCircleClick(e, coord.number)}
             >
               {coord.number}
             </motion.div>
