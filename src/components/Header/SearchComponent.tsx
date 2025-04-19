@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
@@ -41,7 +42,7 @@ const SearchComponent = () => {
           placeholder="Search parts or images..."
           value={searchTerm}
           onChange={(e) => handleSearch(e.target.value)}
-          className="flex-1 border-0 focus:ring-0 text-lg px-4 py-2"
+          className="flex-1 border-0 focus:ring-0 text-xl px-4 py-2 w-full"
         />
       </div>
       {searchTerm && (

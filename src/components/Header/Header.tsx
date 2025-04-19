@@ -1,9 +1,8 @@
-
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { Search, User, Store } from "lucide-react";
 import { motion } from "framer-motion";
-import { SearchComponent } from "./SearchComponent";
+import SearchComponent from "./SearchComponent";
 
 const Header: React.FC = () => {
   const [isSearchActive, setIsSearchActive] = useState(false);
