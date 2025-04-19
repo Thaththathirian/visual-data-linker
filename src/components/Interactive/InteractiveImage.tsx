@@ -58,7 +58,7 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
   };
 
   return (
-    <div ref={containerRef} className="relative w-full overflow-auto bg-white rounded-lg">
+    <div ref={containerRef} className="relative w-full h-full bg-white rounded-lg">
       <img
         ref={imageRef}
         src={imagePath}
@@ -96,7 +96,11 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
               transition={{ duration: 0.2 }}
               onMouseEnter={() => onCircleHover(coord.number)}
               onMouseLeave={() => onCircleHover(null)}
-              onClick={(e) => handleCircleClick(e, coord.number)}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onCircleClick(coord.number);
+              }}
             >
               {coord.number}
             </motion.div>

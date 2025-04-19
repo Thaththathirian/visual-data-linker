@@ -1,8 +1,6 @@
-
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { parseCSV } from "@/utils/csvParser";
-import { TableRow, ImageData } from "@/types";
 import InteractiveImage from "@/components/Interactive/InteractiveImage";
 import DataTable from "@/components/Table/DataTable";
 import Breadcrumb from "@/components/Navigation/Breadcrumb";
@@ -22,32 +20,23 @@ const ImageDetail: React.FC = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        
-        // For frame-assembly-1, use the JSON data directly
         if (imageName === 'frame-assembly-1') {
           setImageData(frameAssembly1);
-          
-          // Fetch the CSV file and parse it
           const response = await fetch(`/src/data/tables/${imageName}.csv`);
           if (!response.ok) {
             throw new Error('Failed to load CSV data');
           }
-          
           const csvText = await response.text();
           const parsedData = parseCSV(csvText);
           setTableData(parsedData);
         } else {
-          // For other images
           try {
             const imageDataModule = await import(`../data/images/${imageName}.json`);
             setImageData(imageDataModule.default);
-            
-            // Fetch the CSV file and parse it
             const response = await fetch(`/src/data/tables/${imageName}.csv`);
             if (!response.ok) {
               throw new Error('Failed to load CSV data');
             }
-            
             const csvText = await response.text();
             const parsedData = parseCSV(csvText);
             setTableData(parsedData);
@@ -56,7 +45,6 @@ const ImageDetail: React.FC = () => {
             throw new Error(`Failed to load data for image: ${imageName}`);
           }
         }
-        
         setLoading(false);
       } catch (err) {
         console.error("Error loading data:", err);
@@ -76,7 +64,7 @@ const ImageDetail: React.FC = () => {
   };
 
   const handleCircleClick = (number: string) => {
-    navigate(`/image/${imageName}/${number}`);
+    setHighlightedNumber(number);
   };
 
   if (loading) {
@@ -109,15 +97,10 @@ const ImageDetail: React.FC = () => {
 
   const breadcrumbItems = [
     {
-      label: imageData.imageName.replace(/-/g, " "),
+      label: imageData?.imageName.replace(/-/g, " "),
       path: `/image/${imageName}`,
     },
   ];
-
-  const getImagePath = () => {
-    // Use path that matches your file organization
-    return `/lovable-uploads/bedf96be-6a0a-4e22-a17a-0390c7baf82e.png`;
-  };
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -126,26 +109,27 @@ const ImageDetail: React.FC = () => {
       </div>
 
       <h1 className="text-xl font-bold mb-4 capitalize">
-        {imageData.imageName.replace(/-/g, " ")}
+        {imageData?.imageName.replace(/-/g, " ")}
       </h1>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white p-4 rounded-lg shadow h-[580px]">
+      <div className="flex flex-col lg:flex-row gap-6">
+        <div className="w-full lg:w-2/3 bg-white p-4 rounded-lg shadow min-h-[580px] overflow-auto">
           <InteractiveImage
-            imagePath={getImagePath()}
+            imagePath={`/lovable-uploads/bedf96be-6a0a-4e22-a17a-0390c7baf82e.png`}
             imageData={imageData}
             onCircleHover={handleCircleHover}
             onCircleClick={handleCircleClick}
           />
         </div>
 
-        <div className="bg-white p-4 rounded-lg shadow h-[580px]">
+        <div className="w-full lg:w-1/3 bg-white p-4 rounded-lg shadow h-[580px]">
           <h2 className="text-lg font-semibold mb-2">Parts List</h2>
-          <div className="h-[530px]">
+          <div className="h-[530px] overflow-auto">
             <DataTable
               data={tableData}
               highlightedNumber={highlightedNumber}
-              onRowClick={handleCircleHover}
+              onRowClick={(number) => handleCircleClick(number)}
+              onRowHover={handleCircleHover}
             />
           </div>
         </div>

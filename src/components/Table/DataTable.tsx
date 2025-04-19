@@ -1,5 +1,5 @@
 
-import React, { useRef, useEffect } from "react";
+import React from "react";
 import { TableRow } from "@/types";
 import { motion } from "framer-motion";
 import {
@@ -16,30 +16,24 @@ interface DataTableProps {
   data: TableRow[];
   highlightedNumber: string | null;
   onRowClick: (number: string) => void;
+  onRowHover: (number: string | null) => void;
 }
 
 const DataTable: React.FC<DataTableProps> = ({
   data,
   highlightedNumber,
   onRowClick,
+  onRowHover,
 }) => {
-  const handleRowHover = (number: string) => {
-    onRowClick(number);
-  };
-
-  const handleRowLeave = () => {
-    onRowClick('');
-  };
-
   return (
-    <ScrollArea className="h-full border rounded-lg">
+    <ScrollArea className="h-full">
       <Table>
         <TableHeader className="bg-gray-50 sticky top-0 z-10">
-          <ShadcnTableRow className="h-6">
-            <TableHead className="text-xs font-medium h-6 py-1">#</TableHead>
-            <TableHead className="text-xs font-medium h-6 py-1">Part #</TableHead>
-            <TableHead className="text-xs font-medium h-6 py-1">Description</TableHead>
-            <TableHead className="text-xs font-medium h-6 py-1">Qty</TableHead>
+          <ShadcnTableRow>
+            <TableHead className="text-xs font-medium">#</TableHead>
+            <TableHead className="text-xs font-medium">Part #</TableHead>
+            <TableHead className="text-xs font-medium">Description</TableHead>
+            <TableHead className="text-xs font-medium">Qty</TableHead>
           </ShadcnTableRow>
         </TableHeader>
         <TableBody>
@@ -47,10 +41,11 @@ const DataTable: React.FC<DataTableProps> = ({
             <motion.tr
               key={row.id}
               className={`cursor-pointer hover:bg-gray-50 ${
-                highlightedNumber === row.number ? "bg-blue-50" : ""
+                highlightedNumber === row.number ? "!bg-blue-50" : ""
               }`}
-              onMouseEnter={() => handleRowHover(row.number)}
-              onMouseLeave={handleRowLeave}
+              onMouseEnter={() => onRowHover(row.number)}
+              onMouseLeave={() => onRowHover(null)}
+              onClick={() => onRowClick(row.number)}
               initial={false}
               animate={{
                 backgroundColor: highlightedNumber === row.number ? "rgba(59, 130, 246, 0.1)" : "transparent"
