@@ -13,11 +13,16 @@ interface InteractiveImageProps {
 
 const HIGHLIGHT_COLOR = "#F97316";
 const DEFAULT_CIRCLE_COLOR = "#E5DEFF"; // Soft Purple
+
 const BASE_CIRCLE_SIZE = 28; // px, for image natural width
 const BASE_FONT_SIZE = 13; // px
 
-const MIN_CIRCLE_SIZE = 17; // px, prevent too small on mobile
-const MAX_CIRCLE_SIZE = 32; // px, prevent too big
+// Default min and max sizes
+const DEFAULT_MIN_CIRCLE_SIZE = 17; // px, prevent too small on mobile
+const DEFAULT_MAX_CIRCLE_SIZE = 32; // px, prevent too big
+
+// Smaller min size on very small screens
+const MOBILE_MIN_CIRCLE_SIZE = 12;
 
 const InteractiveImage: React.FC<InteractiveImageProps> = ({
   imagePath,
@@ -29,6 +34,7 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
   const [imageSize, setImageSize] = useState({ width: 0, height: 0 });
   const [scale, setScale] = useState(1);
   const [naturalWidth, setNaturalWidth] = useState(0);
+  const [isMobile, setIsMobile] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
 
@@ -64,14 +70,28 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
     };
   }, [imagePath]);
 
+  // Detect if screen width is small (mobile)
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 640); // sm breakpoint approx
+    };
+
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  // Choose min circle size depending on mobile or not
+  const minCircleSize = isMobile ? MOBILE_MIN_CIRCLE_SIZE : DEFAULT_MIN_CIRCLE_SIZE;
+
   // Make the circles and font scale with image, clamp for reasonable size
   const circleSize = Math.max(
-    MIN_CIRCLE_SIZE,
-    Math.min(MAX_CIRCLE_SIZE, BASE_CIRCLE_SIZE * scale)
+    minCircleSize,
+    Math.min(DEFAULT_MAX_CIRCLE_SIZE, BASE_CIRCLE_SIZE * scale)
   );
   const circleFontSize = Math.max(
-    MIN_CIRCLE_SIZE * 0.5,
-    Math.min(MAX_CIRCLE_SIZE * 0.65, BASE_FONT_SIZE * scale)
+    minCircleSize * 0.5,
+    Math.min(DEFAULT_MAX_CIRCLE_SIZE * 0.65, BASE_FONT_SIZE * scale)
   );
 
   return (
@@ -112,13 +132,14 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
                 boxShadow: isHighlighted ? "0 0 0 4px #FFE4BA" : undefined,
                 outline: isHighlighted ? "1px solid #FFD580" : undefined,
                 fontWeight: isHighlighted ? 700 : 600,
-                transition: "background 0.22s, color 0.22s, box-shadow 0.18s, width 0.18s, height 0.18s, font-size 0.18s"
+                transition:
+                  "background 0.22s, color 0.22s, box-shadow 0.18s, width 0.18s, height 0.18s, font-size 0.18s",
               }}
               whileHover={{
                 backgroundColor: HIGHLIGHT_COLOR,
                 color: "white",
                 scale: 1.08,
-                border: "2px solid #F97316"
+                border: "2px solid #F97316",
               }}
               onMouseEnter={() => onCircleHover(coord.number)}
               onMouseLeave={() => onCircleHover(null)}
