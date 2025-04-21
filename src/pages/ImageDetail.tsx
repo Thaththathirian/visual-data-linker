@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-// import * as XLSX from "xlsx";
-import * as XLSX from "../data/tables/frame-assembly-1.xlsx";
+import * as XLSX from "xlsx";
+// import * as XLSX from "../data/tables/frame-assembly-1.xlsx";
 import InteractiveImage from "@/components/Interactive/InteractiveImage";
 import DataTable from "@/components/Table/DataTable";
 import Breadcrumb from "@/components/Navigation/Breadcrumb";
