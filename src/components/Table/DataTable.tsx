@@ -25,12 +25,23 @@ const DataTable: React.FC<DataTableProps> = ({
   onRowClick,
   onRowHover,
 }) => {
-  // console.log("DataTable rendering with data:", data);
+  console.log("DataTable rendering with data:", data);
   
   if (!data || data.length === 0) {
     return (
-      <div className="p-4 text-center text-gray-500">
-        No data available
+      <div className="p-4 text-center">
+        <div className="mb-4 text-amber-600 font-semibold">No data available</div>
+        <div className="text-gray-500 text-sm">
+          <p>Possible reasons:</p>
+          <ul className="list-disc list-inside mt-2">
+            <li>The data file couldn't be located</li>
+            <li>The file format is incorrect</li>
+            <li>The file path is incorrect in the deployed environment</li>
+          </ul>
+          <p className="mt-4 text-xs">
+            Check the deployment instructions to ensure all XLSX files are correctly copied to the public/tables directory.
+          </p>
+        </div>
       </div>
     );
   }
