@@ -63,7 +63,7 @@ const Navigation: React.FC = () => {
   };
 
   return (
-    <nav className="bg-custom-blue text-white">
+    <nav className="bg-[#1d67cdb3] text-white">
       <div className="container mx-auto">
         {/* Mobile Toggle Button */}
         <div className="flex items-center justify-between p-4 md:hidden">
@@ -85,7 +85,7 @@ const Navigation: React.FC = () => {
                 {item.dropdown ? (
                   <>
                     <button
-                      className="flex items-center px-4 py-3 hover:bg-custom-blue-light transition-colors duration-200"
+                      className="flex items-center px-4 py-3 hover:bg-custom-blue transition-colors duration-200"
                       onClick={() => toggleDropdown(index)}
                       onMouseEnter={() => setActiveDropdown(index)}
                       onMouseLeave={() => setActiveDropdown(null)}
@@ -125,7 +125,7 @@ const Navigation: React.FC = () => {
                 ) : (
                   <Link
                     to="/"
-                    className="block px-4 py-3 hover:bg-custom-blue-light transition-colors duration-200"
+                    className="block px-4 py-3 hover:bg-custom-blue transition-colors duration-200"
                     onClick={handleClick}
                   >
                     {item.name}
@@ -145,7 +145,7 @@ const Navigation: React.FC = () => {
               exit={{ opacity: 0, height: 0 }}
               className="md:hidden"
             >
-              <ul className="bg-custom-blue-light">
+              <ul className="bg-custom-blue">
                 {navItems.map((item, index) => (
                   <li key={index} className="border-b border-custom-blue">
                     {item.dropdown ? (

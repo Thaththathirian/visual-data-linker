@@ -44,7 +44,7 @@ const PartDetail: React.FC = () => {
         setPartData(part);
         setLoading(false);
       } catch (err) {
-        console.error("Error loading data:", err);
+        // console.error("Error loading data:", err);
         setError("Failed to load part data");
         setLoading(false);
         toast.error("Error loading part data");

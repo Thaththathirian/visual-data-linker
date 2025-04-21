@@ -20,7 +20,7 @@ const Header: React.FC = () => {
         <div className="flex items-center space-x-2">
           <Link to="/" onClick={handlePrevent} className="flex items-center">
             <img
-              src="/logo.svg"
+              src="/swastik_icon.avif"
               alt="Logo"
               className="h-7 w-auto"
               onClick={handlePrevent}
@@ -29,7 +29,7 @@ const Header: React.FC = () => {
                 target.src = "/placeholder.svg";
               }}
             />
-            <img
+            {/* <img
               src="/swastik.svg"
               alt="Swastik Brand"
               className="h-6 w-auto ml-2"
@@ -38,7 +38,7 @@ const Header: React.FC = () => {
                 const target = e.target as HTMLImageElement;
                 target.src = "/placeholder.svg";
               }}
-            />
+            /> */}
           </Link>
         </div>
 

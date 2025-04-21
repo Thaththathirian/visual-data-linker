@@ -25,7 +25,7 @@ const DataTable: React.FC<DataTableProps> = ({
   onRowClick,
   onRowHover,
 }) => {
-  console.log("DataTable rendering with data:", data);
+  // console.log("DataTable rendering with data:", data);
   
   if (!data || data.length === 0) {
     return (
