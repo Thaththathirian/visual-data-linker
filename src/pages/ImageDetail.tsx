@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import * as XLSX from "xlsx";
 import InteractiveImage from "@/components/Interactive/InteractiveImage";
@@ -8,14 +8,11 @@ import { toast } from "sonner";
 import frameAssembly1 from "@/data/images/frame-assembly-1.json";
 import { TableRow, ImageData } from "@/types";
 
-// Look for xlsx files in the public directory in production
 const getTablePath = (fileName: string) => {
-  // In development, we use the src path, in production we use the public path
   const isProd = import.meta.env.PROD;
   return isProd ? `/tables/${fileName}` : `/src/data/tables/${fileName}`;
 };
 
-// Modified to use the "Number" column exactly as in the XLSX file
 const parseXLSXTable = async (fileName: string): Promise<TableRow[]> => {
   try {
     const filePath = getTablePath(fileName);
@@ -42,12 +39,11 @@ const parseXLSXTable = async (fileName: string): Promise<TableRow[]> => {
 
     console.log("Parsed JSON data:", json);
 
-    // Map the data to TableRow format, using the exact column names from the XLSX
     return json.map((row, idx) => {
       const tableRow: TableRow = {
         id: idx + 1,
-        number: String(row["Number"] || ""), // Use exact column name 'Number'
-        name: String(row["Qty"] || ""), // Use quantity for name/qty column
+        number: String(row["Number"] || ""),
+        name: String(row["Qty"] || ""),
         description: String(row["Description"] || ""),
         partNumber: String(row["Part No."] || ""),
       };
@@ -55,7 +51,6 @@ const parseXLSXTable = async (fileName: string): Promise<TableRow[]> => {
     });
   } catch (err) {
     console.error("Error in parseXLSXTable:", err);
-    // Return empty array instead of throwing to allow component to render with error state
     return [];
   }
 };
@@ -65,11 +60,19 @@ const ImageDetail: React.FC = () => {
   const navigate = useNavigate();
   const [imageData, setImageData] = useState<ImageData | null>(null);
   const [tableData, setTableData] = useState<TableRow[]>([]);
-  const [highlightedNumber, setHighlightedNumber] = useState<string | null>(
-    null
-  );
+  const [highlightedNumber, setHighlightedNumber] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const numberToPartNumberMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    tableData.forEach(row => {
+      if (row.number && row.partNumber) {
+        map[row.number] = row.partNumber;
+      }
+    });
+    return map;
+  }, [tableData]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -79,7 +82,6 @@ const ImageDetail: React.FC = () => {
           `Loading data for image: ${imageName || "frame-assembly-1"}`
         );
 
-        // Default to frame-assembly-1 if no imageName provided
         const currentImageName = imageName || "frame-assembly-1";
 
         if (currentImageName === "frame-assembly-1") {
@@ -126,25 +128,21 @@ const ImageDetail: React.FC = () => {
     fetchData();
   }, [imageName]);
 
-  // Handlers linking the highlight for circles and rows via number
-  const handleCircleHover = (number: string | null) => {
-    setHighlightedNumber(number);
-  };
+  const handleCircleHover = (number: string | null) => setHighlightedNumber(number);
+  const handleRowHover = (number: string | null) => setHighlightedNumber(number);
 
-  const handleCircleClick = (number: string) => {
-    setHighlightedNumber(number);
-    if ((imageName || "frame-assembly-1") && number) {
-      navigate(`/api/${imageName || "frame-assembly-1"}/${number}`);
+  const handleShapeOrRowClick = (number: string) => {
+    const partNum = numberToPartNumberMap[number];
+    if (!partNum) {
+      toast.error("Part number not found for this item.");
+      return;
     }
+    const url = `https://www.swastiksew.com/search?q=${encodeURIComponent(partNum)}`;
+    window.open(url, "_blank");
   };
 
-  const handleRowHover = (number: string | null) => {
-    setHighlightedNumber(number);
-  };
-
-  const handleRowClick = (number: string) => {
-    handleCircleClick(number);
-  };
+  const handleCircleClick = handleShapeOrRowClick;
+  const handleRowClick = handleShapeOrRowClick;
 
   if (loading) {
     return (
@@ -181,8 +179,6 @@ const ImageDetail: React.FC = () => {
     },
   ];
 
-  console.log("Rendering with tableData:", tableData);
-
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-4">
@@ -191,7 +187,6 @@ const ImageDetail: React.FC = () => {
       <h1 className="text-xl font-bold mb-4 capitalize">
         {imageData.imageName.replace(/-/g, " ")}
       </h1>
-      {/* Responsive layout */}
       <div className="flex flex-col lg:flex-row gap-6">
         <div className="w-full lg:w-2/3 bg-white p-4 rounded-lg shadow min-h-[580px] overflow-auto">
           <InteractiveImage
@@ -219,7 +214,6 @@ const ImageDetail: React.FC = () => {
           </div>
         </div>
       </div>
-      {/* For small screens, show table below image */}
       <div
         className="lg:hidden mt-6 bg-white p-4 rounded-lg shadow"
         style={{ minHeight: "200px" }}
