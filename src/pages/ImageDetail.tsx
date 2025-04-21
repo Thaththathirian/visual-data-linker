@@ -1,8 +1,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-// import * as XLSX from "xlsx";
-import * as XLSX from "../data/tables/frame-assembly-1.xlsx";
+import * as XLSX from "xlsx";
 import InteractiveImage from "@/components/Interactive/InteractiveImage";
 import DataTable from "@/components/Table/DataTable";
 import Breadcrumb from "@/components/Navigation/Breadcrumb";
@@ -10,6 +9,7 @@ import { toast } from "sonner";
 import frameAssembly1 from "@/data/images/frame-assembly-1.json";
 import { TableRow, ImageData } from "@/types";
 
+// Modified to use the "Number" column exactly as in the XLSX file
 const parseXLSXTable = async (fileName: string): Promise<TableRow[]> => {
   const response = await fetch(`/src/data/tables/${fileName}`);
   if (!response.ok) throw new Error('Failed to load table');
@@ -19,13 +19,13 @@ const parseXLSXTable = async (fileName: string): Promise<TableRow[]> => {
   const sheet = workbook.Sheets[sheetName];
   const json: any[] = XLSX.utils.sheet_to_json(sheet, { defval: "" });
 
-  // Expecting headers: numbers, description, part no., (qty ignored for now)
+  // Headings: e.g. "Number", "Description", "Part No.", "Qty"
   return json.map((row, idx) => ({
     id: idx + 1,
-    number: String(row['numbers'] || ""),
-    name: "", // can fill if needed
-    description: String(row['description'] || ""),
-    partNumber: String(row['part no.'] || ""),
+    number: String(row['Number'] || ""), // Use "Number" not "numbers"
+    name: String(row['Qty'] || ""), // Use quantity for name/qty column
+    description: String(row['Description'] || ""),
+    partNumber: String(row['Part No.'] || ""),
   }));
 };
 
@@ -38,15 +38,12 @@ const ImageDetail: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // For syncing image/table width & height, will pass a callback for measured height if needed
-
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
         if (imageName === 'frame-assembly-1') {
           setImageData(frameAssembly1 as ImageData);
-          // Use XLSX version
           const tableRows = await parseXLSXTable("frame-assembly-1.xlsx");
           setTableData(tableRows);
         } else {
@@ -74,6 +71,7 @@ const ImageDetail: React.FC = () => {
     }
   }, [imageName]);
 
+  // Handlers linking the highlight for circles and rows via number
   const handleCircleHover = (number: string | null) => {
     setHighlightedNumber(number);
   };
@@ -92,9 +90,6 @@ const ImageDetail: React.FC = () => {
   const handleRowClick = (number: string) => {
     handleCircleClick(number);
   };
-
-  // Responsive arrangement: Table moves below image for small screens
-  // Maintain table height == image height (if possible)
 
   if (loading) {
     return (
@@ -136,11 +131,9 @@ const ImageDetail: React.FC = () => {
       <div className="mb-4">
         <Breadcrumb items={breadcrumbItems} />
       </div>
-
       <h1 className="text-xl font-bold mb-4 capitalize">
         {imageData.imageName.replace(/-/g, " ")}
       </h1>
-
       {/* Responsive layout */}
       <div className="flex flex-col lg:flex-row gap-6">
         <div className="w-full lg:w-2/3 bg-white p-4 rounded-lg shadow min-h-[580px] overflow-auto">
@@ -152,7 +145,6 @@ const ImageDetail: React.FC = () => {
             onCircleClick={handleCircleClick}
           />
         </div>
-
         <div className="hidden lg:block w-full lg:w-1/3 bg-white p-4 rounded-lg shadow" style={{ minHeight: "580px", height: "100%" }}>
           <h2 className="text-lg font-semibold mb-2">Parts List</h2>
           <div style={{ height: "530px", maxHeight: "530px", overflow: "auto" }}>
