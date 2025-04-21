@@ -64,7 +64,7 @@ const Navigation: React.FC = () => {
 
   return (
     <nav className="bg-[#1d67cdb3] text-white">
-      <div className="container mx-auto">
+      <div className="container mx-auto px-4">
         {/* Mobile Toggle Button */}
         <div className="flex items-center justify-between p-4 md:hidden">
           <span className="font-semibold">Menu</span>
