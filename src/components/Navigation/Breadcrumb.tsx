@@ -13,6 +13,11 @@ interface BreadcrumbProps {
 }
 
 const Breadcrumb: React.FC<BreadcrumbProps> = ({ items }) => {
+  // Prevent navigation
+  const handlePrevent = (e: React.MouseEvent) => {
+    e.preventDefault();
+  };
+
   return (
     <nav className="flex" aria-label="Breadcrumb">
       <ol className="inline-flex items-center space-x-1 md:space-x-3">
@@ -20,6 +25,7 @@ const Breadcrumb: React.FC<BreadcrumbProps> = ({ items }) => {
           <Link
             to="/"
             className="inline-flex items-center text-sm font-medium text-gray-700 hover:text-custom-blue"
+            onClick={handlePrevent}
           >
             <Home className="w-4 h-4 mr-2" />
             Home
@@ -37,6 +43,7 @@ const Breadcrumb: React.FC<BreadcrumbProps> = ({ items }) => {
                 <Link
                   to={item.path}
                   className="ml-1 text-sm font-medium text-gray-700 hover:text-custom-blue md:ml-2"
+                  onClick={handlePrevent}
                 >
                   {item.label}
                 </Link>

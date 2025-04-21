@@ -9,9 +9,8 @@ const Header: React.FC = () => {
   const [isSearchActive, setIsSearchActive] = useState(false);
 
   // Prevent navigation for all click handlers for logo/user/store/home/nav
-  const handlePrevent = (e: React.MouseEvent<HTMLAnchorElement | HTMLImageElement>) => {
+  const handlePrevent = (e: React.MouseEvent) => {
     e.preventDefault();
-    e.stopPropagation();
   };
 
   return (
@@ -19,7 +18,7 @@ const Header: React.FC = () => {
       <div className="container mx-auto flex items-center justify-between">
         {/* Logo */}
         <div className="flex items-center space-x-2">
-          <a href="/" onClick={handlePrevent} className="flex items-center">
+          <Link to="/" onClick={handlePrevent} className="flex items-center">
             <img
               src="/logo.svg"
               alt="Logo"
@@ -40,7 +39,7 @@ const Header: React.FC = () => {
                 target.src = "/placeholder.svg";
               }}
             />
-          </a>
+          </Link>
         </div>
 
         {/* Search Box - Only on larger screens or when active */}
@@ -63,18 +62,18 @@ const Header: React.FC = () => {
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
           >
-            <a href="/store" onClick={handlePrevent}>
+            <Link to="/" onClick={handlePrevent}>
               <Store className="h-6 w-6 text-gray-700" />
-            </a>
+            </Link>
           </motion.div>
           
           <motion.div
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
           >
-            <a href="/user" onClick={handlePrevent}>
+            <Link to="/" onClick={handlePrevent}>
               <User className="h-6 w-6 text-gray-700" />
-            </a>
+            </Link>
           </motion.div>
         </div>
       </div>

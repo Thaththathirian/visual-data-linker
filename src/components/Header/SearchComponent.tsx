@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
 import { SearchResult } from '@/types';
@@ -33,6 +34,11 @@ const SearchComponent = () => {
     }, 500);
   };
 
+  // Prevent navigation
+  const handlePrevent = (e: React.MouseEvent) => {
+    e.preventDefault();
+  };
+
   return (
     <div className="relative w-full max-w-lg mx-auto">
       <div className="flex items-center border rounded-lg px-2 py-1 bg-white" style={{ minHeight: "34px" }}>
@@ -54,9 +60,13 @@ const SearchComponent = () => {
             <ul>
               {searchResults.map((result, index) => (
                 <li key={index} className="px-3 py-1 hover:bg-gray-100 text-sm">
-                  <a href={result.path} className="block" onMouseDown={e => e.preventDefault()}>
+                  <Link 
+                    to="/" 
+                    className="block" 
+                    onClick={handlePrevent}
+                  >
                     {result.name} ({result.type})
-                  </a>
+                  </Link>
                 </li>
               ))}
             </ul>

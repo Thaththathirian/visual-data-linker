@@ -52,6 +52,11 @@ const Navigation: React.FC = () => {
     setActiveDropdown(null);
   };
 
+  // Prevent navigation on all links
+  const handleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+  };
+
   const dropdownVariants = {
     hidden: { opacity: 0, height: 0 },
     visible: { opacity: 1, height: "auto" },
@@ -104,9 +109,9 @@ const Navigation: React.FC = () => {
                             {item.dropdown.map((dropdownItem, dropdownIndex) => (
                               <li key={dropdownIndex}>
                                 <Link
-                                  to={dropdownItem.path}
+                                  to="/"
                                   className="block px-4 py-2 text-gray-800 hover:bg-gray-100"
-                                  onClick={closeMenu}
+                                  onClick={handleClick}
                                 >
                                   {dropdownItem.name}
                                 </Link>
@@ -119,9 +124,9 @@ const Navigation: React.FC = () => {
                   </>
                 ) : (
                   <Link
-                    to={item.path}
+                    to="/"
                     className="block px-4 py-3 hover:bg-custom-blue-light transition-colors duration-200"
-                    onClick={closeMenu}
+                    onClick={handleClick}
                   >
                     {item.name}
                   </Link>
@@ -170,9 +175,9 @@ const Navigation: React.FC = () => {
                                 {item.dropdown.map((dropdownItem, dropdownIndex) => (
                                   <li key={dropdownIndex}>
                                     <Link
-                                      to={dropdownItem.path}
+                                      to="/"
                                       className="block pl-8 pr-4 py-2 hover:bg-gray-700"
-                                      onClick={closeMenu}
+                                      onClick={handleClick}
                                     >
                                       {dropdownItem.name}
                                     </Link>
@@ -185,9 +190,9 @@ const Navigation: React.FC = () => {
                       </>
                     ) : (
                       <Link
-                        to={item.path}
+                        to="/"
                         className="block px-4 py-3"
-                        onClick={closeMenu}
+                        onClick={handleClick}
                       >
                         {item.name}
                       </Link>
