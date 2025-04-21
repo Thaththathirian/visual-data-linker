@@ -25,12 +25,12 @@ const DataTable: React.FC<DataTableProps> = ({
   onRowClick,
   onRowHover,
 }) => {
-  // console.log("DataTable rendering with data:", data);
+  console.log("DataTable rendering with data:", data);
   
   if (!data || data.length === 0) {
     return (
       <div className="p-4 text-center text-gray-500">
-        No data available
+        No data available. Please check that the data file exists and is accessible.
       </div>
     );
   }
