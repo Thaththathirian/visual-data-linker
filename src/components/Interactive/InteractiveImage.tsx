@@ -13,6 +13,11 @@ interface InteractiveImageProps {
 
 const HIGHLIGHT_COLOR = "#F97316";
 const DEFAULT_CIRCLE_COLOR = "#E5DEFF"; // Soft Purple
+const BASE_CIRCLE_SIZE = 28; // px, for image natural width
+const BASE_FONT_SIZE = 13; // px
+
+const MIN_CIRCLE_SIZE = 17; // px, prevent too small on mobile
+const MAX_CIRCLE_SIZE = 32; // px, prevent too big
 
 const InteractiveImage: React.FC<InteractiveImageProps> = ({
   imagePath,
@@ -23,17 +28,19 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
 }) => {
   const [imageSize, setImageSize] = useState({ width: 0, height: 0 });
   const [scale, setScale] = useState(1);
+  const [naturalWidth, setNaturalWidth] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
 
   useEffect(() => {
     const updateScale = () => {
       if (imageRef.current && imageRef.current.naturalWidth) {
-        const naturalWidth = imageRef.current.naturalWidth;
-        const displayWidth = imageRef.current.clientWidth;
-        setScale(displayWidth / naturalWidth);
+        const naturalW = imageRef.current.naturalWidth;
+        const displayW = imageRef.current.clientWidth;
+        setScale(displayW / naturalW);
+        setNaturalWidth(naturalW);
         setImageSize({
-          width: imageRef.current.clientWidth,
+          width: displayW,
           height: imageRef.current.clientHeight,
         });
       }
@@ -57,6 +64,16 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
     };
   }, [imagePath]);
 
+  // Make the circles and font scale with image, clamp for reasonable size
+  const circleSize = Math.max(
+    MIN_CIRCLE_SIZE,
+    Math.min(MAX_CIRCLE_SIZE, BASE_CIRCLE_SIZE * scale)
+  );
+  const circleFontSize = Math.max(
+    MIN_CIRCLE_SIZE * 0.5,
+    Math.min(MAX_CIRCLE_SIZE * 0.65, BASE_FONT_SIZE * scale)
+  );
+
   return (
     <div ref={containerRef} className="relative w-full h-full bg-white rounded-lg">
       <img
@@ -64,7 +81,7 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
         src={imagePath}
         alt={imageData.imageName}
         className="w-full h-auto"
-        style={{maxWidth: "100%", height: "auto", objectFit: "contain"}}
+        style={{ maxWidth: "100%", height: "auto", objectFit: "contain" }}
       />
 
       {imageData.coordinates.map((coord) => {
@@ -80,24 +97,24 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
               top: `${scaledY}px`,
               transform: "translate(-50%, -50%)",
               pointerEvents: "auto",
-              zIndex: 10
+              zIndex: 10,
             }}
           >
             <motion.div
               className="flex items-center justify-center rounded-full cursor-pointer"
               style={{
-                width: "28px",
-                height: "28px",
-                fontSize: "13px",
+                width: `${circleSize}px`,
+                height: `${circleSize}px`,
+                fontSize: `${circleFontSize}px`,
                 backgroundColor: isHighlighted ? HIGHLIGHT_COLOR : DEFAULT_CIRCLE_COLOR,
                 color: isHighlighted ? "white" : "#5411a1",
                 border: isHighlighted ? "2px solid #F97316" : "none",
                 boxShadow: isHighlighted ? "0 0 0 4px #FFE4BA" : undefined,
                 outline: isHighlighted ? "1px solid #FFD580" : undefined,
                 fontWeight: isHighlighted ? 700 : 600,
-                transition: "background 0.22s, color 0.22s, box-shadow 0.18s"
+                transition: "background 0.22s, color 0.22s, box-shadow 0.18s, width 0.18s, height 0.18s, font-size 0.18s"
               }}
-              whileHover={{ 
+              whileHover={{
                 backgroundColor: HIGHLIGHT_COLOR,
                 color: "white",
                 scale: 1.08,
