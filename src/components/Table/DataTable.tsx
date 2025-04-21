@@ -30,27 +30,27 @@ const DataTable: React.FC<DataTableProps> = ({
       <Table>
         <TableHeader className="bg-gray-50 sticky top-0 z-10">
           <ShadcnTableRow>
-            <TableHead className="text-xs font-medium">#</TableHead>
-            <TableHead className="text-xs font-medium">Part #</TableHead>
-            <TableHead className="text-xs font-medium">Description</TableHead>
-            <TableHead className="text-xs font-medium">Qty</TableHead>
+            <TableHead className="text-xs font-medium py-2 h-8">#</TableHead>
+            <TableHead className="text-xs font-medium py-2 h-8">Part #</TableHead>
+            <TableHead className="text-xs font-medium py-2 h-8">Description</TableHead>
+            <TableHead className="text-xs font-medium py-2 h-8">Qty</TableHead>
           </ShadcnTableRow>
         </TableHeader>
         <TableBody>
           {data.map((row) => (
             <motion.tr
               key={row.id}
-              className={`cursor-pointer hover:bg-gray-50 ${
-                highlightedNumber === row.number ? "!bg-blue-50" : ""
+              className={`cursor-pointer hover:bg-orange-50 ${
+                highlightedNumber === row.number ? "!bg-orange-100" : ""
               }`}
               onMouseEnter={() => onRowHover(row.number)}
               onMouseLeave={() => onRowHover(null)}
               onClick={() => onRowClick(row.number)}
               initial={false}
               animate={{
-                backgroundColor: highlightedNumber === row.number ? "rgba(59, 130, 246, 0.1)" : "transparent"
+                backgroundColor: highlightedNumber === row.number ? "rgba(251,146,60,0.2)" : "transparent"
               }}
-              transition={{ duration: 0.2 }}
+              transition={{ duration: 0.15 }}
             >
               <TableCell className="font-medium">{row.number}</TableCell>
               <TableCell>{row.partNumber}</TableCell>

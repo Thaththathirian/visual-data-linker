@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -18,11 +17,12 @@ const App = () => (
       <BrowserRouter>
         <Layout>
           <Routes>
-            <Route path="/" element={<Navigate to="/image/frame-assembly-1" replace />} />
+            <Route path="/" element={<ImageDetail />} />
             <Route path="/image/:imageName" element={<ImageDetail />} />
             <Route path="/image/:imageName/:partNumber" element={<ImageDetail />} />
-            {/* Will add NotFound page later */}
-            <Route path="*" element={<Navigate to="/image/frame-assembly-1" replace />} />
+            {/* 404 page is commented out for now */}
+            {/* <Route path="*" element={<NotFound />} /> */}
+            <Route path="*" element={<ImageDetail />} />
           </Routes>
         </Layout>
       </BrowserRouter>

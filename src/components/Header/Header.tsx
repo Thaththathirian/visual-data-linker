@@ -8,16 +8,23 @@ import SearchComponent from "./SearchComponent";
 const Header: React.FC = () => {
   const [isSearchActive, setIsSearchActive] = useState(false);
 
+  // Prevent navigation for all click handlers for logo/user/store/home/nav
+  const handlePrevent = (e: React.MouseEvent<HTMLAnchorElement | HTMLImageElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
   return (
-    <header className="bg-white shadow-sm p-4">
+    <header className="bg-white shadow-sm p-2 min-h-0"> {/* Reduced padding for height */}
       <div className="container mx-auto flex items-center justify-between">
         {/* Logo */}
         <div className="flex items-center space-x-2">
-          <Link to="/" className="flex items-center">
+          <a href="/" onClick={handlePrevent} className="flex items-center">
             <img
               src="/logo.svg"
               alt="Logo"
-              className="h-10 w-auto"
+              className="h-7 w-auto"
+              onClick={handlePrevent}
               onError={(e) => {
                 const target = e.target as HTMLImageElement;
                 target.src = "/placeholder.svg";
@@ -26,13 +33,14 @@ const Header: React.FC = () => {
             <img
               src="/swastik.svg"
               alt="Swastik Brand"
-              className="h-8 w-auto ml-2"
+              className="h-6 w-auto ml-2"
+              onClick={handlePrevent}
               onError={(e) => {
                 const target = e.target as HTMLImageElement;
                 target.src = "/placeholder.svg";
               }}
             />
-          </Link>
+          </a>
         </div>
 
         {/* Search Box - Only on larger screens or when active */}
@@ -55,18 +63,18 @@ const Header: React.FC = () => {
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
           >
-            <Link to="/store">
+            <a href="/store" onClick={handlePrevent}>
               <Store className="h-6 w-6 text-gray-700" />
-            </Link>
+            </a>
           </motion.div>
           
           <motion.div
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
           >
-            <Link to="/user">
+            <a href="/user" onClick={handlePrevent}>
               <User className="h-6 w-6 text-gray-700" />
-            </Link>
+            </a>
           </motion.div>
         </div>
       </div>

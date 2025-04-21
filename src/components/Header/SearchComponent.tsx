@@ -35,14 +35,15 @@ const SearchComponent = () => {
 
   return (
     <div className="relative w-full max-w-lg mx-auto">
-      <div className="flex items-center border rounded-lg px-2 py-1 bg-white">
+      <div className="flex items-center border rounded-lg px-2 py-1 bg-white" style={{ minHeight: "34px" }}>
         <Search className="h-4 w-4 text-gray-400" />
         <Input
           type="text"
           placeholder="Search parts or images..."
           value={searchTerm}
           onChange={(e) => handleSearch(e.target.value)}
-          className="flex-1 border-0 focus:ring-0 text-sm px-2 py-1 h-8 w-full"
+          className="flex-1 border-0 focus:ring-0 text-sm px-2 py-1 h-9 w-64 md:w-[340px] transition-all duration-200"
+          style={{ minWidth: "180px", width: "340px", maxWidth: "450px" }}
         />
       </div>
       {searchTerm && (
@@ -53,7 +54,7 @@ const SearchComponent = () => {
             <ul>
               {searchResults.map((result, index) => (
                 <li key={index} className="px-3 py-1 hover:bg-gray-100 text-sm">
-                  <a href={result.path} className="block">
+                  <a href={result.path} className="block" onMouseDown={e => e.preventDefault()}>
                     {result.name} ({result.type})
                   </a>
                 </li>

@@ -6,13 +6,18 @@ import { ImageData } from "@/types";
 interface InteractiveImageProps {
   imagePath: string;
   imageData: ImageData;
+  highlightedNumber: string | null;
   onCircleHover: (number: string | null) => void;
   onCircleClick: (number: string) => void;
 }
 
+const HIGHLIGHT_COLOR = "#F97316";
+const DEFAULT_CIRCLE_COLOR = "#E5DEFF"; // Soft Purple
+
 const InteractiveImage: React.FC<InteractiveImageProps> = ({
   imagePath,
   imageData,
+  highlightedNumber,
   onCircleHover,
   onCircleClick,
 }) => {
@@ -52,11 +57,6 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
     };
   }, [imagePath]);
 
-  const handleCircleClick = (e: React.MouseEvent, number: string) => {
-    e.preventDefault();
-    e.stopPropagation();
-  };
-
   return (
     <div ref={containerRef} className="relative w-full h-full bg-white rounded-lg">
       <img
@@ -64,12 +64,13 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
         src={imagePath}
         alt={imageData.imageName}
         className="w-full h-auto"
+        style={{maxWidth: "100%", height: "auto", objectFit: "contain"}}
       />
 
       {imageData.coordinates.map((coord) => {
         const scaledX = coord.x * scale;
         const scaledY = coord.y * scale;
-
+        const isHighlighted = highlightedNumber === coord.number;
         return (
           <div
             key={coord.id}
@@ -83,17 +84,25 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
             }}
           >
             <motion.div
-              className="flex items-center justify-center rounded-full bg-custom-blue text-white cursor-pointer"
+              className="flex items-center justify-center rounded-full cursor-pointer"
               style={{
-                width: "26px",
-                height: "26px",
-                fontSize: "12px",
+                width: "28px",
+                height: "28px",
+                fontSize: "13px",
+                backgroundColor: isHighlighted ? HIGHLIGHT_COLOR : DEFAULT_CIRCLE_COLOR,
+                color: isHighlighted ? "white" : "#5411a1",
+                border: isHighlighted ? "2px solid #F97316" : "none",
+                boxShadow: isHighlighted ? "0 0 0 4px #FFE4BA" : undefined,
+                outline: isHighlighted ? "1px solid #FFD580" : undefined,
+                fontWeight: isHighlighted ? 700 : 600,
+                transition: "background 0.22s, color 0.22s, box-shadow 0.18s"
               }}
               whileHover={{ 
-                backgroundColor: "#F97316",
-                scale: 1.05
+                backgroundColor: HIGHLIGHT_COLOR,
+                color: "white",
+                scale: 1.08,
+                border: "2px solid #F97316"
               }}
-              transition={{ duration: 0.2 }}
               onMouseEnter={() => onCircleHover(coord.number)}
               onMouseLeave={() => onCircleHover(null)}
               onClick={(e) => {
