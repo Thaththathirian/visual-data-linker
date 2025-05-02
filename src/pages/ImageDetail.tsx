@@ -1,59 +1,12 @@
+
 import React, { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import * as XLSX from "xlsx";
 import InteractiveImage from "@/components/Interactive/InteractiveImage";
 import DataTable from "@/components/Table/DataTable";
 import Breadcrumb from "@/components/Navigation/Breadcrumb";
 import { toast } from "sonner";
-import frameAssembly1 from "@/data/images/Brother_814_Needle_Bar_Mechanism.json";
 import { TableRow, ImageData } from "@/types";
-
-const getTablePath = (fileName: string) => {
-  const isProd = import.meta.env.PROD;
-  return isProd ? `/tables/${fileName}` : `/src/data/tables/${fileName}`;
-};
-
-const parseXLSXTable = async (fileName: string): Promise<TableRow[]> => {
-  try {
-    const filePath = getTablePath(fileName);
-    console.log(`Fetching XLSX file from: ${filePath}`);
-
-    const response = await fetch(filePath);
-    if (!response.ok) {
-      console.error(
-        `Failed to load table: ${response.status} ${response.statusText}`
-      );
-      throw new Error(`Failed to load table from ${filePath}`);
-    }
-
-    const arrayBuffer = await response.arrayBuffer();
-    console.log("File loaded, parsing XLSX...");
-    const workbook = XLSX.read(arrayBuffer, { type: "array" });
-    const sheetName = workbook.SheetNames[0];
-    console.log(`Sheet name: ${sheetName}`);
-    const sheet = workbook.Sheets[sheetName];
-    const json: any[] = XLSX.utils.sheet_to_json(sheet, {
-      defval: "",
-      raw: false,
-    });
-
-    console.log("Parsed JSON data:", json);
-
-    return json.map((row, idx) => {
-      const tableRow: TableRow = {
-        id: idx + 1,
-        number: String(row["Number"] || ""),
-        name: String(row["Qty"] || ""),
-        description: String(row["Description"] || ""),
-        partNumber: String(row["Part No."] || ""),
-      };
-      return tableRow;
-    });
-  } catch (err) {
-    console.error("Error in parseXLSXTable:", err);
-    return [];
-  }
-};
+import { parseXLSXTable, loadImageData, getImagePath } from "@/utils/fileLoader";
 
 const ImageDetail: React.FC = () => {
   const { imageName } = useParams<{ imageName: string }>();
@@ -63,6 +16,9 @@ const ImageDetail: React.FC = () => {
   const [highlightedNumber, setHighlightedNumber] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Default image if none specified in URL
+  const currentImageName = imageName || "Brother_814_Needle_Bar_Mechanism";
 
   const numberToPartNumberMap = useMemo(() => {
     const map: Record<string, string> = {};
@@ -78,40 +34,23 @@ const ImageDetail: React.FC = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        console.log(
-          `Loading data for image: ${imageName || "Brother_814_Needle_Bar_Mechanism"}`
-        );
+        console.log(`Loading data for image: ${currentImageName}`);
 
-        const currentImageName = imageName || "Brother_814_Needle_Bar_Mechanism";
-
-        if (currentImageName === "Brother_814_Needle_Bar_Mechanism") {
-          setImageData(frameAssembly1 as ImageData);
-          // console.log("Loading frame-assembly-1.xlsx");
-          const tableRows = await parseXLSXTable("Brother_814_Needle_Bar_Mechanism.xlsx");
-          if (tableRows.length === 0) {
-            throw new Error("No data found in the XLSX file");
-          }
-          console.log("Table rows loaded:", tableRows);
-          setTableData(tableRows);
-        } else {
-          try {
-            console.log(`Loading custom image: ${currentImageName}`);
-            const imageDataModule = await import(
-              `../data/images/${currentImageName}.json`
-            );
-            setImageData(imageDataModule.default as ImageData);
-            const tableRows = await parseXLSXTable(`${currentImageName}.xlsx`);
-            if (tableRows.length === 0) {
-              throw new Error("No data found in the XLSX file");
-            }
-            setTableData(tableRows);
-          } catch (err) {
-            console.error("Error loading image data:", err);
-            throw new Error(
-              `Failed to load data for image: ${currentImageName}`
-            );
-          }
+        // Load JSON data for image
+        const imgData = await loadImageData(currentImageName);
+        if (!imgData) {
+          throw new Error(`Failed to load image data for: ${currentImageName}`);
         }
+        setImageData(imgData);
+
+        // Load XLSX table data
+        const tableRows = await parseXLSXTable(`${currentImageName}.xlsx`);
+        if (tableRows.length === 0) {
+          throw new Error("No data found in the XLSX file");
+        }
+        console.log("Table rows loaded:", tableRows);
+        setTableData(tableRows);
+        
         setLoading(false);
       } catch (err) {
         const errorMessage =
@@ -126,7 +65,7 @@ const ImageDetail: React.FC = () => {
     };
 
     fetchData();
-  }, [imageName]);
+  }, [currentImageName]);
 
   const handleCircleHover = (number: string | null) => setHighlightedNumber(number);
   const handleRowHover = (number: string | null) => setHighlightedNumber(number);
@@ -175,7 +114,7 @@ const ImageDetail: React.FC = () => {
   const breadcrumbItems = [
     {
       label: imageData.imageName.replace(/-/g, " "),
-      path: `/image/${imageName || "Brother_814_Needle_Bar_Mechanism"}`,
+      path: `/image/${currentImageName}`,
     },
   ];
 
@@ -190,8 +129,7 @@ const ImageDetail: React.FC = () => {
       <div className="flex flex-col lg:flex-row gap-6">
         <div className="w-full lg:w-2/3 bg-white p-4 rounded-lg shadow min-h-[580px] overflow-auto">
           <InteractiveImage
-            imagePath={`/images/Brother_814_Needle_Bar_Mechanism.jpg`}
-            // imagePath={`/images/bedf96be-6a0a-4e22-a17a-0390c7baf82e.png`}
+            imagePath={getImagePath(`${currentImageName}.jpg`)}
             imageData={imageData}
             highlightedNumber={highlightedNumber}
             onCircleHover={handleCircleHover}

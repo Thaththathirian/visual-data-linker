@@ -51,7 +51,7 @@ const DataTable: React.FC<DataTableProps> = ({
       <Table>
         <TableHeader className="bg-gray-50 sticky top-0 z-10">
           <ShadcnTableRow>
-            <TableHead className="text-xs font-medium py-2 h-8">#</TableHead>
+            <TableHead className="text-xs font-medium py-2 h-8 whitespace-nowrap">#</TableHead>
             <TableHead className="text-xs font-medium py-2 h-8">Part #</TableHead>
             <TableHead className="text-xs font-medium py-2 h-8">Description</TableHead>
             <TableHead className="text-xs font-medium py-2 h-8">Qty</TableHead>
@@ -73,7 +73,7 @@ const DataTable: React.FC<DataTableProps> = ({
               }}
               transition={{ duration: 0.15 }}
             >
-              <TableCell className="font-medium">{row.number}</TableCell>
+              <TableCell className="font-medium whitespace-nowrap">{row.number}</TableCell>
               <TableCell>{row.partNumber}</TableCell>
               <TableCell>{row.description}</TableCell>
               <TableCell>{row.name}</TableCell>

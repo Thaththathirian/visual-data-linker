@@ -6,11 +6,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Layout from "@/components/Layout/Layout";
 import ImageDetail from "@/pages/ImageDetail";
+import Home from "@/pages/Home";
 
 const queryClient = new QueryClient();
 
 const App = () => (
-  // BrowserRouter must wrap everything that uses router hooks
   <BrowserRouter>
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
@@ -18,11 +18,11 @@ const App = () => (
         <Sonner />
         <Layout>
           <Routes>
-            <Route path="/" element={<ImageDetail />} />
+            <Route path="/" element={<Home />} />
             <Route path="/image/:imageName" element={<ImageDetail />} />
             <Route path="/image/:imageName/:partNumber" element={<ImageDetail />} />
             <Route path="/api/:imageName/:partNumber" element={<ImageDetail />} />
-            <Route path="*" element={<ImageDetail />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Layout>
       </TooltipProvider>
