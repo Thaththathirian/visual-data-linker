@@ -4,8 +4,8 @@ import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 
 // Import the data directly from the files
-import page1CircleData from '@/data/images/page-1-circle.json';
-import sewingMachineData from '@/data/images/sewing-machine-x200.json';
+// import page1CircleData from '@/data/images/page-1-circle.json';
+// import sewingMachineData from '@/data/images/sewing-machine-x200.json';
 import frameAssemblyData from '@/data/images/frame-assembly-1.json';
 
 const availableImages = [
@@ -14,16 +14,16 @@ const availableImages = [
     path: 'frame-assembly-1',
     data: frameAssemblyData,
   },
-  {
-    name: 'Page 1 Circle',
-    path: 'page-1-circle',
-    data: page1CircleData,
-  },
-  {
-    name: 'Sewing Machine X200',
-    path: 'sewing-machine-x200',
-    data: sewingMachineData,
-  },
+  // {
+  //   name: 'Page 1 Circle',
+  //   path: 'page-1-circle',
+  //   data: page1CircleData,
+  // },
+  // {
+  //   name: 'Sewing Machine X200',
+  //   path: 'sewing-machine-x200',
+  //   data: sewingMachineData,
+  // },
 ];
 
 const ImageList = () => {
