@@ -190,7 +190,8 @@ const ImageDetail: React.FC = () => {
       <div className="flex flex-col lg:flex-row gap-6">
         <div className="w-full lg:w-2/3 bg-white p-4 rounded-lg shadow min-h-[580px] overflow-auto">
           <InteractiveImage
-            imagePath={`/images/bedf96be-6a0a-4e22-a17a-0390c7baf82e.png`}
+            imagePath={`/images/Brother_814_Needle_Bar_Mechanism.jpg`}
+            // imagePath={`/images/bedf96be-6a0a-4e22-a17a-0390c7baf82e.png`}
             imageData={imageData}
             highlightedNumber={highlightedNumber}
             onCircleHover={handleCircleHover}
