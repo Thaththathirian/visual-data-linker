@@ -1,0 +1,24 @@
+[33m5363705[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m HEAD@{0}: pull: Fast-forward
+[33md7dd968[m HEAD@{1}: commit: data check
+[33m430b312[m HEAD@{2}: pull: Fast-forward
+[33me049e78[m HEAD@{3}: pull: Fast-forward
+[33m3ff9e0a[m HEAD@{4}: pull: Fast-forward
+[33me256c4a[m HEAD@{5}: commit (merge): WIP: Commit local changes before aborting merge
+[33m83372b6[m HEAD@{6}: commit: table fix
+[33m9ff87ef[m HEAD@{7}: commit: updated logo
+[33m2165173[m HEAD@{8}: pull: Fast-forward
+[33mf1791c4[m HEAD@{9}: commit: bg updated and ...
+[33m216918a[m HEAD@{10}: commit (merge): image path
+[33m0f5a122[m HEAD@{11}: commit: text
+[33mad42bc1[m HEAD@{12}: commit: path update check for table
+[33m16dce1f[m HEAD@{13}: commit: table added
+[33m45b68c3[m HEAD@{14}: pull: Fast-forward
+[33m72853d5[m HEAD@{15}: commit: xlsx table added
+[33m5cb663b[m HEAD@{16}: commit: updated json
+[33m952cc19[m HEAD@{17}: pull origin main: Fast-forward
+[33mb6e8300[m HEAD@{18}: pull origin main: Fast-forward
+[33mf656abc[m HEAD@{19}: pull origin main: Fast-forward
+[33mf8cd086[m HEAD@{20}: pull origin main: Fast-forward
+[33m5329bb1[m HEAD@{21}: pull origin main: Fast-forward
+[33m7933247[m HEAD@{22}: pull origin main: Fast-forward
+[33m92bb281[m HEAD@{23}: clone: from https://github.com/Thaththathirian/visual-data-linker.git

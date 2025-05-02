@@ -6,12 +6,12 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 // Import the data directly from the files
 // import page1CircleData from '@/data/images/page-1-circle.json';
 // import sewingMachineData from '@/data/images/sewing-machine-x200.json';
-import frameAssemblyData from '@/data/images/frame-assembly-1.json';
+import frameAssemblyData from '@/data/images/Brother_814_Needle_Bar_Mechanism.json';
 
 const availableImages = [
   {
     name: 'Frame Assembly',
-    path: 'frame-assembly-1',
+    path: 'Brother_814_Needle_Bar_Mechanism',
     data: frameAssemblyData,
   },
   // {

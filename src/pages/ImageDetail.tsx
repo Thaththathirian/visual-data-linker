@@ -5,7 +5,7 @@ import InteractiveImage from "@/components/Interactive/InteractiveImage";
 import DataTable from "@/components/Table/DataTable";
 import Breadcrumb from "@/components/Navigation/Breadcrumb";
 import { toast } from "sonner";
-import frameAssembly1 from "@/data/images/frame-assembly-1.json";
+import frameAssembly1 from "@/data/images/Brother_814_Needle_Bar_Mechanism.json";
 import { TableRow, ImageData } from "@/types";
 
 const getTablePath = (fileName: string) => {
@@ -79,15 +79,15 @@ const ImageDetail: React.FC = () => {
       try {
         setLoading(true);
         console.log(
-          `Loading data for image: ${imageName || "frame-assembly-1"}`
+          `Loading data for image: ${imageName || "Brother_814_Needle_Bar_Mechanism"}`
         );
 
-        const currentImageName = imageName || "frame-assembly-1";
+        const currentImageName = imageName || "Brother_814_Needle_Bar_Mechanism";
 
-        if (currentImageName === "frame-assembly-1") {
+        if (currentImageName === "Brother_814_Needle_Bar_Mechanism") {
           setImageData(frameAssembly1 as ImageData);
-          console.log("Loading frame-assembly-1.xlsx");
-          const tableRows = await parseXLSXTable("frame-assembly-1.xlsx");
+          // console.log("Loading frame-assembly-1.xlsx");
+          const tableRows = await parseXLSXTable("Brother_814_Needle_Bar_Mechanism.xlsx");
           if (tableRows.length === 0) {
             throw new Error("No data found in the XLSX file");
           }
@@ -175,7 +175,7 @@ const ImageDetail: React.FC = () => {
   const breadcrumbItems = [
     {
       label: imageData.imageName.replace(/-/g, " "),
-      path: `/image/${imageName || "frame-assembly-1"}`,
+      path: `/image/${imageName || "Brother_814_Needle_Bar_Mechanism"}`,
     },
   ];
 
