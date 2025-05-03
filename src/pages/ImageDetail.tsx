@@ -6,7 +6,7 @@ import DataTable from "@/components/Table/DataTable";
 import Breadcrumb from "@/components/Navigation/Breadcrumb";
 import { toast } from "sonner";
 import { TableRow, ImageData } from "@/types";
-import { parseXLSXTable, loadImageData, checkImageExists } from "@/utils/fileLoader";
+import { parseXLSXTable, loadImageData, getImagePath } from "@/utils/fileLoader";
 
 const ImageDetail: React.FC = () => {
   const { imageName } = useParams<{ imageName: string }>();
@@ -37,8 +37,8 @@ const ImageDetail: React.FC = () => {
         setLoading(true);
         console.log(`Loading data for image: ${currentImageName}`);
 
-        // Find the actual image file and get its path
-        const imgPath = await checkImageExists(currentImageName);
+        // Step 1: Find the actual image path
+        const imgPath = await getImagePath(currentImageName);
         if (!imgPath) {
           console.error(`Could not find image file for: ${currentImageName}`);
           throw new Error(`Image file not found for: ${currentImageName}`);
@@ -46,7 +46,7 @@ const ImageDetail: React.FC = () => {
         setImagePath(imgPath);
         console.log(`Found image at path: ${imgPath}`);
 
-        // Load JSON data for image
+        // Step 2: Load JSON data for image
         const imgData = await loadImageData(currentImageName);
         if (!imgData) {
           throw new Error(`Failed to load image data for: ${currentImageName}`);
@@ -54,7 +54,7 @@ const ImageDetail: React.FC = () => {
         setImageData(imgData);
         console.log(`Loaded JSON data for: ${currentImageName}`);
 
-        // Load XLSX table data
+        // Step 3: Load XLSX table data
         const tableRows = await parseXLSXTable(currentImageName);
         if (tableRows.length === 0) {
           console.warn(`No data found in the XLSX file for: ${currentImageName}`);

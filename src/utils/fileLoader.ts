@@ -13,24 +13,12 @@ export const getTablePath = (fileName: string) => {
 /**
  * Gets the appropriate image path with fallback for different extensions
  */
-export const getImagePath = (fileName: string) => {
+export const getImagePath = async (fileName: string): Promise<string | null> => {
   // Strip any extension from the filename if present
   const baseName = fileName.includes('.') ? 
     fileName.substring(0, fileName.lastIndexOf('.')) : 
     fileName;
   
-  return `/images/${baseName}.jpg`; // Default to jpg
-};
-
-/**
- * Check if an image exists with various extensions
- */
-export const checkImageExists = async (fileName: string): Promise<string | null> => {
-  // Strip any extension from the filename if present
-  const baseName = fileName.includes('.') ? 
-    fileName.substring(0, fileName.lastIndexOf('.')) : 
-    fileName;
-    
   // Try different common image extensions
   const extensions = ['.jpg', '.jpeg', '.png', '.webp'];
   
@@ -39,7 +27,7 @@ export const checkImageExists = async (fileName: string): Promise<string | null>
     try {
       const response = await fetch(url, { method: 'HEAD' });
       if (response.ok) {
-        console.log(`Found image at: ${url}`);
+        console.log(`Image found at: ${url}`);
         return url;
       }
     } catch (err) {
@@ -47,8 +35,16 @@ export const checkImageExists = async (fileName: string): Promise<string | null>
     }
   }
   
-  console.error(`No image found for ${baseName} with any of the supported extensions`);
+  console.error(`No valid image found for ${baseName} with extensions: ${extensions.join(', ')}`);
   return null;
+};
+
+/**
+ * Check if an image exists with various extensions
+ * @deprecated Use getImagePath instead which returns the correct path directly
+ */
+export const checkImageExists = async (fileName: string): Promise<string | null> => {
+  return getImagePath(fileName);
 };
 
 /**
