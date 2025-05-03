@@ -160,12 +160,16 @@ export const loadImageData = async (folderName: string, fileName: string): Promi
       }
       jsonData = await response.json();
     } else {
-      // In development, try to load from src/data folder
+      // In development, try to load from src/data folder using fetch
       try {
-        const module = await import(`../data/${folderName}/${baseName}.json`);
-        jsonData = module.default;
+        // Use relative path to fetch resources in development
+        const response = await fetch(`/src/data/${folderName}/${baseName}.json`);
+        if (!response.ok) {
+          throw new Error(`Failed to load JSON from /src/data/${folderName}/${baseName}.json`);
+        }
+        jsonData = await response.json();
       } catch (err) {
-        console.error(`Failed to import JSON module for ${folderName}/${baseName}:`, err);
+        console.error(`Failed to fetch JSON for ${folderName}/${baseName}:`, err);
         throw err;
       }
     }
@@ -183,13 +187,12 @@ export const loadImageData = async (folderName: string, fileName: string): Promi
  */
 export const getAvailableFolders = async (): Promise<string[]> => {
   try {
-    // In production, we would need an API endpoint to list folders
-    // For development, we'll use import.meta.glob to scan directories
     const isProd = import.meta.env.PROD;
     
+    // Use a static list of folder paths for development
+    // In a real application, you might want to create a manifest file
     if (isProd) {
-      // For production, we'd need a server endpoint or a manifest file
-      // This is a simplified approach - in real production you'd need a server endpoint
+      // For production, we'd use a manifest file
       try {
         const response = await fetch('/data/folders.json');
         if (response.ok) {
@@ -201,22 +204,28 @@ export const getAvailableFolders = async (): Promise<string[]> => {
       }
       return [];
     } else {
-      // For development, use Vite's import.meta.glob to scan folders
-      const modules = import.meta.glob('../data/*/');
-      console.log('Found folder modules:', Object.keys(modules));
+      // In development, use a hard-coded list or a simple fetch API
+      // This is a simplified approach - you may need to adapt this based on your setup
       
-      // Extract folder names from the paths
-      const folders = Object.keys(modules).map(path => {
-        // Extract folder name from path like '../data/folder_name/'
-        const match = path.match(/\.\.\/data\/([^/]+)\//);
-        return match ? match[1] : null;
-      }).filter((folder): folder is string => folder !== null);
+      // List of known folders - update manually when adding new folders
+      const knownFolders = ['test_Brother_814_Needle_Bar_Mechanism'];
       
-      console.log('Available folders:', folders);
-      return folders;
+      // Alternatively, try to fetch a manifest if available
+      try {
+        const response = await fetch('/src/data/folders.json');
+        if (response.ok) {
+          const data = await response.json();
+          return data.folders || knownFolders;
+        }
+      } catch (err) {
+        // Silently fall back to known folders
+      }
+      
+      console.log('Using known folders:', knownFolders);
+      return knownFolders;
     }
   } catch (err) {
-    console.error('Error scanning for folders:', err);
+    console.error('Error getting available folders:', err);
     return [];
   }
 };
@@ -231,42 +240,77 @@ export const checkFolderContents = async (folderName: string): Promise<{
   baseName: string | null;
 }> => {
   try {
-    // For development mode
     const isProd = import.meta.env.PROD;
     let baseName = null;
     let hasJson = false;
     let hasCsv = false;
     let hasImage = false;
     
+    // Use fetch API instead of import.meta.glob
     if (!isProd) {
-      // Use import.meta.glob to check for files in this folder
-      const jsonFiles = import.meta.glob(`../data/${folderName}/*.json`);
-      const csvFiles = import.meta.glob(`../data/${folderName}/*.csv`);
+      // First, try to find a JSON file using common naming patterns
+      const commonJsonNames = [
+        `${folderName}`, // Same as folder name
+        `${folderName.replace(/^test_/, '')}` // Without 'test_' prefix
+      ];
       
-      // Check if JSON files exist
-      const jsonFilePaths = Object.keys(jsonFiles);
-      if (jsonFilePaths.length > 0) {
-        hasJson = true;
-        // Extract base name from the first JSON file
-        const jsonMatch = jsonFilePaths[0].match(/([^/]+)\.json$/);
-        if (jsonMatch) {
-          baseName = jsonMatch[1];
+      for (const name of commonJsonNames) {
+        try {
+          const jsonResponse = await fetch(`/src/data/${folderName}/${name}.json`);
+          if (jsonResponse.ok) {
+            hasJson = true;
+            baseName = name;
+            break;
+          }
+        } catch (err) {
+          // Continue to next name
         }
       }
       
-      // Check if CSV files exist
-      if (Object.keys(csvFiles).length > 0) {
-        hasCsv = true;
+      // If no match found, try more generic approach (first .json we can find)
+      if (!baseName) {
+        try {
+          // Note: This is a simple approach. In a real app, you might
+          // want to implement a server endpoint to list files in a directory.
+          const manifestResponse = await fetch(`/src/data/${folderName}/manifest.json`);
+          if (manifestResponse.ok) {
+            const manifest = await manifestResponse.json();
+            if (manifest.baseName) {
+              baseName = manifest.baseName;
+              hasJson = true;
+            }
+          }
+        } catch (err) {
+          // Fall back to assuming a file with the folder name exists
+          baseName = folderName.replace(/^test_/, '');
+          
+          // Try to verify if it exists
+          try {
+            const jsonResponse = await fetch(`/src/data/${folderName}/${baseName}.json`);
+            hasJson = jsonResponse.ok;
+          } catch (err) {
+            // If we can't verify, we'll assume it exists and let the load fail later if needed
+            hasJson = false;
+          }
+        }
       }
       
-      // For images, we'll need to actually try loading one
+      // Check for CSV file with the same base name
       if (baseName) {
+        try {
+          const csvResponse = await fetch(`/src/data/${folderName}/${baseName}.csv`);
+          hasCsv = csvResponse.ok;
+        } catch (err) {
+          // If we can't verify, we'll check during actual load
+          hasCsv = false;
+        }
+        
+        // For images, we'll need to actually try loading one
         const imagePath = await getImagePath(folderName, baseName);
         hasImage = imagePath !== null && !imagePath.includes('placeholder');
       }
     } else {
       // For production, we would need to fetch a manifest or make requests
-      // This is simplified - in real production you'd need server support
       try {
         const response = await fetch(`/data/${folderName}/manifest.json`);
         if (response.ok) {
@@ -279,7 +323,33 @@ export const checkFolderContents = async (folderName: string): Promise<{
           };
         }
       } catch (err) {
-        console.error(`Error checking folder contents for ${folderName}:`, err);
+        // If no manifest, try common naming patterns
+        const possibleBaseName = folderName.replace(/^test_/, '');
+        
+        // Try to verify JSON exists
+        try {
+          const jsonResponse = await fetch(`/data/${folderName}/${possibleBaseName}.json`);
+          if (jsonResponse.ok) {
+            hasJson = true;
+            baseName = possibleBaseName;
+          }
+        } catch (err) {
+          // Continue with checks
+        }
+        
+        // Check for CSV
+        if (baseName) {
+          try {
+            const csvResponse = await fetch(`/data/${folderName}/${baseName}.csv`);
+            hasCsv = csvResponse.ok;
+          } catch (err) {
+            // Continue
+          }
+          
+          // For images, try loading
+          const imagePath = await getImagePath(folderName, baseName);
+          hasImage = imagePath !== null && !imagePath.includes('placeholder');
+        }
       }
     }
     
