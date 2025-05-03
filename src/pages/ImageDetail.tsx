@@ -40,8 +40,8 @@ const ImageDetail: React.FC = () => {
 
         // Step 1: Check folder contents to find files
         const folderContents = await checkFolderContents(currentFolderName);
-        if (!folderContents.hasJson || !folderContents.hasCsv || !folderContents.baseName) {
-          throw new Error(`Required files not found in folder: ${currentFolderName}`);
+        if (!folderContents.hasJson || !folderContents.baseName) {
+          throw new Error(`Required JSON file not found in folder: ${currentFolderName}`);
         }
         
         setBaseName(folderContents.baseName);
@@ -61,6 +61,7 @@ const ImageDetail: React.FC = () => {
           console.log(`Found image at path: ${imgPath}`);
         } else {
           console.warn(`Could not locate image for: ${currentFolderName}/${folderContents.baseName}, using placeholder`);
+          toast.warning("Using placeholder image - actual image not found");
         }
 
         // Step 4: Load CSV table data
@@ -71,6 +72,14 @@ const ImageDetail: React.FC = () => {
         }
         setTableData(tableRows);
         console.log(`Loaded ${tableRows.length} table rows for: ${currentFolderName}/${folderContents.baseName}`);
+        
+        // If a specific part number is provided in the URL, highlight it
+        if (partNumber) {
+          const matchingRow = tableRows.find(row => row.partNumber === partNumber);
+          if (matchingRow) {
+            setHighlightedNumber(matchingRow.number);
+          }
+        }
         
         setLoading(false);
       } catch (err) {
@@ -86,7 +95,7 @@ const ImageDetail: React.FC = () => {
     };
 
     fetchData();
-  }, [currentFolderName]);
+  }, [currentFolderName, partNumber]);
 
   const handleCircleHover = (number: string | null) => setHighlightedNumber(number);
   const handleRowHover = (number: string | null) => setHighlightedNumber(number);

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { ImageData } from "@/types";
@@ -25,21 +24,14 @@ const DEFAULT_MAX_CIRCLE_SIZE = 32; // px, prevent too big
 // Smaller min size on very small screens
 const MOBILE_MIN_CIRCLE_SIZE = 12;
 
-// Rectangular shape settings
+// Rectangular shape settings - adjusted for better placement
 const BASE_RECT_WIDTH_FACTOR = 0.55; // Width factor for rectangle
 const BASE_RECT_HEIGHT = 28; // Base height for rectangle
-const RECT_HORIZONTAL_PADDING = "2px"; // Padding for rectangle
+const RECT_HORIZONTAL_PADDING = "1px"; // Reduced padding for rectangle
 
 // Handle coordinate centering based on number length
 const getCoordinateCentering = (number: string) => {
-  const digitCount = number.length;
-  
-  // For numbers with 3 or more characters, we need to center them differently
-  if (digitCount >= 3) {
-    return { xOffset: 0, yOffset: 0 }; // No offset needed as we'll center the shape
-  } else {
-    return { xOffset: 0, yOffset: 0 }; // No offset for 1-2 character numbers
-  }
+  return { xOffset: 0, yOffset: 0 }; // No offset needed as we'll center all shapes
 };
 
 const InteractiveImage: React.FC<InteractiveImageProps> = ({
@@ -215,35 +207,32 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
       />
 
       {imageLoaded && imageData.coordinates.map((coord) => {
-        const { xOffset, yOffset } = getCoordinateCentering(coord.number);
-        const scaledX = coord.x * scale + (xOffset * scale);
-        const scaledY = coord.y * scale + (yOffset * scale);
         const isHighlighted = highlightedNumber === coord.number;
         
         // Determine if we should use rectangle based on number length
         const useRectangle = coord.number.length >= 3;
         const digitCount = coord.number.length;
         
-        // Calculate rectangle width based on digit count
-        // For 3+ digits, make it wider to accommodate text better
-        const rectWidthFactor = digitCount >= 3 ? 0.65 : BASE_RECT_WIDTH_FACTOR;
+        // Adjust rectangle width factor based on digit count - tighter for longer strings
+        const rectWidthFactor = digitCount >= 3 ? 0.5 : BASE_RECT_WIDTH_FACTOR;
         
+        // Calculate rectangle width based on digit count
         const rectWidth = Math.max(
           minCircleSize * 1.2,
-          Math.min(DEFAULT_MAX_CIRCLE_SIZE * 1.8, 
+          Math.min(DEFAULT_MAX_CIRCLE_SIZE * 1.6, 
             BASE_CIRCLE_SIZE * rectWidthFactor * digitCount * scale)
         );
         
-        // Calculate rectangle height
+        // Calculate rectangle height - slightly smaller for multi-digit
         const rectHeight = Math.max(
           minCircleSize,
-          Math.min(DEFAULT_MAX_CIRCLE_SIZE, BASE_RECT_HEIGHT * scale)
+          Math.min(DEFAULT_MAX_CIRCLE_SIZE, 
+            digitCount >= 3 ? BASE_RECT_HEIGHT * scale * 0.9 : BASE_RECT_HEIGHT * scale)
         );
 
-        // Calculate transform translate values - this is key to centering properly
-        // For rectangles with 3+ digits, ensure we center them properly
-        const translateX = useRectangle ? "-50%" : "-50%";
-        const translateY = useRectangle ? "-50%" : "-50%";
+        // Calculate the position with scaling
+        const scaledX = coord.x * scale;
+        const scaledY = coord.y * scale;
 
         return (
           <div
@@ -252,7 +241,7 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
             style={{
               left: `${scaledX}px`,
               top: `${scaledY}px`,
-              transform: `translate(${translateX}, ${translateY})`,
+              transform: `translate(-50%, -50%)`, // Always center both shapes
               pointerEvents: "auto",
               zIndex: 10,
             }}

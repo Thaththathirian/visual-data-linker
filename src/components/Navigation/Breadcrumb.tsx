@@ -1,6 +1,6 @@
 
 import React from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ChevronRight, Home } from "lucide-react";
 
 interface BreadcrumbItem {
@@ -13,9 +13,12 @@ interface BreadcrumbProps {
 }
 
 const Breadcrumb: React.FC<BreadcrumbProps> = ({ items }) => {
-  // Prevent navigation
-  const handlePrevent = (e: React.MouseEvent) => {
+  const navigate = useNavigate();
+  
+  // Navigate home when clicking the home button
+  const handleHomeClick = (e: React.MouseEvent) => {
     e.preventDefault();
+    navigate("/");
   };
 
   return (
@@ -25,7 +28,7 @@ const Breadcrumb: React.FC<BreadcrumbProps> = ({ items }) => {
           <Link
             to="/"
             className="inline-flex items-center text-sm font-medium text-gray-700 hover:text-custom-blue"
-            onClick={handlePrevent}
+            onClick={handleHomeClick}
           >
             <Home className="w-4 h-4 mr-2" />
             Home
@@ -43,7 +46,6 @@ const Breadcrumb: React.FC<BreadcrumbProps> = ({ items }) => {
                 <Link
                   to={item.path}
                   className="ml-1 text-sm font-medium text-gray-700 hover:text-custom-blue md:ml-2"
-                  onClick={handlePrevent}
                 >
                   {item.label}
                 </Link>
