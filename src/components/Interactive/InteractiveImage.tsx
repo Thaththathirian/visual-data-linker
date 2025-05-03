@@ -252,8 +252,8 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
                 transition: "background 0.2s, color 0.2s, transform 0.15s, width 0.18s, height 0.18s",
               }}
               whileHover={{
-                scale: 1.08, // Restored to 1.08 as requested
-                boxShadow: "0 0 0 3px #FFE4BA",
+                scale: 1.08, 
+                // boxShadow: "0 0 0 3px #FFE4BA",
               }}
               onMouseEnter={() => onCircleHover(coord.number)}
               onMouseLeave={() => onCircleHover(null)}
