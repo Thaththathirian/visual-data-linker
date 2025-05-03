@@ -48,7 +48,7 @@ const ImageDetail: React.FC = () => {
         if (tableRows.length === 0) {
           throw new Error("No data found in the XLSX file");
         }
-        console.log("Table rows loaded:", tableRows);
+        // console.log("Table rows loaded:", tableRows);
         setTableData(tableRows);
         
         setLoading(false);
