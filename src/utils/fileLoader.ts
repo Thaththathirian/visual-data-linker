@@ -1,18 +1,21 @@
-import * as XLSX from "xlsx";
+
 import { TableRow, ImageData } from "@/types";
+import { parseCSV } from "@/utils/csvParser";
 
 /**
  * Gets the appropriate table path based on environment
  */
-export const getTablePath = (fileName: string) => {
+export const getTablePath = (folderName: string, fileName: string) => {
   const isProd = import.meta.env.PROD;
-  return isProd ? `/tables/${fileName}` : `/src/data/tables/${fileName}`;
+  return isProd ? 
+    `/data/${folderName}/${fileName}.csv` : 
+    `/src/data/${folderName}/${fileName}.csv`;
 };
 
 /**
  * Gets the appropriate image path with fallback for different extensions
  */
-export const getImagePath = async (fileName: string): Promise<string | null> => {
+export const getImagePath = async (folderName: string, fileName: string): Promise<string | null> => {
   // Strip any extension from the filename if present
   const baseName = fileName.includes('.') ? 
     fileName.substring(0, fileName.lastIndexOf('.')) : 
@@ -23,10 +26,10 @@ export const getImagePath = async (fileName: string): Promise<string | null> => 
   
   // Try direct URL first without checking (most reliable method)
   for (const ext of extensions) {
-    const url = `/images/${baseName}${ext}`;
-    console.log(`Attempting direct image access at: ${url}`);
+    // Try with folder structure
+    const url = `/images/${folderName}/${baseName}${ext}`;
+    console.log(`Attempting image access at: ${url}`);
     
-    // Create an image element to test if the image loads
     try {
       const img = new Image();
       const imagePromise = new Promise<boolean>((resolve) => {
@@ -49,7 +52,8 @@ export const getImagePath = async (fileName: string): Promise<string | null> => 
   // Fallback to development paths
   if (!import.meta.env.PROD) {
     for (const ext of extensions) {
-      const url = `/src/data/images/${baseName}${ext}`;
+      // Try directly in the folder
+      const url = `/src/data/${folderName}/${baseName}${ext}`;
       try {
         console.log(`Trying development path: ${url}`);
         const img = new Image();
@@ -74,7 +78,7 @@ export const getImagePath = async (fileName: string): Promise<string | null> => 
   // Final fallback - try absolute URLs
   const origin = window.location.origin;
   for (const ext of extensions) {
-    const url = `${origin}/images/${baseName}${ext}`;
+    const url = `${origin}/images/${folderName}/${baseName}${ext}`;
     try {
       console.log(`Trying absolute URL: ${url}`);
       const img = new Image();
@@ -95,117 +99,194 @@ export const getImagePath = async (fileName: string): Promise<string | null> => 
     }
   }
   
-  console.error(`No valid image found for ${baseName} after trying all options`);
+  console.error(`No valid image found for ${folderName}/${baseName} after trying all options`);
   
-  // Return a default placeholder image instead of null
+  // Return a default placeholder image
   return `/placeholder.svg`;
 };
 
 /**
- * Check if an image exists with various extensions
- * @deprecated Use getImagePath instead which returns the correct path directly
+ * Parse CSV file directly
  */
-export const checkImageExists = async (fileName: string): Promise<string | null> => {
-  return getImagePath(fileName);
-};
-
-/**
- * Dynamically parse XLSX table data
- */
-export const parseXLSXTable = async (fileName: string): Promise<TableRow[]> => {
+export const parseCSVFile = async (folderName: string, fileName: string): Promise<TableRow[]> => {
   try {
-    // Strip any extension if present and add .xlsx
+    // Strip any extension if present and add .csv
     const baseName = fileName.includes('.') ? 
       fileName.substring(0, fileName.lastIndexOf('.')) : 
       fileName;
-    const xlsxFileName = `${baseName}.xlsx`;
+    const csvFileName = `${baseName}.csv`;
     
-    const filePath = getTablePath(xlsxFileName);
-    console.log(`Fetching XLSX file from: ${filePath}`);
+    const filePath = getTablePath(folderName, baseName);
+    console.log(`Fetching CSV file from: ${filePath}`);
 
     const response = await fetch(filePath);
     if (!response.ok) {
-      console.error(
-        `Failed to load table: ${response.status} ${response.statusText}`
-      );
-      throw new Error(`Failed to load table from ${filePath}`);
+      console.error(`Failed to load CSV: ${response.status} ${response.statusText}`);
+      throw new Error(`Failed to load CSV from ${filePath}`);
     }
 
-    const arrayBuffer = await response.arrayBuffer();
-    const workbook = XLSX.read(arrayBuffer, { type: "array" });
-    const sheetName = workbook.SheetNames[0];
-    const sheet = workbook.Sheets[sheetName];
-    const json: any[] = XLSX.utils.sheet_to_json(sheet, {
-      defval: "",
-      raw: false,
-    });
+    const csvText = await response.text();
+    const parsedData = parseCSV(csvText);
+    console.log(`Successfully parsed CSV with ${parsedData.length} rows for ${baseName}`);
 
-    console.log(`Successfully parsed XLSX with ${json.length} rows for ${baseName}`);
-
-    return json.map((row, idx) => {
-      const tableRow: TableRow = {
-        id: idx + 1,
-        number: String(row["Number"] || ""),
-        name: String(row["Qty"] || ""),
-        description: String(row["Description"] || ""),
-        partNumber: String(row["Part No."] || ""),
-      };
-      return tableRow;
-    });
+    return parsedData;
   } catch (err) {
-    console.error("Error in parseXLSXTable:", err);
+    console.error("Error parsing CSV file:", err);
     return [];
   }
 };
 
 /**
- * Load image data (JSON) dynamically
+ * Load image JSON data dynamically from a specified folder
  */
-export const loadImageData = async (imageName: string): Promise<ImageData | null> => {
+export const loadImageData = async (folderName: string, fileName: string): Promise<ImageData | null> => {
   try {
     // Strip any extension if present
-    const baseName = imageName.includes('.') ? 
-      imageName.substring(0, imageName.lastIndexOf('.')) : 
-      imageName;
+    const baseName = fileName.includes('.') ? 
+      fileName.substring(0, fileName.lastIndexOf('.')) : 
+      fileName;
       
-    console.log(`Loading image data for: ${baseName}`);
-    const module = await import(`../data/images/${baseName}.json`);
-    console.log(`Successfully loaded image data for ${baseName}`);
-    return module.default as ImageData;
+    console.log(`Loading image data for: ${folderName}/${baseName}`);
+    
+    // Check if we're in development or production mode
+    const isProd = import.meta.env.PROD;
+    let jsonData;
+    
+    if (isProd) {
+      // In production, load from public/data folder
+      const response = await fetch(`/data/${folderName}/${baseName}.json`);
+      if (!response.ok) {
+        throw new Error(`Failed to load JSON from /data/${folderName}/${baseName}.json`);
+      }
+      jsonData = await response.json();
+    } else {
+      // In development, try to load from src/data folder
+      try {
+        const module = await import(`../data/${folderName}/${baseName}.json`);
+        jsonData = module.default;
+      } catch (err) {
+        console.error(`Failed to import JSON module for ${folderName}/${baseName}:`, err);
+        throw err;
+      }
+    }
+    
+    console.log(`Successfully loaded image data for ${folderName}/${baseName}`);
+    return jsonData as ImageData;
   } catch (err) {
-    console.error(`Error loading image data for ${imageName}:`, err);
+    console.error(`Error loading image data for ${folderName}/${fileName}:`, err);
     return null;
   }
 };
 
 /**
- * Fetches all available image data files
+ * Get available folders that may contain diagram data
  */
-export const getAvailableImageFiles = async (): Promise<string[]> => {
+export const getAvailableFolders = async (): Promise<string[]> => {
   try {
-    // In a real-world scenario, you might use an API endpoint
-    // to retrieve a list of available files
-    // For now, we'll use a static import.meta.glob to get all JSON files
-    const imageModules = import.meta.glob('../data/images/*.json');
-    const imageFiles: string[] = [];
+    // In production, we would need an API endpoint to list folders
+    // For development, we'll use import.meta.glob to scan directories
+    const isProd = import.meta.env.PROD;
     
-    console.log("Checking available image JSON files...");
-    console.log("Found modules:", Object.keys(imageModules).length);
-    
-    for (const path in imageModules) {
-      if (path.endsWith('.json')) {
-        // Extract the filename without extension
-        const match = path.match(/\/([^/]+)\.json$/);
-        if (match && match[1]) {
-          imageFiles.push(match[1]);
-          console.log(`Found image JSON: ${match[1]}`);
+    if (isProd) {
+      // For production, we'd need a server endpoint or a manifest file
+      // This is a simplified approach - in real production you'd need a server endpoint
+      try {
+        const response = await fetch('/data/folders.json');
+        if (response.ok) {
+          const data = await response.json();
+          return data.folders || [];
         }
+      } catch (err) {
+        console.error('Error fetching folders list:', err);
+      }
+      return [];
+    } else {
+      // For development, use Vite's import.meta.glob to scan folders
+      const modules = import.meta.glob('../data/*/');
+      console.log('Found folder modules:', Object.keys(modules));
+      
+      // Extract folder names from the paths
+      const folders = Object.keys(modules).map(path => {
+        // Extract folder name from path like '../data/folder_name/'
+        const match = path.match(/\.\.\/data\/([^/]+)\//);
+        return match ? match[1] : null;
+      }).filter((folder): folder is string => folder !== null);
+      
+      console.log('Available folders:', folders);
+      return folders;
+    }
+  } catch (err) {
+    console.error('Error scanning for folders:', err);
+    return [];
+  }
+};
+
+/**
+ * Check if a folder has the required files (JSON, CSV, image)
+ */
+export const checkFolderContents = async (folderName: string): Promise<{
+  hasJson: boolean;
+  hasCsv: boolean;
+  hasImage: boolean;
+  baseName: string | null;
+}> => {
+  try {
+    // For development mode
+    const isProd = import.meta.env.PROD;
+    let baseName = null;
+    let hasJson = false;
+    let hasCsv = false;
+    let hasImage = false;
+    
+    if (!isProd) {
+      // Use import.meta.glob to check for files in this folder
+      const jsonFiles = import.meta.glob(`../data/${folderName}/*.json`);
+      const csvFiles = import.meta.glob(`../data/${folderName}/*.csv`);
+      
+      // Check if JSON files exist
+      const jsonFilePaths = Object.keys(jsonFiles);
+      if (jsonFilePaths.length > 0) {
+        hasJson = true;
+        // Extract base name from the first JSON file
+        const jsonMatch = jsonFilePaths[0].match(/([^/]+)\.json$/);
+        if (jsonMatch) {
+          baseName = jsonMatch[1];
+        }
+      }
+      
+      // Check if CSV files exist
+      if (Object.keys(csvFiles).length > 0) {
+        hasCsv = true;
+      }
+      
+      // For images, we'll need to actually try loading one
+      if (baseName) {
+        const imagePath = await getImagePath(folderName, baseName);
+        hasImage = imagePath !== null && !imagePath.includes('placeholder');
+      }
+    } else {
+      // For production, we would need to fetch a manifest or make requests
+      // This is simplified - in real production you'd need server support
+      try {
+        const response = await fetch(`/data/${folderName}/manifest.json`);
+        if (response.ok) {
+          const manifest = await response.json();
+          return {
+            hasJson: manifest.hasJson || false,
+            hasCsv: manifest.hasCsv || false,
+            hasImage: manifest.hasImage || false,
+            baseName: manifest.baseName || null
+          };
+        }
+      } catch (err) {
+        console.error(`Error checking folder contents for ${folderName}:`, err);
       }
     }
     
-    return imageFiles;
+    console.log(`Folder ${folderName} check: JSON: ${hasJson}, CSV: ${hasCsv}, Image: ${hasImage}, Base name: ${baseName}`);
+    return { hasJson, hasCsv, hasImage, baseName };
   } catch (err) {
-    console.error('Error getting available image files:', err);
-    return [];
+    console.error(`Error checking folder contents for ${folderName}:`, err);
+    return { hasJson: false, hasCsv: false, hasImage: false, baseName: null };
   }
 };

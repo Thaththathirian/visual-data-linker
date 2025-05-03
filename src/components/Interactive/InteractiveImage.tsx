@@ -26,7 +26,7 @@ const DEFAULT_MAX_CIRCLE_SIZE = 32; // px, prevent too big
 const MOBILE_MIN_CIRCLE_SIZE = 12;
 
 // Rectangular shape settings
-const BASE_RECT_WIDTH_FACTOR = 0.7; // Reduced factor for tighter fit
+const BASE_RECT_WIDTH_FACTOR = 0.5; // Reduced factor for tighter fit
 const BASE_RECT_HEIGHT = 28; // Base height for rectangle, same as circle
 const RECT_HORIZONTAL_PADDING = "2px"; // Consistent minimal horizontal padding for all digits
 
@@ -164,7 +164,7 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
           <div className="mt-4 p-2 bg-gray-50 rounded text-sm text-gray-600">
             <p className="mb-2"><strong>Troubleshooting:</strong></p>
             <ul className="list-disc pl-5 text-left space-y-1">
-              <li>Check that the image exists in <code>public/images/</code> directory</li>
+              <li>Check that the image exists in the correct folder</li>
               <li>Verify the image has a supported extension (.jpg, .jpeg, .png, .webp, .gif)</li>
               <li>Ensure the filename matches your JSON file name</li>
             </ul>
@@ -252,8 +252,7 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
                 transition: "background 0.2s, color 0.2s, transform 0.15s, width 0.18s, height 0.18s",
               }}
               whileHover={{
-                scale: 1.08, 
-                // boxShadow: "0 0 0 3px #FFE4BA",
+                scale: 1.08,
               }}
               onMouseEnter={() => onCircleHover(coord.number)}
               onMouseLeave={() => onCircleHover(null)}

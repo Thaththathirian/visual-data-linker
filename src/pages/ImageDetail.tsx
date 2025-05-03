@@ -6,10 +6,10 @@ import DataTable from "@/components/Table/DataTable";
 import Breadcrumb from "@/components/Navigation/Breadcrumb";
 import { toast } from "sonner";
 import { TableRow, ImageData } from "@/types";
-import { parseXLSXTable, loadImageData, getImagePath } from "@/utils/fileLoader";
+import { parseCSVFile, loadImageData, getImagePath, checkFolderContents } from "@/utils/fileLoader";
 
 const ImageDetail: React.FC = () => {
-  const { imageName } = useParams<{ imageName: string }>();
+  const { folderName, partNumber } = useParams<{ folderName: string; partNumber: string }>();
   const navigate = useNavigate();
   const [imageData, setImageData] = useState<ImageData | null>(null);
   const [tableData, setTableData] = useState<TableRow[]>([]);
@@ -17,9 +17,10 @@ const ImageDetail: React.FC = () => {
   const [highlightedNumber, setHighlightedNumber] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [baseName, setBaseName] = useState<string | null>(null);
 
-  // Default image if none specified in URL
-  const currentImageName = imageName || "Brother_814_Needle_Bar_Mechanism";
+  // Fall back to a default folder if none specified in URL
+  const currentFolderName = folderName || "test_Brother_814_Needle_Bar_Mechanism";
 
   const numberToPartNumberMap = useMemo(() => {
     const map: Record<string, string> = {};
@@ -35,33 +36,41 @@ const ImageDetail: React.FC = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        console.log(`Loading data for image: ${currentImageName}`);
+        console.log(`Loading data for folder: ${currentFolderName}`);
 
-        // Step 1: Load JSON data for image
-        const imgData = await loadImageData(currentImageName);
+        // Step 1: Check folder contents to find files
+        const folderContents = await checkFolderContents(currentFolderName);
+        if (!folderContents.hasJson || !folderContents.hasCsv || !folderContents.baseName) {
+          throw new Error(`Required files not found in folder: ${currentFolderName}`);
+        }
+        
+        setBaseName(folderContents.baseName);
+        
+        // Step 2: Load JSON data for image
+        const imgData = await loadImageData(currentFolderName, folderContents.baseName);
         if (!imgData) {
-          throw new Error(`Failed to load image data for: ${currentImageName}`);
+          throw new Error(`Failed to load image data for: ${currentFolderName}`);
         }
         setImageData(imgData);
-        console.log(`Loaded JSON data for: ${currentImageName}`);
+        console.log(`Loaded JSON data for: ${currentFolderName}/${folderContents.baseName}`);
         
-        // Step 2: Find the actual image path (do this after JSON data loaded successfully)
-        const imgPath = await getImagePath(currentImageName);
+        // Step 3: Find the actual image path
+        const imgPath = await getImagePath(currentFolderName, folderContents.baseName);
         if (imgPath) {
           setImagePath(imgPath);
           console.log(`Found image at path: ${imgPath}`);
         } else {
-          console.warn(`Could not locate image for: ${currentImageName}, using placeholder`);
+          console.warn(`Could not locate image for: ${currentFolderName}/${folderContents.baseName}, using placeholder`);
         }
 
-        // Step 3: Load XLSX table data
-        const tableRows = await parseXLSXTable(currentImageName);
+        // Step 4: Load CSV table data
+        const tableRows = await parseCSVFile(currentFolderName, folderContents.baseName);
         if (tableRows.length === 0) {
-          console.warn(`No data found in the XLSX file for: ${currentImageName}`);
+          console.warn(`No data found in the CSV file for: ${currentFolderName}/${folderContents.baseName}`);
           toast.warning("No part data found for this image");
         }
         setTableData(tableRows);
-        console.log(`Loaded ${tableRows.length} table rows for: ${currentImageName}`);
+        console.log(`Loaded ${tableRows.length} table rows for: ${currentFolderName}/${folderContents.baseName}`);
         
         setLoading(false);
       } catch (err) {
@@ -77,7 +86,7 @@ const ImageDetail: React.FC = () => {
     };
 
     fetchData();
-  }, [currentImageName]);
+  }, [currentFolderName]);
 
   const handleCircleHover = (number: string | null) => setHighlightedNumber(number);
   const handleRowHover = (number: string | null) => setHighlightedNumber(number);
@@ -126,7 +135,7 @@ const ImageDetail: React.FC = () => {
   const breadcrumbItems = [
     {
       label: imageData.imageName.replace(/-/g, " "),
-      path: `/image/${currentImageName}`,
+      path: `/${currentFolderName}`,
     },
   ];
 

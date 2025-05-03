@@ -1,42 +1,50 @@
 
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { parseCSV } from "@/utils/csvParser";
+import { parseCSVFile } from "@/utils/fileLoader";
 import { TableRow, ImageData } from "@/types";
 import Breadcrumb from "@/components/Navigation/Breadcrumb";
 import { toast } from "sonner";
+import { loadImageData, checkFolderContents } from "@/utils/fileLoader";
 
 const PartDetail: React.FC = () => {
-  const { imageName, partNumber } = useParams<{ imageName: string; partNumber: string }>();
+  const { folderName, partNumber } = useParams<{ folderName: string; partNumber: string }>();
   const navigate = useNavigate();
   const [imageData, setImageData] = useState<ImageData | null>(null);
   const [partData, setPartData] = useState<TableRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const apiUrl = import.meta.env.VITE_API_URL || '';
-
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
         
-        // In a real app, you would fetch this data from your API
-        // For this demo, we're importing it directly
-        const imageDataModule = await import(`../data/images/${imageName}.json`);
-        setImageData(imageDataModule.default);
+        if (!folderName || !partNumber) {
+          throw new Error('Missing folder name or part number');
+        }
+
+        // Step 1: Check folder contents to find files
+        const folderContents = await checkFolderContents(folderName);
+        if (!folderContents.hasJson || !folderContents.hasCsv || !folderContents.baseName) {
+          throw new Error(`Required files not found in folder: ${folderName}`);
+        }
         
-        // Fetch the CSV file and parse it
-        const response = await fetch(`/src/data/tables/${imageName}.csv`);
-        if (!response.ok) {
+        // Step 2: Load the image metadata from JSON
+        const imageDataResult = await loadImageData(folderName, folderContents.baseName);
+        if (!imageDataResult) {
+          throw new Error('Failed to load image data');
+        }
+        setImageData(imageDataResult);
+        
+        // Step 3: Parse CSV data
+        const csvData = await parseCSVFile(folderName, folderContents.baseName);
+        if (!csvData || csvData.length === 0) {
           throw new Error('Failed to load CSV data');
         }
         
-        const csvText = await response.text();
-        const parsedData = parseCSV(csvText);
-        
-        // Find the part with the matching number
-        const part = parsedData.find(row => row.number === partNumber);
+        // Step 4: Find the part with the matching number
+        const part = csvData.find(row => row.number === partNumber);
         if (!part) {
           throw new Error(`Part #${partNumber} not found`);
         }
@@ -44,17 +52,18 @@ const PartDetail: React.FC = () => {
         setPartData(part);
         setLoading(false);
       } catch (err) {
-        // console.error("Error loading data:", err);
-        setError("Failed to load part data");
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
+        console.error("Error loading part data:", errorMessage);
+        setError(errorMessage);
         setLoading(false);
-        toast.error("Error loading part data");
+        toast.error("Error loading part data: " + errorMessage);
       }
     };
 
-    if (imageName && partNumber) {
+    if (folderName && partNumber) {
       fetchData();
     }
-  }, [imageName, partNumber]);
+  }, [folderName, partNumber]);
 
   if (loading) {
     return (
@@ -74,7 +83,7 @@ const PartDetail: React.FC = () => {
           <h2 className="text-2xl font-bold text-red-500 mb-4">Error</h2>
           <p>{error || "Failed to load part data"}</p>
           <button
-            onClick={() => navigate(`/image/${imageName}`)}
+            onClick={() => navigate(`/${folderName}`)}
             className="mt-4 px-4 py-2 bg-custom-blue text-white rounded hover:bg-custom-blue-light"
           >
             Back to Image
@@ -87,11 +96,11 @@ const PartDetail: React.FC = () => {
   const breadcrumbItems = [
     {
       label: imageData.imageName.replace(/-/g, " "),
-      path: `/image/${imageName}`,
+      path: `/${folderName}`,
     },
     {
       label: `Part ${partNumber} - ${partData.name}`,
-      path: `/image/${imageName}/${partNumber}`,
+      path: `/${folderName}/${partNumber}`,
     },
   ];
 
@@ -126,7 +135,7 @@ const PartDetail: React.FC = () => {
 
             <div className="mt-8">
               <button
-                onClick={() => navigate(`/image/${imageName}`)}
+                onClick={() => navigate(`/${folderName}`)}
                 className="px-4 py-2 bg-custom-blue text-white rounded hover:bg-custom-blue-light"
               >
                 Back to Image

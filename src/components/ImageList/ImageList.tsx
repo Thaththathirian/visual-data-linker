@@ -2,12 +2,13 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { getAvailableImageFiles, loadImageData } from '@/utils/fileLoader';
+import { getAvailableFolders, checkFolderContents, loadImageData } from '@/utils/fileLoader';
 import { ImageData } from '@/types';
 
 interface ImageListItem {
   name: string;
-  path: string;
+  folderName: string;
+  fileName: string;
   pointCount: number;
 }
 
@@ -19,18 +20,28 @@ const ImageList = () => {
     const loadImages = async () => {
       try {
         setLoading(true);
-        const imageFiles = await getAvailableImageFiles();
+        const folders = await getAvailableFolders();
+        console.log('Found folders:', folders);
         
         const imageDetails: ImageListItem[] = [];
         
-        for (const file of imageFiles) {
-          const imageData = await loadImageData(file);
-          if (imageData) {
-            imageDetails.push({
-              name: imageData.imageName.replace(/-/g, ' '),
-              path: file,
-              pointCount: imageData.coordinates.length
-            });
+        for (const folder of folders) {
+          // Check if folder has required files
+          const { hasJson, hasImage, hasCsv, baseName } = await checkFolderContents(folder);
+          
+          if (hasJson && hasImage && hasCsv && baseName) {
+            // Load the JSON data to get the image name and coordinates
+            const imageData = await loadImageData(folder, baseName);
+            if (imageData) {
+              imageDetails.push({
+                name: imageData.imageName.replace(/-/g, ' '),
+                folderName: folder,
+                fileName: baseName,
+                pointCount: imageData.coordinates.length
+              });
+            }
+          } else {
+            console.log(`Folder ${folder} missing required files. JSON: ${hasJson}, Image: ${hasImage}, CSV: ${hasCsv}`);
           }
         }
         
@@ -56,10 +67,14 @@ const ImageList = () => {
   if (images.length === 0) {
     return (
       <div className="text-center p-8 bg-gray-50 rounded-lg">
-        <p className="text-gray-600">No images available.</p>
+        <p className="text-gray-600">No diagram data available.</p>
         <p className="text-sm text-gray-500 mt-2">
-          Add images to the public/images directory, along with corresponding JSON files in src/data/images 
-          and XLSX files in src/data/tables.
+          Add folders to the src/data directory, with each folder containing:
+          <ul className="list-disc ml-6 mt-1 text-left">
+            <li>A JSON file with coordinate data</li>
+            <li>A CSV file with part information</li>
+            <li>An image file (.jpg, .png, etc.)</li>
+          </ul>
         </p>
       </div>
     );
@@ -68,7 +83,7 @@ const ImageList = () => {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       {images.map((image) => (
-        <Card key={image.path} className="hover:shadow-lg transition-shadow">
+        <Card key={image.folderName} className="hover:shadow-lg transition-shadow">
           <CardHeader className="font-semibold text-lg">
             {image.name}
           </CardHeader>
@@ -77,7 +92,7 @@ const ImageList = () => {
               Contains {image.pointCount} interactive points
             </p>
             <Link
-              to={`/image/${image.path}`}
+              to={`/${image.folderName}`}
               className="inline-block bg-custom-blue text-white px-4 py-2 rounded hover:bg-custom-blue-light transition-colors"
             >
               View Details
