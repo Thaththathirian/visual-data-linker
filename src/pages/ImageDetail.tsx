@@ -6,13 +6,14 @@ import DataTable from "@/components/Table/DataTable";
 import Breadcrumb from "@/components/Navigation/Breadcrumb";
 import { toast } from "sonner";
 import { TableRow, ImageData } from "@/types";
-import { parseXLSXTable, loadImageData, getImagePath } from "@/utils/fileLoader";
+import { parseXLSXTable, loadImageData, checkImageExists } from "@/utils/fileLoader";
 
 const ImageDetail: React.FC = () => {
   const { imageName } = useParams<{ imageName: string }>();
   const navigate = useNavigate();
   const [imageData, setImageData] = useState<ImageData | null>(null);
   const [tableData, setTableData] = useState<TableRow[]>([]);
+  const [imagePath, setImagePath] = useState<string | null>(null);
   const [highlightedNumber, setHighlightedNumber] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -36,20 +37,31 @@ const ImageDetail: React.FC = () => {
         setLoading(true);
         console.log(`Loading data for image: ${currentImageName}`);
 
+        // Find the actual image file and get its path
+        const imgPath = await checkImageExists(currentImageName);
+        if (!imgPath) {
+          console.error(`Could not find image file for: ${currentImageName}`);
+          throw new Error(`Image file not found for: ${currentImageName}`);
+        }
+        setImagePath(imgPath);
+        console.log(`Found image at path: ${imgPath}`);
+
         // Load JSON data for image
         const imgData = await loadImageData(currentImageName);
         if (!imgData) {
           throw new Error(`Failed to load image data for: ${currentImageName}`);
         }
         setImageData(imgData);
+        console.log(`Loaded JSON data for: ${currentImageName}`);
 
         // Load XLSX table data
-        const tableRows = await parseXLSXTable(`${currentImageName}.xlsx`);
+        const tableRows = await parseXLSXTable(currentImageName);
         if (tableRows.length === 0) {
-          throw new Error("No data found in the XLSX file");
+          console.warn(`No data found in the XLSX file for: ${currentImageName}`);
+          // Not throwing error here as we might still want to show the image
         }
-        // console.log("Table rows loaded:", tableRows);
         setTableData(tableRows);
+        console.log(`Loaded ${tableRows.length} table rows for: ${currentImageName}`);
         
         setLoading(false);
       } catch (err) {
@@ -94,7 +106,7 @@ const ImageDetail: React.FC = () => {
     );
   }
 
-  if (error || !imageData) {
+  if (error || !imageData || !imagePath) {
     return (
       <div className="container mx-auto px-4 py-8 min-h-[60vh] flex items-center justify-center">
         <div className="text-center">
@@ -129,7 +141,7 @@ const ImageDetail: React.FC = () => {
       <div className="flex flex-col lg:flex-row gap-6">
         <div className="w-full lg:w-2/3 bg-white p-4 rounded-lg shadow min-h-[580px] overflow-auto">
           <InteractiveImage
-            imagePath={getImagePath(`${currentImageName}.jpg`)}
+            imagePath={imagePath}
             imageData={imageData}
             highlightedNumber={highlightedNumber}
             onCircleHover={handleCircleHover}

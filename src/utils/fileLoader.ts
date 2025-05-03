@@ -11,10 +11,44 @@ export const getTablePath = (fileName: string) => {
 };
 
 /**
- * Gets the appropriate image path
+ * Gets the appropriate image path with fallback for different extensions
  */
 export const getImagePath = (fileName: string) => {
-  return `/images/${fileName}`;
+  // Strip any extension from the filename if present
+  const baseName = fileName.includes('.') ? 
+    fileName.substring(0, fileName.lastIndexOf('.')) : 
+    fileName;
+  
+  return `/images/${baseName}.jpg`; // Default to jpg
+};
+
+/**
+ * Check if an image exists with various extensions
+ */
+export const checkImageExists = async (fileName: string): Promise<string | null> => {
+  // Strip any extension from the filename if present
+  const baseName = fileName.includes('.') ? 
+    fileName.substring(0, fileName.lastIndexOf('.')) : 
+    fileName;
+    
+  // Try different common image extensions
+  const extensions = ['.jpg', '.jpeg', '.png', '.webp'];
+  
+  for (const ext of extensions) {
+    const url = `/images/${baseName}${ext}`;
+    try {
+      const response = await fetch(url, { method: 'HEAD' });
+      if (response.ok) {
+        console.log(`Found image at: ${url}`);
+        return url;
+      }
+    } catch (err) {
+      console.log(`Image not found at: ${url}`);
+    }
+  }
+  
+  console.error(`No image found for ${baseName} with any of the supported extensions`);
+  return null;
 };
 
 /**
@@ -22,7 +56,13 @@ export const getImagePath = (fileName: string) => {
  */
 export const parseXLSXTable = async (fileName: string): Promise<TableRow[]> => {
   try {
-    const filePath = getTablePath(fileName);
+    // Strip any extension if present and add .xlsx
+    const baseName = fileName.includes('.') ? 
+      fileName.substring(0, fileName.lastIndexOf('.')) : 
+      fileName;
+    const xlsxFileName = `${baseName}.xlsx`;
+    
+    const filePath = getTablePath(xlsxFileName);
     console.log(`Fetching XLSX file from: ${filePath}`);
 
     const response = await fetch(filePath);
@@ -41,6 +81,8 @@ export const parseXLSXTable = async (fileName: string): Promise<TableRow[]> => {
       defval: "",
       raw: false,
     });
+
+    console.log(`Successfully parsed XLSX with ${json.length} rows for ${baseName}`);
 
     return json.map((row, idx) => {
       const tableRow: TableRow = {
@@ -63,7 +105,14 @@ export const parseXLSXTable = async (fileName: string): Promise<TableRow[]> => {
  */
 export const loadImageData = async (imageName: string): Promise<ImageData | null> => {
   try {
-    const module = await import(`../data/images/${imageName}.json`);
+    // Strip any extension if present
+    const baseName = imageName.includes('.') ? 
+      imageName.substring(0, imageName.lastIndexOf('.')) : 
+      imageName;
+      
+    console.log(`Loading image data for: ${baseName}`);
+    const module = await import(`../data/images/${baseName}.json`);
+    console.log(`Successfully loaded image data for ${baseName}`);
     return module.default as ImageData;
   } catch (err) {
     console.error(`Error loading image data for ${imageName}:`, err);
@@ -82,12 +131,16 @@ export const getAvailableImageFiles = async (): Promise<string[]> => {
     const imageModules = import.meta.glob('../data/images/*.json');
     const imageFiles: string[] = [];
     
+    console.log("Checking available image JSON files...");
+    console.log("Found modules:", Object.keys(imageModules).length);
+    
     for (const path in imageModules) {
       if (path.endsWith('.json')) {
         // Extract the filename without extension
         const match = path.match(/\/([^/]+)\.json$/);
         if (match && match[1]) {
           imageFiles.push(match[1]);
+          console.log(`Found image JSON: ${match[1]}`);
         }
       }
     }
