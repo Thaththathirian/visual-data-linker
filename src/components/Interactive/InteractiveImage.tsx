@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { ImageData } from "@/types";
+import { toast } from "sonner";
 
 interface InteractiveImageProps {
   imagePath: string;
@@ -35,6 +36,8 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
   const [scale, setScale] = useState(1);
   const [naturalWidth, setNaturalWidth] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageError, setImageError] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
 
@@ -57,10 +60,9 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
       observer.observe(containerRef.current);
     }
 
-    if (imageRef.current && imageRef.current.complete) {
+    if (imageRef.current && imageRef.current.complete && imageRef.current.naturalWidth) {
       updateScale();
-    } else if (imageRef.current) {
-      imageRef.current.onload = updateScale;
+      setImageLoaded(true);
     }
 
     return () => {
@@ -81,6 +83,30 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
+  const handleImageLoad = () => {
+    console.log("Image loaded successfully:", imagePath);
+    setImageLoaded(true);
+    setImageError(false);
+    
+    if (imageRef.current && imageRef.current.naturalWidth) {
+      const naturalW = imageRef.current.naturalWidth;
+      const displayW = imageRef.current.clientWidth;
+      setScale(displayW / naturalW);
+      setNaturalWidth(naturalW);
+      setImageSize({
+        width: displayW,
+        height: imageRef.current.clientHeight,
+      });
+    }
+  };
+
+  const handleImageError = () => {
+    console.error("Failed to load image:", imagePath);
+    setImageLoaded(false);
+    setImageError(true);
+    toast.error("Failed to load image. Please check if the image file exists.");
+  };
+
   // Choose min circle size depending on mobile or not
   const minCircleSize = isMobile ? MOBILE_MIN_CIRCLE_SIZE : DEFAULT_MIN_CIRCLE_SIZE;
 
@@ -94,17 +120,43 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
     Math.min(DEFAULT_MAX_CIRCLE_SIZE * 0.65, BASE_FONT_SIZE * scale)
   );
 
+  if (imageError) {
+    return (
+      <div className="flex items-center justify-center bg-gray-100 rounded-lg w-full h-[400px]">
+        <div className="text-center p-4">
+          <div className="text-red-500 text-4xl mb-4">📷</div>
+          <h3 className="text-lg font-semibold text-gray-700">Image Failed to Load</h3>
+          <p className="text-gray-500 mt-2">Could not load image: {imagePath}</p>
+          <p className="text-sm text-gray-400 mt-4">
+            Check that the image file exists in the public/images directory.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div ref={containerRef} className="relative w-full h-full bg-white rounded-lg">
+    <div 
+      ref={containerRef} 
+      className="relative w-full h-full bg-white rounded-lg min-h-[400px]"
+    >
+      {!imageLoaded && !imageError && (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-custom-blue"></div>
+        </div>
+      )}
+      
       <img
         ref={imageRef}
         src={imagePath}
         alt={imageData.imageName}
-        className="w-full h-auto"
-        style={{ maxWidth: "100%", height: "auto", objectFit: "contain" }}
+        className={`w-full h-auto ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
+        style={{ maxWidth: "100%", height: "auto", objectFit: "contain", transition: "opacity 0.3s" }}
+        onLoad={handleImageLoad}
+        onError={handleImageError}
       />
 
-      {imageData.coordinates.map((coord) => {
+      {imageLoaded && imageData.coordinates.map((coord) => {
         const scaledX = coord.x * scale;
         const scaledY = coord.y * scale;
         const isHighlighted = highlightedNumber === coord.number;
@@ -139,7 +191,7 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
                 backgroundColor: HIGHLIGHT_COLOR,
                 color: "white",
                 scale: 1.08,
-                border: "2px solid #F97316",
+                boxShadow: "0 0 0 4px #FFE4BA",
               }}
               onMouseEnter={() => onCircleHover(coord.number)}
               onMouseLeave={() => onCircleHover(null)}
