@@ -28,7 +28,7 @@ const MOBILE_MIN_CIRCLE_SIZE = 12;
 // Rectangular shape settings
 const BASE_RECT_WIDTH_FACTOR = 0.7; // Reduced factor for tighter fit
 const BASE_RECT_HEIGHT = 28; // Base height for rectangle, same as circle
-const RECT_HORIZONTAL_PADDING = "2px"; // Minimal horizontal padding
+const RECT_HORIZONTAL_PADDING = "2px"; // Consistent minimal horizontal padding for all digits
 
 const InteractiveImage: React.FC<InteractiveImageProps> = ({
   imagePath,
@@ -212,6 +212,7 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
         const digitCount = coord.number.length;
         
         // Calculate rectangle width based on digit count - tighter fit
+        // Use consistent calculation for all digit counts
         const rectWidth = Math.max(
           minCircleSize * 1.1,
           Math.min(DEFAULT_MAX_CIRCLE_SIZE * 1.3, BASE_CIRCLE_SIZE * BASE_RECT_WIDTH_FACTOR * digitCount * scale)
@@ -248,12 +249,11 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
                 outline: isHighlighted ? "1px solid #FFD580" : undefined,
                 fontWeight: isHighlighted ? 700 : 600,
                 padding: useRectangle ? `0 ${RECT_HORIZONTAL_PADDING}` : 0,
-                transition:
-                  "background 0.22s, color 0.22s, box-shadow 0.22s, outline 0.22s, transform 0.15s, width 0.18s, height 0.18s, font-size 0.18s",
+                transition: "background 0.2s, color 0.2s, transform 0.15s, width 0.18s, height 0.18s",
               }}
               whileHover={{
-                scale: 1.05, // Reduced scale effect for smoother hover
-                boxShadow: "0 0 0 3px #FFE4BA", // Slightly less pronounced shadow
+                scale: 1.08, // Restored to 1.08 as requested
+                boxShadow: "0 0 0 3px #FFE4BA",
               }}
               onMouseEnter={() => onCircleHover(coord.number)}
               onMouseLeave={() => onCircleHover(null)}
