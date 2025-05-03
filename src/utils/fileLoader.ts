@@ -239,6 +239,7 @@ const tryDetectFolders = async (): Promise<string[]> => {
       'test2_Brother_814_Needle_Bar_Mechanism', 
       'test3_Brother_814_Needle_Bar_Mechanism',
       'test4_Brother_814_Needle_Bar_Mechanism',
+      'test5_Brother_814_Needle_Bar_Mechanism',
       'Brother_814_Needle_Bar_Mechanism',
       // Generic mechanism patterns
       'diagram_data',

@@ -37,7 +37,7 @@ const getLabelOffset = (number: string) => {
   if (digitCount >= 3) {
     // Move 3+ character labels more to the right and down
     return {
-      xOffset: 35, // Increased from 25 to 35 for more rightward movement
+      xOffset: 27, // Increased from 25 to 35 for more rightward movement
       yOffset: 15   // Increased from 10 to 15 for more downward movement
     };
   }
@@ -279,6 +279,7 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
                 lineHeight: "1",          // Prevent line height from affecting vertical centering
                 textAlign: "center",      // Ensure text is centered
                 transition: "background 0.2s, color 0.2s, transform 0.15s, width 0.18s, height 0.18s",
+                whiteSpace: "nowrap",
               }}
               whileHover={{
                 scale: 1.08,
