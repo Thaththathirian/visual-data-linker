@@ -4,6 +4,9 @@ import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { getAvailableFolders, checkFolderContents, loadImageData } from '@/utils/fileLoader';
 import { ImageData } from '@/types';
+import { toast } from 'sonner';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
 
 interface ImageListItem {
   name: string;
@@ -15,39 +18,62 @@ interface ImageListItem {
 const ImageList = () => {
   const [images, setImages] = useState<ImageListItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const loadImages = async () => {
       try {
         setLoading(true);
+        setError(null);
+        
+        // Get available folders
         const folders = await getAvailableFolders();
         console.log('Found folders:', folders);
+        
+        if (folders.length === 0) {
+          setError("No folders were detected in the data directory");
+          setLoading(false);
+          return;
+        }
         
         const imageDetails: ImageListItem[] = [];
         
         for (const folder of folders) {
-          // Check if folder has required files
-          const { hasJson, hasImage, hasCsv, baseName } = await checkFolderContents(folder);
-          
-          if (hasJson && hasImage && hasCsv && baseName) {
-            // Load the JSON data to get the image name and coordinates
-            const imageData = await loadImageData(folder, baseName);
-            if (imageData) {
-              imageDetails.push({
-                name: imageData.imageName.replace(/-/g, ' '),
-                folderName: folder,
-                fileName: baseName,
-                pointCount: imageData.coordinates.length
-              });
+          try {
+            // Check if folder has required files
+            const { hasJson, hasImage, hasCsv, baseName } = await checkFolderContents(folder);
+            
+            if (hasJson && hasImage && baseName) {
+              // Load the JSON data to get the image name and coordinates
+              const imageData = await loadImageData(folder, baseName);
+              
+              if (imageData && imageData.coordinates && imageData.coordinates.length > 0) {
+                imageDetails.push({
+                  name: imageData.imageName.replace(/-/g, ' '),
+                  folderName: folder,
+                  fileName: baseName,
+                  pointCount: imageData.coordinates.length
+                });
+                console.log(`Successfully added ${folder} to image list`);
+              } else {
+                console.log(`Folder ${folder} has valid JSON but the data format is incorrect`);
+              }
+            } else {
+              console.log(`Folder ${folder} missing required files. JSON: ${hasJson}, Image: ${hasImage}, CSV: ${hasCsv}`);
             }
-          } else {
-            console.log(`Folder ${folder} missing required files. JSON: ${hasJson}, Image: ${hasImage}, CSV: ${hasCsv}`);
+          } catch (folderErr) {
+            console.error(`Error processing folder ${folder}:`, folderErr);
           }
         }
         
         setImages(imageDetails);
+        
+        if (imageDetails.length === 0) {
+          setError("No valid diagram data could be loaded from the available folders");
+        }
       } catch (err) {
         console.error('Error loading image list:', err);
+        setError("Failed to load image list. Check console for details.");
       } finally {
         setLoading(false);
       }
@@ -60,7 +86,20 @@ const ImageList = () => {
     return (
       <div className="flex justify-center items-center h-40">
         <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-custom-blue"></div>
+        <div className="ml-3">Loading available images...</div>
       </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <Alert variant="destructive" className="mb-6">
+        <AlertCircle className="h-4 w-4" />
+        <AlertTitle>Error</AlertTitle>
+        <AlertDescription>
+          {error}
+        </AlertDescription>
+      </Alert>
     );
   }
 

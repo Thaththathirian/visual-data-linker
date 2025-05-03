@@ -1,6 +1,7 @@
 
 import { TableRow, ImageData } from "@/types";
 import { parseCSV } from "@/utils/csvParser";
+import { toast } from "sonner";
 
 /**
  * Gets the appropriate table path based on environment
@@ -51,50 +52,32 @@ export const getImagePath = async (folderName: string, fileName: string): Promis
   
   // Try any image file that might exist in the folder
   try {
-    // Look for any image in that folder
-    const response = await fetch(`/src/data/${folderName}/`);
-    if (response.ok) {
-      const html = await response.text();
-      
-      // Use regex to find image files in the directory listing
-      const imageRegex = new RegExp(`href="([^"]+\\.(${extensions.map(ext => ext.substring(1)).join('|')}))"`);
-      const match = html.match(imageRegex);
-      
-      if (match && match[1]) {
-        const imgPath = `/src/data/${folderName}/${match[1]}`;
-        console.log(`Found alternative image in folder: ${imgPath}`);
-        return imgPath;
+    // Look for alternate images in folder
+    const imageFiles = ['test_Brother814_Needle_Bar_Mechanism_2.png', 'Brother814_Needle_Bar_Mechanism.jpg'];
+    
+    for (const imgFile of imageFiles) {
+      const url = `/src/data/${folderName}/${imgFile}`;
+      try {
+        const img = new Image();
+        const imagePromise = new Promise<boolean>((resolve) => {
+          img.onload = () => resolve(true);
+          img.onerror = () => resolve(false);
+        });
+        
+        img.src = url;
+        const exists = await imagePromise;
+        
+        if (exists) {
+          console.log(`Found alternate image: ${url}`);
+          return url;
+        }
+      } catch (err) {
+        console.log(`Error testing alternate image at ${url}:`, err);
       }
     }
   } catch (err) {
     console.log('Error finding alternative image:', err);
   }
-  
-  // Final fallback - try absolute URLs
-  const origin = window.location.origin;
-  for (const ext of extensions) {
-    const url = `${origin}/src/data/${folderName}/${baseName}${ext}`;
-    try {
-      console.log(`Trying absolute URL: ${url}`);
-      const img = new Image();
-      const imagePromise = new Promise<boolean>((resolve) => {
-        img.onload = () => resolve(true);
-        img.onerror = () => resolve(false);
-      });
-      
-      img.src = url;
-      const exists = await imagePromise;
-      
-      if (exists) {
-        console.log(`Success! Image loaded at absolute URL: ${url}`);
-        return url;
-      }
-    } catch (err) {
-      console.log(`Error testing absolute URL image at ${url}:`, err);
-    }
-  }
-  
-  console.error(`No valid image found for ${folderName}/${baseName} after trying all options`);
   
   // Return a default placeholder image
   return `/placeholder.svg`;
@@ -145,32 +128,68 @@ export const loadImageData = async (folderName: string, fileName: string): Promi
     
     // Check if we're in development or production mode
     const isProd = import.meta.env.PROD;
-    let jsonData;
+    let jsonData: ImageData | null = null;
     
-    if (isProd) {
-      // In production, load from public/data folder
-      const response = await fetch(`/data/${folderName}/${baseName}.json`);
+    // First try with the provided fileName
+    try {
+      // Try to load from src/data folder using fetch
+      // Use relative path to fetch resources in development
+      const jsonPath = isProd ? 
+        `/data/${folderName}/${baseName}.json` : 
+        `/src/data/${folderName}/${baseName}.json`;
+      
+      console.log(`Attempting to load JSON from: ${jsonPath}`);
+      const response = await fetch(jsonPath);
+      
       if (!response.ok) {
-        throw new Error(`Failed to load JSON from /data/${folderName}/${baseName}.json`);
+        throw new Error(`Failed to load JSON from ${jsonPath}`);
       }
+      
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error(`Invalid content type: ${contentType}`);
+      }
+      
       jsonData = await response.json();
-    } else {
-      // In development, try to load from src/data folder using fetch
-      try {
-        // Use relative path to fetch resources in development
-        const response = await fetch(`/src/data/${folderName}/${baseName}.json`);
-        if (!response.ok) {
-          throw new Error(`Failed to load JSON from /src/data/${folderName}/${baseName}.json`);
+      console.log(`Successfully loaded JSON data for ${folderName}/${baseName}`);
+    } catch (err) {
+      console.log(`Error with first JSON attempt: ${err}`);
+      
+      // If that fails, try the Brother814_Needle_Bar_Mechanism.json directly
+      if (folderName.includes('Brother_814') || folderName.includes('test_') || folderName.includes('test2_')) {
+        try {
+          const alternateBaseName = "Brother814_Needle_Bar_Mechanism";
+          const alternatePath = isProd ? 
+            `/data/${folderName}/${alternateBaseName}.json` : 
+            `/src/data/${folderName}/${alternateBaseName}.json`;
+          
+          console.log(`Trying alternate JSON path: ${alternatePath}`);
+          
+          const response = await fetch(alternatePath);
+          if (!response.ok) {
+            throw new Error(`Failed to load alternate JSON from ${alternatePath}`);
+          }
+          
+          const contentType = response.headers.get('content-type');
+          if (!contentType || !contentType.includes('application/json')) {
+            throw new Error(`Invalid content type for alternate: ${contentType}`);
+          }
+          
+          jsonData = await response.json();
+          console.log(`Successfully loaded alternate JSON data`);
+        } catch (altErr) {
+          console.error(`Failed alternate JSON attempt: ${altErr}`);
+          return null;
         }
-        jsonData = await response.json();
-      } catch (err) {
-        console.error(`Failed to fetch JSON for ${folderName}/${baseName}:`, err);
-        throw err;
       }
     }
     
-    console.log(`Successfully loaded image data for ${folderName}/${baseName}`);
-    return jsonData as ImageData;
+    if (!jsonData) {
+      console.error(`No JSON data could be loaded for ${folderName}/${baseName}`);
+      return null;
+    }
+    
+    return jsonData;
   } catch (err) {
     console.error(`Error loading image data for ${folderName}/${fileName}:`, err);
     return null;
@@ -199,103 +218,15 @@ export const getAvailableFolders = async (): Promise<string[]> => {
         console.error('Error loading production folders:', err);
       }
     }
-
-    // Try to scan src/data directory in development
-    try {
-      console.log("Attempting to scan data directory");
-      
-      // Attempt to fetch the src/data directory listing
-      const response = await fetch('/src/data/');
-      if (response.ok) {
-        const html = await response.text();
-        
-        // Use regex to extract directory names
-        const dirRegex = /href="([^"\/]+)\/?"/g;
-        const matches = html.matchAll(dirRegex);
-        
-        const folders: string[] = [];
-        for (const match of matches) {
-          if (match[1] && !match[1].includes('.')) { // Exclude file names
-            folders.push(match[1]);
-          }
-        }
-        
-        if (folders.length > 0) {
-          console.log("Found folders via directory scan:", folders);
-          return folders;
-        }
-      }
-    } catch (err) {
-      console.log("Directory scan didn't work:", err);
-    }
     
-    // Try to detect folders by probing for known folders
-    // This is a fallback approach when we can't list directories
-    const knownPrefixes = ['test_', 'test2_', ''];
-    const knownBaseNames = ['Brother_814_Needle_Bar_Mechanism'];
+    // Hardcoded list of known folders - this is our safety net
+    const knownFolders = [
+      'test_Brother_814_Needle_Bar_Mechanism',
+      'test2_Brother_814_Needle_Bar_Mechanism'
+    ];
     
-    const potentialFolders: string[] = [];
-    
-    // Generate potential folder names based on known patterns
-    for (const prefix of knownPrefixes) {
-      for (const baseName of knownBaseNames) {
-        potentialFolders.push(`${prefix}${baseName}`);
-      }
-    }
-    
-    // Add in any custom folder names to check
-    potentialFolders.push(...['diagram_data', 'mechanism_diagrams', 'sewing_machine_parts']);
-    
-    console.log("Checking potential folders:", potentialFolders);
-    
-    // Check each potential folder to see if it exists
-    const existingFolders: string[] = [];
-    
-    for (const folder of potentialFolders) {
-      try {
-        const response = await fetch(`/src/data/${folder}/`);
-        if (response.ok) {
-          console.log(`Folder found: ${folder}`);
-          existingFolders.push(folder);
-        }
-      } catch (err) {
-        // Folder doesn't exist or can't be accessed
-      }
-    }
-    
-    // Case-by-case detection as last resort
-    try {
-      // Special case for Brother 814 folder - we know it exists
-      const response = await fetch('/src/data/test_Brother_814_Needle_Bar_Mechanism/');
-      if (response.ok) {
-        if (!existingFolders.includes('test_Brother_814_Needle_Bar_Mechanism')) {
-          existingFolders.push('test_Brother_814_Needle_Bar_Mechanism');
-        }
-      }
-    } catch (err) {
-      // Folder doesn't exist or can't be accessed
-    }
-    
-    try {
-      // Check for test2 folder
-      const response = await fetch('/src/data/test2_Brother_814_Needle_Bar_Mechanism/');
-      if (response.ok) {
-        if (!existingFolders.includes('test2_Brother_814_Needle_Bar_Mechanism')) {
-          existingFolders.push('test2_Brother_814_Needle_Bar_Mechanism');
-        }
-      }
-    } catch (err) {
-      // Folder doesn't exist or can't be accessed
-    }
-    
-    if (existingFolders.length > 0) {
-      console.log("Found existing folders:", existingFolders);
-      return existingFolders;
-    }
-
-    // Final fallback to hardcoded list
-    console.log("Using fallback folder list");
-    return ['test_Brother_814_Needle_Bar_Mechanism', 'test2_Brother_814_Needle_Bar_Mechanism'];
+    console.log("Using known folder list:", knownFolders);
+    return knownFolders;
   } catch (err) {
     console.error('Error detecting folders:', err);
     // Ultimate fallback - return at least one known folder
@@ -314,64 +245,26 @@ export const checkFolderContents = async (folderName: string): Promise<{
 }> => {
   try {
     console.log(`Checking contents of folder: ${folderName}`);
-    const isProd = import.meta.env.PROD;
     let baseName = null;
     let hasJson = false;
     let hasCsv = false;
     let hasImage = false;
     
-    // First, try to find a JSON file using common naming patterns
-    const commonJsonNames = [
-      `${folderName}`, // Same as folder name
-      `${folderName.replace(/^test_/, '')}`, // Without 'test_' prefix
-      `${folderName.replace(/^test2_/, '')}` // Without 'test2_' prefix
-    ];
-    
-    // For Brother 814, we know specific file names might exist
+    // For Brother 814, we know specific file names exist
     if (folderName === 'test_Brother_814_Needle_Bar_Mechanism' || 
         folderName === 'test2_Brother_814_Needle_Bar_Mechanism') {
-      commonJsonNames.push('Brother814_Needle_Bar_Mechanism');
-    }
-    
-    for (const name of commonJsonNames) {
+      baseName = 'Brother814_Needle_Bar_Mechanism';
+      
       try {
-        const jsonResponse = await fetch(`/src/data/${folderName}/${name}.json`);
+        const jsonResponse = await fetch(`/src/data/${folderName}/${baseName}.json`);
         if (jsonResponse.ok) {
           hasJson = true;
-          baseName = name;
-          console.log(`Found JSON file: ${name}.json in folder ${folderName}`);
-          break;
+          console.log(`Found JSON file: ${baseName}.json in folder ${folderName}`);
         }
       } catch (err) {
-        // Continue to next name
+        console.log(`Error checking for ${baseName}.json:`, err);
       }
-    }
-    
-    // If no match found, try a more generic approach to find any JSON file
-    if (!baseName) {
-      try {
-        const response = await fetch(`/src/data/${folderName}/`);
-        if (response.ok) {
-          const html = await response.text();
-          
-          // Look for any JSON file
-          const jsonRegex = /href="([^"]+\.json)"/;
-          const match = html.match(jsonRegex);
-          
-          if (match && match[1]) {
-            const jsonFileName = match[1];
-            baseName = jsonFileName.replace(/\.json$/, '');
-            hasJson = true;
-            console.log(`Found JSON file through directory scan: ${jsonFileName}`);
-          }
-        }
-      } catch (err) {
-        console.log('Error searching for JSON file:', err);
-      }
-    }
-    
-    // Check for CSV file with the same base name if we found a JSON
-    if (baseName) {
+      
       try {
         const csvResponse = await fetch(`/src/data/${folderName}/${baseName}.csv`);
         hasCsv = csvResponse.ok;
@@ -379,31 +272,25 @@ export const checkFolderContents = async (folderName: string): Promise<{
           console.log(`Found matching CSV file: ${baseName}.csv`);
         }
       } catch (err) {
-        // Try to find any CSV file in the folder
-        try {
-          const response = await fetch(`/src/data/${folderName}/`);
-          if (response.ok) {
-            const html = await response.text();
-            
-            // Look for any CSV file
-            const csvRegex = /href="([^"]+\.csv)"/;
-            const match = html.match(csvRegex);
-            
-            if (match && match[1]) {
-              hasCsv = true;
-              console.log(`Found CSV file through directory scan: ${match[1]}`);
-            }
-          }
-        } catch (searchErr) {
-          console.log('Error searching for CSV file:', searchErr);
-        }
+        console.log(`Error checking for ${baseName}.csv:`, err);
       }
       
-      // For images, we need to check if any image file exists
-      const imagePath = await getImagePath(folderName, baseName);
-      hasImage = imagePath !== null && !imagePath.includes('placeholder');
-      if (hasImage) {
-        console.log(`Found image file for: ${baseName}`);
+      // For images, check specific known file
+      try {
+        const img = new Image();
+        const imagePromise = new Promise<boolean>((resolve) => {
+          img.onload = () => resolve(true);
+          img.onerror = () => resolve(false);
+        });
+        
+        img.src = `/src/data/${folderName}/test_Brother814_Needle_Bar_Mechanism_2.png`;
+        hasImage = await imagePromise;
+        
+        if (hasImage) {
+          console.log(`Found image file in ${folderName}`);
+        }
+      } catch (err) {
+        console.log(`Error checking for image:`, err);
       }
     }
     
