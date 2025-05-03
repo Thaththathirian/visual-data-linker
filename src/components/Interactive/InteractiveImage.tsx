@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { ImageData } from "@/types";
@@ -35,10 +34,10 @@ const getLabelOffset = (number: string) => {
   const digitCount = number.length;
   
   if (digitCount >= 3) {
-    // Move 3+ character labels right and down
+    // Move 3+ character labels more to the right and down
     return {
-      xOffset: 6, // Move to the right
-      yOffset: 4   // Move down
+      xOffset: 10, // Increased from 6 to 10 for more rightward movement
+      yOffset: 8   // Increased from 4 to 8 for more downward movement
     };
   }
   

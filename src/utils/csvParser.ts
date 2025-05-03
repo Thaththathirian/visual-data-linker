@@ -14,11 +14,16 @@ export const parseCSV = (csvContent: string): TableRow[] => {
   const numberIndex = headers.findIndex(h => h.toLowerCase() === 'number');
   const partNoIndex = headers.findIndex(h => /part\s*no/i.test(h));
   const descIndex = headers.findIndex(h => h.toLowerCase().includes('description'));
-  const nameOrQtyIndex = headers.findIndex(h => 
-    h.toLowerCase() === 'name' || 
+  const qtyIndex = headers.findIndex(h => 
     h.toLowerCase() === 'qty' || 
     h.toLowerCase() === 'quantity'
   );
+  const nameIndex = headers.findIndex(h => h.toLowerCase() === 'name');
+  
+  // For debugging
+  console.log("CSV Headers found:", headers);
+  console.log("Column indexes - Number:", numberIndex, "PartNo:", partNoIndex, 
+              "Description:", descIndex, "Qty:", qtyIndex, "Name:", nameIndex);
   
   return lines.slice(1)
     .map(line => line.trim())
@@ -39,10 +44,14 @@ export const parseCSV = (csvContent: string): TableRow[] => {
       });
       
       // Create TableRow with appropriate field mapping
+      // For 'name' field, prioritize Qty/Quantity if available, otherwise use Name
+      const qtyValue = qtyIndex >= 0 && qtyIndex < values.length ? values[qtyIndex] : data.Qty || data.qty || data.Quantity || data.quantity || '';
+      const nameValue = nameIndex >= 0 && nameIndex < values.length ? values[nameIndex] : '';
+      
       return {
         id: index + 1,
         number: numberIndex >= 0 && numberIndex < values.length ? values[numberIndex] : data.Number || data.number || '',
-        name: nameOrQtyIndex >= 0 && nameOrQtyIndex < values.length ? values[nameOrQtyIndex] : data.Qty || data.qty || data.Quantity || data.quantity || '',
+        name: qtyValue || nameValue, // Use qty as the name for display purposes, fall back to actual name if no qty
         description: descIndex >= 0 && descIndex < values.length ? values[descIndex] : data.Description || data.description || '',
         partNumber: partNoIndex >= 0 && partNoIndex < values.length ? values[partNoIndex] : data['Part No.'] || data['part no.'] || data['part no'] || data['Part No'] || '',
       };

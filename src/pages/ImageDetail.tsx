@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import InteractiveImage from "@/components/Interactive/InteractiveImage";
@@ -65,6 +64,8 @@ const ImageDetail: React.FC = () => {
         }
 
         // Step 4: Load CSV table data
+        // NOTE: If columns aren't showing properly, check the CSV parsing in csvParser.ts
+        // The column mapping logic determines how CSV fields are displayed
         const tableRows = await parseCSVFile(currentFolderName, folderContents.baseName);
         if (tableRows.length === 0) {
           console.warn(`No data found in the CSV file for: ${currentFolderName}/${folderContents.baseName}`);

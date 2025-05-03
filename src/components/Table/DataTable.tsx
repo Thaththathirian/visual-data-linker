@@ -25,8 +25,6 @@ const DataTable: React.FC<DataTableProps> = ({
   onRowClick,
   onRowHover,
 }) => {
-  // console.log("DataTable rendering with data:", data);
-  
   if (!data || data.length === 0) {
     return (
       <div className="p-4 text-center">
