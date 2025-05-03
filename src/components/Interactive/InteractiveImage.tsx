@@ -25,6 +25,10 @@ const DEFAULT_MAX_CIRCLE_SIZE = 32; // px, prevent too big
 // Smaller min size on very small screens
 const MOBILE_MIN_CIRCLE_SIZE = 12;
 
+// Rectangular shape settings
+const BASE_RECT_WIDTH_FACTOR = 0.8; // Factor to multiply by digit count
+const BASE_RECT_HEIGHT = 28; // Base height for rectangle, same as circle
+
 const InteractiveImage: React.FC<InteractiveImageProps> = ({
   imagePath,
   imageData,
@@ -201,6 +205,23 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
         const scaledX = coord.x * scale;
         const scaledY = coord.y * scale;
         const isHighlighted = highlightedNumber === coord.number;
+        
+        // Determine if we should use rectangle based on number length
+        const useRectangle = coord.number.length >= 3;
+        const digitCount = coord.number.length;
+        
+        // Calculate rectangle width based on digit count
+        const rectWidth = Math.max(
+          minCircleSize * 1.2,
+          Math.min(DEFAULT_MAX_CIRCLE_SIZE * 1.5, BASE_CIRCLE_SIZE * BASE_RECT_WIDTH_FACTOR * digitCount * scale)
+        );
+        
+        // Calculate rectangle height
+        const rectHeight = Math.max(
+          minCircleSize,
+          Math.min(DEFAULT_MAX_CIRCLE_SIZE, BASE_RECT_HEIGHT * scale)
+        );
+
         return (
           <div
             key={coord.id}
@@ -214,10 +235,10 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
             }}
           >
             <motion.div
-              className="flex items-center justify-center rounded-full cursor-pointer"
+              className={`flex items-center justify-center cursor-pointer ${useRectangle ? 'rounded-md' : 'rounded-full'}`}
               style={{
-                width: `${circleSize}px`,
-                height: `${circleSize}px`,
+                width: useRectangle ? `${rectWidth}px` : `${circleSize}px`,
+                height: useRectangle ? `${rectHeight}px` : `${circleSize}px`,
                 fontSize: `${circleFontSize}px`,
                 backgroundColor: isHighlighted ? HIGHLIGHT_COLOR : DEFAULT_CIRCLE_COLOR,
                 color: isHighlighted ? "white" : "#5411a1",
@@ -225,6 +246,7 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
                 boxShadow: isHighlighted ? "0 0 0 4px #FFE4BA" : undefined,
                 outline: isHighlighted ? "1px solid #FFD580" : undefined,
                 fontWeight: isHighlighted ? 700 : 600,
+                padding: useRectangle ? "0 6px" : 0,
                 transition:
                   "background 0.22s, color 0.22s, box-shadow 0.18s, width 0.18s, height 0.18s, font-size 0.18s",
               }}
