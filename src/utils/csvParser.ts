@@ -7,7 +7,8 @@ export const parseCSV = (csvContent: string): TableRow[] => {
   if (lines.length === 0) return [];
   
   // Parse the header line using Papa Parse to handle quotes properly
-  const headers = Papa.parse(lines[0], { quotes: true }).data[0] as string[];
+  const parsedHeader = Papa.parse(lines[0]);
+  const headers = parsedHeader.data[0] as string[];
   
   // Find important column indexes
   const numberIndex = headers.findIndex(h => h.toLowerCase() === 'number');
@@ -24,7 +25,8 @@ export const parseCSV = (csvContent: string): TableRow[] => {
     .filter(line => line.length > 0) // Skip empty lines
     .map((line, index) => {
       // Parse the CSV line properly handling quotes
-      const values = Papa.parse(line, { quotes: true }).data[0] as string[];
+      const parsedLine = Papa.parse(line);
+      const values = parsedLine.data[0] as string[];
       const data: Record<string, any> = {};
       
       // Map values to columns
