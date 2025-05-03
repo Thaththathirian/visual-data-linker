@@ -1,15 +1,28 @@
+
 import { TableRow, ImageData } from "@/types";
 import { parseCSV } from "@/utils/csvParser";
 import { toast } from "sonner";
 
 /**
+ * Determines if we're running in production environment
+ */
+const isProd = (): boolean => {
+  return import.meta.env.PROD || window.location.hostname.includes('netlify.app');
+}
+
+/**
+ * Gets the appropriate base path for data files based on environment
+ */
+const getBasePath = (): string => {
+  return isProd() ? '/data' : '/src/data';
+}
+
+/**
  * Gets the appropriate table path based on environment
  */
 export const getTablePath = (folderName: string, fileName: string) => {
-  const isProd = import.meta.env.PROD;
-  return isProd ? 
-    `/data/${folderName}/${fileName}.csv` : 
-    `/src/data/${folderName}/${fileName}.csv`;
+  const basePath = getBasePath();
+  return `${basePath}/${folderName}/${fileName}.csv`;
 };
 
 /**
@@ -21,13 +34,15 @@ export const getImagePath = async (folderName: string, fileName: string): Promis
     fileName.substring(0, fileName.lastIndexOf('.')) : 
     fileName;
   
+  const basePath = getBasePath();
+  
   // Try different common image extensions
   const extensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
   
   // First, try to find the file with the exact same base name as JSON/CSV
   for (const ext of extensions) {
     // Try with folder structure
-    const url = `/src/data/${folderName}/${baseName}${ext}`;
+    const url = `${basePath}/${folderName}/${baseName}${ext}`;
     console.log(`Attempting image access at: ${url}`);
     
     try {
@@ -51,15 +66,6 @@ export const getImagePath = async (folderName: string, fileName: string): Promis
   
   // Look for any image files in the folder
   try {
-    // Common image file pattern searches
-    const imagePatterns = [
-      'test_*.png', 
-      '*_Mechanism*.png', 
-      '*_Mechanism*.jpg',
-      '*.jpg',
-      '*.png'
-    ];
-    
     // This is just a fallback approach - try known patterns
     const imageFiles = [
       'test_Brother814_Needle_Bar_Mechanism_2.png', 
@@ -70,7 +76,7 @@ export const getImagePath = async (folderName: string, fileName: string): Promis
     ];
     
     for (const imgFile of imageFiles) {
-      const url = `/src/data/${folderName}/${imgFile}`;
+      const url = `${basePath}/${folderName}/${imgFile}`;
       try {
         const img = new Image();
         const imagePromise = new Promise<boolean>((resolve) => {
@@ -106,9 +112,9 @@ export const parseCSVFile = async (folderName: string, fileName: string): Promis
     const baseName = fileName.includes('.') ? 
       fileName.substring(0, fileName.lastIndexOf('.')) : 
       fileName;
-    const csvFileName = `${baseName}.csv`;
-    
-    const filePath = getTablePath(folderName, baseName);
+
+    const basePath = getBasePath();
+    const filePath = `${basePath}/${folderName}/${baseName}.csv`;
     console.log(`Fetching CSV file from: ${filePath}`);
 
     const response = await fetch(filePath);
@@ -140,15 +146,12 @@ export const loadImageData = async (folderName: string, fileName: string): Promi
       
     console.log(`Loading image data for: ${folderName}/${baseName}`);
     
-    // Check if we're in development or production mode
-    const isProd = import.meta.env.PROD;
+    // Get the appropriate base path
+    const basePath = getBasePath();
     let jsonData: ImageData | null = null;
     
     try {
-      // Try to load from src/data folder using fetch
-      const jsonPath = isProd ? 
-        `/data/${folderName}/${baseName}.json` : 
-        `/src/data/${folderName}/${baseName}.json`;
+      const jsonPath = `${basePath}/${folderName}/${baseName}.json`;
       
       console.log(`Attempting to load JSON from: ${jsonPath}`);
       const response = await fetch(jsonPath);
@@ -165,7 +168,17 @@ export const loadImageData = async (folderName: string, fileName: string): Promi
         console.log(`Successfully loaded JSON data for ${folderName}/${baseName}`);
         return jsonData;
       } else {
-        throw new Error(`Invalid content type: ${contentType}, expected JSON`);
+        // Even if content-type is not application/json, try parsing it anyway
+        // Some servers might not set the content type correctly
+        try {
+          jsonData = await response.json();
+          if (jsonData) {
+            console.log(`Successfully loaded JSON data despite content type: ${contentType}`);
+            return jsonData;
+          }
+        } catch (parseErr) {
+          throw new Error(`Invalid content type: ${contentType}, expected JSON`);
+        }
       }
     } catch (err) {
       console.log(`Error with JSON load attempt: ${err instanceof Error ? err.message : String(err)}`);
@@ -181,9 +194,7 @@ export const loadImageData = async (folderName: string, fileName: string): Promi
         ];
         
         for (const altName of alternateBaseNames) {
-          const alternatePath = isProd ? 
-            `/data/${folderName}/${altName}.json` : 
-            `/src/data/${folderName}/${altName}.json`;
+          const alternatePath = `${basePath}/${folderName}/${altName}.json`;
           
           console.log(`Trying alternate JSON path: ${alternatePath}`);
           
@@ -191,13 +202,15 @@ export const loadImageData = async (folderName: string, fileName: string): Promi
             const response = await fetch(alternatePath);
             if (!response.ok) continue;
             
-            const contentType = response.headers.get('content-type');
-            if (!contentType || !contentType.includes('application/json')) continue;
-            
-            jsonData = await response.json();
-            if (jsonData && jsonData.coordinates) {
-              console.log(`Successfully loaded alternate JSON data from ${altName}.json`);
-              return jsonData;
+            try {
+              jsonData = await response.json();
+              if (jsonData && jsonData.coordinates) {
+                console.log(`Successfully loaded alternate JSON data from ${altName}.json`);
+                return jsonData;
+              }
+            } catch (parseErr) {
+              console.log(`Failed to parse JSON from ${alternatePath}`);
+              continue;
             }
           } catch (altErr) {
             console.log(`Failed alternate JSON attempt for ${altName}: ${altErr}`);
@@ -222,15 +235,12 @@ export const loadImageData = async (folderName: string, fileName: string): Promi
 
 /**
  * Try to detect available folders by checking for common file patterns
- * This allows dynamic folder detection without hard-coding folder names
  */
 const tryDetectFolders = async (): Promise<string[]> => {
   try {
     console.log("Attempting dynamic folder detection");
     
-    // Try to find all folders in src/data directory
-    // Since browser security prevents directory listing, we'll use a more creative approach:
-    // We'll check if common file patterns exist in potential folder paths
+    const basePath = getBasePath();
     
     // List some common naming patterns for mechanism folders
     const folderPatterns = [
@@ -251,66 +261,40 @@ const tryDetectFolders = async (): Promise<string[]> => {
       'diagrams'
     ];
     
-    // Common base directories where folders might be
-    const basePaths = [
-      '/src/data/',
-      '/data/'
-    ];
-    
     // Check if we can detect folders by combining patterns and checking file existence
     const detectedFolders: string[] = [];
     const foundFolders = new Set<string>();
     
-    // Function to extract folder name from a path
-    const extractFolderName = (path: string): string => {
-      const parts = path.split('/');
-      // Remove empty parts and get the part that would be a folder name
-      return parts.filter(p => p && p !== 'src' && p !== 'data')[0] || '';
-    };
-    
     // Check well-known folder patterns first
     for (const pattern of folderPatterns) {
-      for (const basePath of basePaths) {
-        try {
-          // Try to access a JSON file in this potential folder
-          const testPath = `${basePath}${pattern}/Brother814_Needle_Bar_Mechanism.json`;
-          const response = await fetch(testPath, { method: 'HEAD' });
-          
-          if (response.ok) {
-            const folderName = extractFolderName(`${basePath}${pattern}`);
-            if (folderName && !foundFolders.has(folderName)) {
-              foundFolders.add(folderName);
-              detectedFolders.push(folderName);
-              console.log(`Detected folder: ${folderName}`);
-            }
-          }
-          
-          // Also try checking for any JSON file with common names
-          const altFilePaths = [
-            `${basePath}${pattern}/diagram.json`,
-            `${basePath}${pattern}/parts.json`,
-            `${basePath}${pattern}/mechanism.json`
-          ];
-          
-          for (const altPath of altFilePaths) {
-            try {
-              const altResponse = await fetch(altPath, { method: 'HEAD' });
-              if (altResponse.ok) {
-                const folderName = extractFolderName(`${basePath}${pattern}`);
-                if (folderName && !foundFolders.has(folderName)) {
-                  foundFolders.add(folderName);
-                  detectedFolders.push(folderName);
-                  console.log(`Detected folder with alternative file: ${folderName}`);
-                  break; // Found a valid file in this folder, no need to check more
-                }
+      try {
+        // Try to access a JSON file in this potential folder
+        const checkPaths = [
+          `${basePath}/${pattern}/Brother814_Needle_Bar_Mechanism.json`,
+          `${basePath}/${pattern}/diagram.json`,
+          `${basePath}/${pattern}/parts.json`,
+          `${basePath}/${pattern}/mechanism.json`
+        ];
+        
+        for (const checkPath of checkPaths) {
+          try {
+            // Use fetch with HEAD method to check if file exists without downloading content
+            const response = await fetch(checkPath, { method: 'HEAD' });
+            
+            if (response.ok) {
+              if (!foundFolders.has(pattern)) {
+                foundFolders.add(pattern);
+                detectedFolders.push(pattern);
+                console.log(`Detected folder: ${pattern}`);
+                break;  // Found a valid file in this folder, no need to check more
               }
-            } catch (err) {
-              // Ignore errors for alternative paths
             }
+          } catch (pathErr) {
+            // Ignore errors for individual path checks
           }
-        } catch (err) {
-          // Ignore errors for pattern checks
         }
+      } catch (err) {
+        // Ignore errors for pattern checks
       }
     }
     
@@ -327,17 +311,22 @@ const tryDetectFolders = async (): Promise<string[]> => {
 export const getAvailableFolders = async (): Promise<string[]> => {
   try {
     console.log("Starting folder detection");
-
+    
     // In production, we'd check a folders.json manifest
-    const isProd = import.meta.env.PROD;
-    if (isProd) {
+    if (isProd()) {
       try {
         console.log("Checking production folders.json");
-        const response = await fetch('/data/folders.json');
+        const folderJsonPath = '/data/folders.json';
+        const response = await fetch(folderJsonPath);
+        
         if (response.ok) {
           const data = await response.json();
           console.log("Found folders.json with folders:", data.folders);
-          return data.folders || [];
+          if (data.folders && data.folders.length > 0) {
+            return data.folders;
+          }
+        } else {
+          console.warn(`folders.json not found or invalid at ${folderJsonPath}, trying alternative detection`);
         }
       } catch (err) {
         console.error('Error loading production folders:', err);
@@ -357,6 +346,7 @@ export const getAvailableFolders = async (): Promise<string[]> => {
       'test2_Brother_814_Needle_Bar_Mechanism',
       'test3_Brother_814_Needle_Bar_Mechanism',
       'test4_Brother_814_Needle_Bar_Mechanism',
+      'test5_Brother_814_Needle_Bar_Mechanism',
       'Brother_814_Needle_Bar_Mechanism',
       'diagram_data',
       'mechanism_diagrams',
@@ -368,26 +358,27 @@ export const getAvailableFolders = async (): Promise<string[]> => {
     
     for (const folder of fallbackFolders) {
       try {
-        // Check if a JSON file exists in this folder - if yes, it's probably valid
-        const testPath = isProd ? 
-          `/data/${folder}/Brother814_Needle_Bar_Mechanism.json` : 
-          `/src/data/${folder}/Brother814_Needle_Bar_Mechanism.json`;
+        const basePath = getBasePath();
         
-        const response = await fetch(testPath);
-        // If response is 200, folder exists and has data
-        if (response.ok) {
-          existingFolders.push(folder);
-          console.log(`Found existing folder: ${folder}`);
-        } else {
-          // Try any JSON file
-          const altTestPath = isProd ? 
-            `/data/${folder}/diagram.json` : 
-            `/src/data/${folder}/diagram.json`;
-          
-          const altResponse = await fetch(altTestPath);
-          if (altResponse.ok) {
-            existingFolders.push(folder);
-            console.log(`Found existing folder with alt file: ${folder}`);
+        // Check if a JSON file exists in this folder
+        const testPaths = [
+          `${basePath}/${folder}/Brother814_Needle_Bar_Mechanism.json`,
+          `${basePath}/${folder}/diagram.json`,
+          `${basePath}/${folder}/parts.json`,
+          `${basePath}/${folder}/mechanism.json`
+        ];
+        
+        for (const testPath of testPaths) {
+          try {
+            const response = await fetch(testPath);
+            // If response is 200, folder exists and has data
+            if (response.ok) {
+              existingFolders.push(folder);
+              console.log(`Found existing folder: ${folder}`);
+              break;  // Stop checking other paths for this folder
+            }
+          } catch (pathErr) {
+            // Ignore individual path errors
           }
         }
       } catch (err) {
@@ -420,7 +411,9 @@ export const checkFolderContents = async (folderName: string): Promise<{
   baseName: string | null;
 }> => {
   try {
-    console.log(`Checking contents of folder: ${folderName}`);
+    const basePath = getBasePath();
+    console.log(`Checking contents of folder: ${folderName} at base path: ${basePath}`);
+    
     let baseName = null;
     let hasJson = false;
     let hasCsv = false;
@@ -437,7 +430,9 @@ export const checkFolderContents = async (folderName: string): Promise<{
     for (const bName of knownBaseNames) {
       // Check for JSON file with this basename
       try {
-        const jsonResponse = await fetch(`/src/data/${folderName}/${bName}.json`);
+        const jsonPath = `${basePath}/${folderName}/${bName}.json`;
+        console.log(`Checking for JSON: ${jsonPath}`);
+        const jsonResponse = await fetch(jsonPath);
         if (jsonResponse.ok) {
           hasJson = true;
           baseName = bName;
@@ -452,7 +447,9 @@ export const checkFolderContents = async (folderName: string): Promise<{
     // If we found a valid baseName, check for matching CSV
     if (baseName) {
       try {
-        const csvResponse = await fetch(`/src/data/${folderName}/${baseName}.csv`);
+        const csvPath = `${basePath}/${folderName}/${baseName}.csv`;
+        console.log(`Checking for CSV: ${csvPath}`);
+        const csvResponse = await fetch(csvPath);
         hasCsv = csvResponse.ok;
         if (hasCsv) {
           console.log(`Found matching CSV file: ${baseName}.csv`);
@@ -465,13 +462,16 @@ export const checkFolderContents = async (folderName: string): Promise<{
       const imageExts = ['.png', '.jpg', '.jpeg', '.webp', '.gif'];
       for (const ext of imageExts) {
         try {
+          const imgPath = `${basePath}/${folderName}/${baseName}${ext}`;
+          console.log(`Checking for image: ${imgPath}`);
+          
           const img = new Image();
           const imagePromise = new Promise<boolean>((resolve) => {
             img.onload = () => resolve(true);
             img.onerror = () => resolve(false);
           });
           
-          img.src = `/src/data/${folderName}/${baseName}${ext}`;
+          img.src = imgPath;
           hasImage = await imagePromise;
           
           if (hasImage) {
@@ -487,13 +487,16 @@ export const checkFolderContents = async (folderName: string): Promise<{
       if (!hasImage) {
         // For Brother 814, we know specific file names exist
         try {
+          const imgPath = `${basePath}/${folderName}/test_Brother814_Needle_Bar_Mechanism_2.png`;
+          console.log(`Checking for alternate image: ${imgPath}`);
+          
           const img = new Image();
           const imagePromise = new Promise<boolean>((resolve) => {
             img.onload = () => resolve(true);
             img.onerror = () => resolve(false);
           });
           
-          img.src = `/src/data/${folderName}/test_Brother814_Needle_Bar_Mechanism_2.png`;
+          img.src = imgPath;
           hasImage = await imagePromise;
           
           if (hasImage) {

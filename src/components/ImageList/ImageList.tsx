@@ -3,11 +3,10 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { getAvailableFolders, checkFolderContents, loadImageData } from '@/utils/fileLoader';
-import { ImageData } from '@/types';
-import { toast } from 'sonner';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, FolderSearch } from "lucide-react";
 import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
 
 interface ImageListItem {
   name: string;
@@ -28,12 +27,12 @@ const ImageList = () => {
         setLoading(true);
         setError(null);
         
-        // Get available folders - now with more dynamic detection
+        // Get available folders with production awareness
         const folders = await getAvailableFolders();
         console.log('Found folders:', folders);
         
         if (folders.length === 0) {
-          setError("No folders were detected in the data directory");
+          setError("No folders were detected in the data directory. If in production, check your build settings.");
           setLoading(false);
           return;
         }
@@ -43,7 +42,7 @@ const ImageList = () => {
         for (const folder of folders) {
           try {
             // Check if folder has required files
-            const { hasJson, hasImage, hasCsv, baseName } = await checkFolderContents(folder);
+            const { hasJson, hasImage, baseName } = await checkFolderContents(folder);
             
             if (hasJson && hasImage && baseName) {
               // Load the JSON data to get the image name and coordinates
@@ -61,7 +60,7 @@ const ImageList = () => {
                 console.log(`Folder ${folder} has valid JSON but the data format is incorrect`);
               }
             } else {
-              console.log(`Folder ${folder} missing required files. JSON: ${hasJson}, Image: ${hasImage}, CSV: ${hasCsv}`);
+              console.log(`Folder ${folder} missing required files. JSON: ${hasJson}, Image: ${hasImage}, Base name: ${baseName}`);
             }
           } catch (folderErr) {
             console.error(`Error processing folder ${folder}:`, folderErr);
@@ -71,7 +70,7 @@ const ImageList = () => {
         setImages(imageDetails);
         
         if (imageDetails.length === 0) {
-          setError("No valid diagram data could be loaded from the available folders");
+          setError("No valid diagram data could be loaded from the available folders. If in production, verify data files were copied to the public folder.");
         }
       } catch (err) {
         console.error('Error loading image list:', err);
@@ -110,7 +109,17 @@ const ImageList = () => {
           </AlertDescription>
         </Alert>
         
-        <div className="flex justify-end">
+        <div className="flex flex-col space-y-4">
+          <div>
+            <h3 className="font-medium mb-2">Deployment Tips</h3>
+            <p className="text-sm mb-2">If you're seeing this error in production:</p>
+            <ul className="list-disc pl-5 text-sm space-y-1 text-muted-foreground">
+              <li>Make sure your JSON files are copied to the <code className="bg-gray-100 px-1">public/</code> directory before build</li>
+              <li>Check the <code className="bg-gray-100 px-1">deployment-instructions.md</code> file</li>
+              <li>In Netlify, add this build command: <code className="bg-gray-100 px-1">mkdir -p public/data && cp -r src/data/* public/data/ && npm run build</code></li>
+            </ul>
+          </div>
+          
           <Button onClick={handleRefresh} variant="outline" size="sm">
             <FolderSearch className="h-4 w-4 mr-2" /> Refresh Folder List
           </Button>
