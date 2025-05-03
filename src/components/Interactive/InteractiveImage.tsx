@@ -104,7 +104,7 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
     console.error("Failed to load image:", imagePath);
     setImageLoaded(false);
     setImageError(true);
-    toast.error("Failed to load image. Please check if the image file exists.");
+    toast.error("Failed to load image. Please check if the image file exists in the public/images directory.");
   };
 
   // Choose min circle size depending on mobile or not
@@ -120,7 +120,7 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
     Math.min(DEFAULT_MAX_CIRCLE_SIZE * 0.65, BASE_FONT_SIZE * scale)
   );
 
-  if (imageError) {
+  if (imageError || !imagePath) {
     return (
       <div className="flex items-center justify-center bg-gray-100 rounded-lg w-full h-[400px]">
         <div className="text-center p-4">
@@ -128,7 +128,7 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
           <h3 className="text-lg font-semibold text-gray-700">Image Failed to Load</h3>
           <p className="text-gray-500 mt-2">Could not load image: {imagePath}</p>
           <p className="text-sm text-gray-400 mt-4">
-            Check that the image file exists in the public/images directory.
+            Check that the image file exists in the public/images directory with a supported extension (.jpg, .jpeg, .png, .webp, .gif).
           </p>
         </div>
       </div>

@@ -39,10 +39,6 @@ const ImageDetail: React.FC = () => {
 
         // Step 1: Find the actual image path
         const imgPath = await getImagePath(currentImageName);
-        if (!imgPath) {
-          console.error(`Could not find image file for: ${currentImageName}`);
-          throw new Error(`Image file not found for: ${currentImageName}`);
-        }
         setImagePath(imgPath);
         console.log(`Found image at path: ${imgPath}`);
 
@@ -106,7 +102,7 @@ const ImageDetail: React.FC = () => {
     );
   }
 
-  if (error || !imageData || !imagePath) {
+  if (error || !imageData) {
     return (
       <div className="container mx-auto px-4 py-8 min-h-[60vh] flex items-center justify-center">
         <div className="text-center">
@@ -141,7 +137,7 @@ const ImageDetail: React.FC = () => {
       <div className="flex flex-col lg:flex-row gap-6">
         <div className="w-full lg:w-2/3 bg-white p-4 rounded-lg shadow min-h-[580px] overflow-auto">
           <InteractiveImage
-            imagePath={imagePath}
+            imagePath={imagePath || ''}
             imageData={imageData}
             highlightedNumber={highlightedNumber}
             onCircleHover={handleCircleHover}

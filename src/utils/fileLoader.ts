@@ -1,3 +1,4 @@
+
 import * as XLSX from "xlsx";
 import { TableRow, ImageData } from "@/types";
 
@@ -21,14 +22,25 @@ export const getImagePath = async (fileName: string): Promise<string | null> => 
   // Try different common image extensions
   const extensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
   
+  // First, try public/images path (works in both dev and prod)
   for (const ext of extensions) {
-    // Try both production and development paths
-    const paths = [
-      `/images/${baseName}${ext}`, // Production path
-      `/src/data/images/${baseName}${ext}` // Dev path (if applicable)
-    ];
-    
-    for (const url of paths) {
+    const url = `/images/${baseName}${ext}`;
+    try {
+      console.log(`Trying to load image from: ${url}`);
+      const response = await fetch(url, { method: 'HEAD' });
+      if (response.ok) {
+        console.log(`Image found at: ${url}`);
+        return url;
+      }
+    } catch (err) {
+      console.log(`Image not found at: ${url}`);
+    }
+  }
+  
+  // As a fallback, try development paths
+  if (!import.meta.env.PROD) {
+    for (const ext of extensions) {
+      const url = `/src/data/images/${baseName}${ext}`;
       try {
         console.log(`Trying to load image from: ${url}`);
         const response = await fetch(url, { method: 'HEAD' });
@@ -45,9 +57,8 @@ export const getImagePath = async (fileName: string): Promise<string | null> => 
   // If we got here, we couldn't find the image with any extension
   console.error(`No valid image found for ${baseName} with tried extensions`);
   
-  // As a last resort, just return a path with .jpg and hope the browser handles it
-  // The browser will show a broken image icon if it fails
-  return `/images/${baseName}.jpg`;
+  // Return null instead of a default path, so UI can handle the error properly
+  return null;
 };
 
 /**
