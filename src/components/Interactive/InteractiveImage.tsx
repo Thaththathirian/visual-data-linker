@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { ImageData } from "@/types";
@@ -27,11 +28,21 @@ const MOBILE_MIN_CIRCLE_SIZE = 12;
 // Rectangular shape settings - adjusted for better placement
 const BASE_RECT_WIDTH_FACTOR = 0.55; // Width factor for rectangle
 const BASE_RECT_HEIGHT = 28; // Base height for rectangle
-const RECT_HORIZONTAL_PADDING = "1px"; // Reduced padding for rectangle
+const RECT_HORIZONTAL_PADDING = "0px"; // Reduced padding for rectangle (was 1px)
 
-// Handle coordinate centering based on number length
-const getCoordinateCentering = (number: string) => {
-  return { xOffset: 0, yOffset: 0 }; // No offset needed as we'll center all shapes
+// Offset adjustments for multi-character labels
+const getLabelOffset = (number: string) => {
+  const digitCount = number.length;
+  
+  if (digitCount >= 3) {
+    // Move 3+ character labels right and down
+    return {
+      xOffset: 6, // Move to the right
+      yOffset: 4   // Move down
+    };
+  }
+  
+  return { xOffset: 0, yOffset: 0 }; // No offset for 1-2 character labels
 };
 
 const InteractiveImage: React.FC<InteractiveImageProps> = ({
@@ -213,10 +224,13 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
         const useRectangle = coord.number.length >= 3;
         const digitCount = coord.number.length;
         
-        // Adjust rectangle width factor based on digit count - tighter for longer strings
-        const rectWidthFactor = digitCount >= 3 ? 0.5 : BASE_RECT_WIDTH_FACTOR;
+        // Get offsets based on label length
+        const { xOffset, yOffset } = getLabelOffset(coord.number);
         
-        // Calculate rectangle width based on digit count
+        // Adjust rectangle width factor based on digit count - tighter for longer strings
+        const rectWidthFactor = digitCount >= 3 ? 0.45 : BASE_RECT_WIDTH_FACTOR; // Reduced from 0.5 to 0.45
+        
+        // Calculate rectangle width based on digit count - slightly narrower for long labels
         const rectWidth = Math.max(
           minCircleSize * 1.2,
           Math.min(DEFAULT_MAX_CIRCLE_SIZE * 1.6, 
@@ -230,9 +244,9 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
             digitCount >= 3 ? BASE_RECT_HEIGHT * scale * 0.9 : BASE_RECT_HEIGHT * scale)
         );
 
-        // Calculate the position with scaling
-        const scaledX = coord.x * scale;
-        const scaledY = coord.y * scale;
+        // Calculate the position with scaling and apply offsets
+        const scaledX = (coord.x + xOffset) * scale;
+        const scaledY = (coord.y + yOffset) * scale;
 
         return (
           <div
@@ -241,7 +255,7 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
             style={{
               left: `${scaledX}px`,
               top: `${scaledY}px`,
-              transform: `translate(-50%, -50%)`, // Always center both shapes
+              transform: `translate(-50%, -50%)`, // Center both shapes
               pointerEvents: "auto",
               zIndex: 10,
             }}
