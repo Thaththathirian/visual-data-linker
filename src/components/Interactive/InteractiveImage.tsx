@@ -26,8 +26,9 @@ const DEFAULT_MAX_CIRCLE_SIZE = 32; // px, prevent too big
 const MOBILE_MIN_CIRCLE_SIZE = 12;
 
 // Rectangular shape settings
-const BASE_RECT_WIDTH_FACTOR = 0.8; // Factor to multiply by digit count
+const BASE_RECT_WIDTH_FACTOR = 0.7; // Reduced factor for tighter fit
 const BASE_RECT_HEIGHT = 28; // Base height for rectangle, same as circle
+const RECT_HORIZONTAL_PADDING = "2px"; // Minimal horizontal padding
 
 const InteractiveImage: React.FC<InteractiveImageProps> = ({
   imagePath,
@@ -210,10 +211,10 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
         const useRectangle = coord.number.length >= 3;
         const digitCount = coord.number.length;
         
-        // Calculate rectangle width based on digit count
+        // Calculate rectangle width based on digit count - tighter fit
         const rectWidth = Math.max(
-          minCircleSize * 1.2,
-          Math.min(DEFAULT_MAX_CIRCLE_SIZE * 1.5, BASE_CIRCLE_SIZE * BASE_RECT_WIDTH_FACTOR * digitCount * scale)
+          minCircleSize * 1.1,
+          Math.min(DEFAULT_MAX_CIRCLE_SIZE * 1.3, BASE_CIRCLE_SIZE * BASE_RECT_WIDTH_FACTOR * digitCount * scale)
         );
         
         // Calculate rectangle height
@@ -246,13 +247,13 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
                 boxShadow: isHighlighted ? "0 0 0 4px #FFE4BA" : undefined,
                 outline: isHighlighted ? "1px solid #FFD580" : undefined,
                 fontWeight: isHighlighted ? 700 : 600,
-                padding: useRectangle ? "0 6px" : 0,
+                padding: useRectangle ? `0 ${RECT_HORIZONTAL_PADDING}` : 0,
                 transition:
-                  "background 0.22s, color 0.22s, box-shadow 0.18s, width 0.18s, height 0.18s, font-size 0.18s",
+                  "background 0.22s, color 0.22s, box-shadow 0.22s, outline 0.22s, transform 0.15s, width 0.18s, height 0.18s, font-size 0.18s",
               }}
               whileHover={{
-                scale: 1.08,
-                boxShadow: "0 0 0 4px #FFE4BA",
+                scale: 1.05, // Reduced scale effect for smoother hover
+                boxShadow: "0 0 0 3px #FFE4BA", // Slightly less pronounced shadow
               }}
               onMouseEnter={() => onCircleHover(coord.number)}
               onMouseLeave={() => onCircleHover(null)}
