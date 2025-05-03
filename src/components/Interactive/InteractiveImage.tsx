@@ -38,8 +38,22 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
   const [isMobile, setIsMobile] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
+
+  // Use effect to auto-retry loading the image with a delay (up to 3 times)
+  useEffect(() => {
+    if (imageError && retryCount < 3) {
+      const timer = setTimeout(() => {
+        console.log(`Retrying image load attempt ${retryCount + 1} for: ${imagePath}`);
+        setImageError(false);
+        setRetryCount(prev => prev + 1);
+      }, 1000 * (retryCount + 1)); // Exponential backoff
+      
+      return () => clearTimeout(timer);
+    }
+  }, [imageError, retryCount, imagePath]);
 
   useEffect(() => {
     const updateScale = () => {
@@ -104,7 +118,21 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
     console.error("Failed to load image:", imagePath);
     setImageLoaded(false);
     setImageError(true);
-    toast.error("Failed to load image. Please check if the image file exists in the public/images directory.");
+    
+    if (retryCount >= 3) {
+      toast.error("Image could not be loaded after multiple attempts.");
+    }
+  };
+  
+  const handleRetryClick = () => {
+    setImageError(false);
+    setImageLoaded(false);
+    setRetryCount(0);
+    
+    // Add a cache-busting parameter to force a fresh load
+    if (imageRef.current) {
+      imageRef.current.src = `${imagePath}?t=${Date.now()}`;
+    }
   };
 
   // Choose min circle size depending on mobile or not
@@ -120,16 +148,28 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
     Math.min(DEFAULT_MAX_CIRCLE_SIZE * 0.65, BASE_FONT_SIZE * scale)
   );
 
-  if (imageError || !imagePath) {
+  // Display placeholder if image fails to load
+  if (imageError && retryCount >= 3) {
     return (
       <div className="flex items-center justify-center bg-gray-100 rounded-lg w-full h-[400px]">
         <div className="text-center p-4">
           <div className="text-red-500 text-4xl mb-4">📷</div>
           <h3 className="text-lg font-semibold text-gray-700">Image Failed to Load</h3>
           <p className="text-gray-500 mt-2">Could not load image: {imagePath}</p>
-          <p className="text-sm text-gray-400 mt-4">
-            Check that the image file exists in the public/images directory with a supported extension (.jpg, .jpeg, .png, .webp, .gif).
-          </p>
+          <div className="mt-4 p-2 bg-gray-50 rounded text-sm text-gray-600">
+            <p className="mb-2"><strong>Troubleshooting:</strong></p>
+            <ul className="list-disc pl-5 text-left space-y-1">
+              <li>Check that the image exists in <code>public/images/</code> directory</li>
+              <li>Verify the image has a supported extension (.jpg, .jpeg, .png, .webp, .gif)</li>
+              <li>Ensure the filename matches your JSON file name</li>
+            </ul>
+          </div>
+          <button 
+            onClick={handleRetryClick}
+            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+          >
+            Try Again
+          </button>
         </div>
       </div>
     );
@@ -143,6 +183,7 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
       {!imageLoaded && !imageError && (
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-custom-blue"></div>
+          <p className="ml-3 text-gray-500">Loading image...</p>
         </div>
       )}
       
@@ -188,8 +229,6 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
                   "background 0.22s, color 0.22s, box-shadow 0.18s, width 0.18s, height 0.18s, font-size 0.18s",
               }}
               whileHover={{
-                backgroundColor: HIGHLIGHT_COLOR,
-                color: "white",
                 scale: 1.08,
                 boxShadow: "0 0 0 4px #FFE4BA",
               }}

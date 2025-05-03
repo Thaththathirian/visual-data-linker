@@ -13,7 +13,7 @@ const ImageDetail: React.FC = () => {
   const navigate = useNavigate();
   const [imageData, setImageData] = useState<ImageData | null>(null);
   const [tableData, setTableData] = useState<TableRow[]>([]);
-  const [imagePath, setImagePath] = useState<string | null>(null);
+  const [imagePath, setImagePath] = useState<string>('/placeholder.svg'); // Default placeholder
   const [highlightedNumber, setHighlightedNumber] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -37,24 +37,28 @@ const ImageDetail: React.FC = () => {
         setLoading(true);
         console.log(`Loading data for image: ${currentImageName}`);
 
-        // Step 1: Find the actual image path
-        const imgPath = await getImagePath(currentImageName);
-        setImagePath(imgPath);
-        console.log(`Found image at path: ${imgPath}`);
-
-        // Step 2: Load JSON data for image
+        // Step 1: Load JSON data for image
         const imgData = await loadImageData(currentImageName);
         if (!imgData) {
           throw new Error(`Failed to load image data for: ${currentImageName}`);
         }
         setImageData(imgData);
         console.log(`Loaded JSON data for: ${currentImageName}`);
+        
+        // Step 2: Find the actual image path (do this after JSON data loaded successfully)
+        const imgPath = await getImagePath(currentImageName);
+        if (imgPath) {
+          setImagePath(imgPath);
+          console.log(`Found image at path: ${imgPath}`);
+        } else {
+          console.warn(`Could not locate image for: ${currentImageName}, using placeholder`);
+        }
 
         // Step 3: Load XLSX table data
         const tableRows = await parseXLSXTable(currentImageName);
         if (tableRows.length === 0) {
           console.warn(`No data found in the XLSX file for: ${currentImageName}`);
-          // Not throwing error here as we might still want to show the image
+          toast.warning("No part data found for this image");
         }
         setTableData(tableRows);
         console.log(`Loaded ${tableRows.length} table rows for: ${currentImageName}`);
@@ -137,7 +141,7 @@ const ImageDetail: React.FC = () => {
       <div className="flex flex-col lg:flex-row gap-6">
         <div className="w-full lg:w-2/3 bg-white p-4 rounded-lg shadow min-h-[580px] overflow-auto">
           <InteractiveImage
-            imagePath={imagePath || ''}
+            imagePath={imagePath}
             imageData={imageData}
             highlightedNumber={highlightedNumber}
             onCircleHover={handleCircleHover}

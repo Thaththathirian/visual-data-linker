@@ -1,4 +1,3 @@
-
 import * as XLSX from "xlsx";
 import { TableRow, ImageData } from "@/types";
 
@@ -22,43 +21,84 @@ export const getImagePath = async (fileName: string): Promise<string | null> => 
   // Try different common image extensions
   const extensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
   
-  // First, try public/images path (works in both dev and prod)
+  // Try direct URL first without checking (most reliable method)
   for (const ext of extensions) {
     const url = `/images/${baseName}${ext}`;
+    console.log(`Attempting direct image access at: ${url}`);
+    
+    // Create an image element to test if the image loads
     try {
-      console.log(`Trying to load image from: ${url}`);
-      const response = await fetch(url, { method: 'HEAD' });
-      if (response.ok) {
-        console.log(`Image found at: ${url}`);
+      const img = new Image();
+      const imagePromise = new Promise<boolean>((resolve) => {
+        img.onload = () => resolve(true);
+        img.onerror = () => resolve(false);
+      });
+      
+      img.src = url;
+      const exists = await imagePromise;
+      
+      if (exists) {
+        console.log(`Success! Image loaded at: ${url}`);
         return url;
       }
     } catch (err) {
-      console.log(`Image not found at: ${url}`);
+      console.log(`Error testing image at ${url}:`, err);
     }
   }
   
-  // As a fallback, try development paths
+  // Fallback to development paths
   if (!import.meta.env.PROD) {
     for (const ext of extensions) {
       const url = `/src/data/images/${baseName}${ext}`;
       try {
-        console.log(`Trying to load image from: ${url}`);
-        const response = await fetch(url, { method: 'HEAD' });
-        if (response.ok) {
-          console.log(`Image found at: ${url}`);
+        console.log(`Trying development path: ${url}`);
+        const img = new Image();
+        const imagePromise = new Promise<boolean>((resolve) => {
+          img.onload = () => resolve(true);
+          img.onerror = () => resolve(false);
+        });
+        
+        img.src = url;
+        const exists = await imagePromise;
+        
+        if (exists) {
+          console.log(`Success! Image loaded at development path: ${url}`);
           return url;
         }
       } catch (err) {
-        console.log(`Image not found at: ${url}`);
+        console.log(`Error testing dev image at ${url}:`, err);
       }
     }
   }
   
-  // If we got here, we couldn't find the image with any extension
-  console.error(`No valid image found for ${baseName} with tried extensions`);
+  // Final fallback - try absolute URLs
+  const origin = window.location.origin;
+  for (const ext of extensions) {
+    const url = `${origin}/images/${baseName}${ext}`;
+    try {
+      console.log(`Trying absolute URL: ${url}`);
+      const img = new Image();
+      const imagePromise = new Promise<boolean>((resolve) => {
+        img.onload = () => resolve(true);
+        img.onerror = () => resolve(false);
+      });
+      
+      img.src = url;
+      const exists = await imagePromise;
+      
+      if (exists) {
+        console.log(`Success! Image loaded at absolute URL: ${url}`);
+        return url;
+      }
+    } catch (err) {
+      console.log(`Error testing absolute URL image at ${url}:`, err);
+    }
+  }
   
-  // Return null instead of a default path, so UI can handle the error properly
-  return null;
+  console.error(`No valid image found for ${baseName} after trying all options`);
+  
+  // Return a default placeholder image instead of null
+  return `/placeholder.svg`;
 };
 
 /**
