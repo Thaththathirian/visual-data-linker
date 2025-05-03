@@ -49,38 +49,25 @@ export const getImagePath = async (folderName: string, fileName: string): Promis
     }
   }
   
-  // Try a known file that exists in that folder - test_Brother814_Needle_Bar_Mechanism_2.png
-  if (folderName === 'test_Brother_814_Needle_Bar_Mechanism') {
-    const specialFile = '/src/data/test_Brother_814_Needle_Bar_Mechanism/test_Brother814_Needle_Bar_Mechanism_2.png';
-    try {
-      const img = new Image();
-      const imagePromise = new Promise<boolean>((resolve) => {
-        img.onload = () => resolve(true);
-        img.onerror = () => resolve(false);
-      });
-      
-      img.src = specialFile;
-      const exists = await imagePromise;
-      
-      if (exists) {
-        console.log(`Success! Found special image at: ${specialFile}`);
-        return specialFile;
-      }
-    } catch (err) {
-      console.log(`Error testing special image: ${specialFile}`, err);
-    }
-  }
-  
-  // Try any image in that folder
+  // Try any image file that might exist in the folder
   try {
-    // We know there's at least one image in the first folder
-    if (folderName === 'test_Brother_814_Needle_Bar_Mechanism') {
-      const knownImage = '/src/data/test_Brother_814_Needle_Bar_Mechanism/test_Brother814_Needle_Bar_Mechanism_2.png';
-      console.log(`Trying known image: ${knownImage}`);
-      return knownImage;
+    // Look for any image in that folder
+    const response = await fetch(`/src/data/${folderName}/`);
+    if (response.ok) {
+      const html = await response.text();
+      
+      // Use regex to find image files in the directory listing
+      const imageRegex = new RegExp(`href="([^"]+\\.(${extensions.map(ext => ext.substring(1)).join('|')}))"`);
+      const match = html.match(imageRegex);
+      
+      if (match && match[1]) {
+        const imgPath = `/src/data/${folderName}/${match[1]}`;
+        console.log(`Found alternative image in folder: ${imgPath}`);
+        return imgPath;
+      }
     }
   } catch (err) {
-    console.log('Error finding fallback image:', err);
+    console.log('Error finding alternative image:', err);
   }
   
   // Final fallback - try absolute URLs
@@ -191,50 +178,128 @@ export const loadImageData = async (folderName: string, fileName: string): Promi
 };
 
 /**
- * Get available folders that may contain diagram data
+ * Dynamically detect and list folders in the data directory
  */
 export const getAvailableFolders = async (): Promise<string[]> => {
   try {
+    console.log("Starting folder detection");
     const isProd = import.meta.env.PROD;
-    
-    // Use a static list of folder paths for development
-    // In a real application, you might want to create a manifest file
+
+    // For production, check if a folders.json exists in /data
     if (isProd) {
-      // For production, we'd use a manifest file
       try {
+        console.log("Checking production folders.json");
         const response = await fetch('/data/folders.json');
         if (response.ok) {
           const data = await response.json();
+          console.log("Found folders.json with folders:", data.folders);
           return data.folders || [];
         }
       } catch (err) {
-        console.error('Error fetching folders list:', err);
+        console.error('Error loading production folders:', err);
       }
-      return [];
-    } else {
-      // In development, use a hard-coded list or a simple fetch API
-      // This is a simplified approach - you may need to adapt this based on your setup
+    }
+
+    // Try to scan src/data directory in development
+    try {
+      console.log("Attempting to scan data directory");
       
-      // List of known folders - update manually when adding new folders
-      const knownFolders = ['test_Brother_814_Needle_Bar_Mechanism'];
-      
-      // Alternatively, try to fetch a manifest if available
+      // Attempt to fetch the src/data directory listing
+      const response = await fetch('/src/data/');
+      if (response.ok) {
+        const html = await response.text();
+        
+        // Use regex to extract directory names
+        const dirRegex = /href="([^"\/]+)\/?"/g;
+        const matches = html.matchAll(dirRegex);
+        
+        const folders: string[] = [];
+        for (const match of matches) {
+          if (match[1] && !match[1].includes('.')) { // Exclude file names
+            folders.push(match[1]);
+          }
+        }
+        
+        if (folders.length > 0) {
+          console.log("Found folders via directory scan:", folders);
+          return folders;
+        }
+      }
+    } catch (err) {
+      console.log("Directory scan didn't work:", err);
+    }
+    
+    // Try to detect folders by probing for known folders
+    // This is a fallback approach when we can't list directories
+    const knownPrefixes = ['test_', 'test2_', ''];
+    const knownBaseNames = ['Brother_814_Needle_Bar_Mechanism'];
+    
+    const potentialFolders: string[] = [];
+    
+    // Generate potential folder names based on known patterns
+    for (const prefix of knownPrefixes) {
+      for (const baseName of knownBaseNames) {
+        potentialFolders.push(`${prefix}${baseName}`);
+      }
+    }
+    
+    // Add in any custom folder names to check
+    potentialFolders.push(...['diagram_data', 'mechanism_diagrams', 'sewing_machine_parts']);
+    
+    console.log("Checking potential folders:", potentialFolders);
+    
+    // Check each potential folder to see if it exists
+    const existingFolders: string[] = [];
+    
+    for (const folder of potentialFolders) {
       try {
-        const response = await fetch('/src/data/folders.json');
+        const response = await fetch(`/src/data/${folder}/`);
         if (response.ok) {
-          const data = await response.json();
-          return data.folders || knownFolders;
+          console.log(`Folder found: ${folder}`);
+          existingFolders.push(folder);
         }
       } catch (err) {
-        // Silently fall back to known folders
+        // Folder doesn't exist or can't be accessed
       }
-      
-      console.log('Using known folders:', knownFolders);
-      return knownFolders;
     }
+    
+    // Case-by-case detection as last resort
+    try {
+      // Special case for Brother 814 folder - we know it exists
+      const response = await fetch('/src/data/test_Brother_814_Needle_Bar_Mechanism/');
+      if (response.ok) {
+        if (!existingFolders.includes('test_Brother_814_Needle_Bar_Mechanism')) {
+          existingFolders.push('test_Brother_814_Needle_Bar_Mechanism');
+        }
+      }
+    } catch (err) {
+      // Folder doesn't exist or can't be accessed
+    }
+    
+    try {
+      // Check for test2 folder
+      const response = await fetch('/src/data/test2_Brother_814_Needle_Bar_Mechanism/');
+      if (response.ok) {
+        if (!existingFolders.includes('test2_Brother_814_Needle_Bar_Mechanism')) {
+          existingFolders.push('test2_Brother_814_Needle_Bar_Mechanism');
+        }
+      }
+    } catch (err) {
+      // Folder doesn't exist or can't be accessed
+    }
+    
+    if (existingFolders.length > 0) {
+      console.log("Found existing folders:", existingFolders);
+      return existingFolders;
+    }
+
+    // Final fallback to hardcoded list
+    console.log("Using fallback folder list");
+    return ['test_Brother_814_Needle_Bar_Mechanism', 'test2_Brother_814_Needle_Bar_Mechanism'];
   } catch (err) {
-    console.error('Error getting available folders:', err);
-    return [];
+    console.error('Error detecting folders:', err);
+    // Ultimate fallback - return at least one known folder
+    return ['test_Brother_814_Needle_Bar_Mechanism'];
   }
 };
 
@@ -248,134 +313,101 @@ export const checkFolderContents = async (folderName: string): Promise<{
   baseName: string | null;
 }> => {
   try {
+    console.log(`Checking contents of folder: ${folderName}`);
     const isProd = import.meta.env.PROD;
     let baseName = null;
     let hasJson = false;
     let hasCsv = false;
     let hasImage = false;
     
-    // Use fetch API instead of import.meta.glob
-    if (!isProd) {
-      // First, try to find a JSON file using common naming patterns
-      const commonJsonNames = [
-        `${folderName}`, // Same as folder name
-        `${folderName.replace(/^test_/, '')}` // Without 'test_' prefix
-      ];
-      
-      // For Brother 814, we know the specific file name exists
-      if (folderName === 'test_Brother_814_Needle_Bar_Mechanism') {
-        commonJsonNames.push('Brother814_Needle_Bar_Mechanism');
-      }
-      
-      for (const name of commonJsonNames) {
-        try {
-          const jsonResponse = await fetch(`/src/data/${folderName}/${name}.json`);
-          if (jsonResponse.ok) {
-            hasJson = true;
-            baseName = name;
-            break;
-          }
-        } catch (err) {
-          // Continue to next name
-        }
-      }
-      
-      // If no match found, try more generic approach (first .json we can find)
-      if (!baseName) {
-        try {
-          // Note: This is a simple approach. In a real app, you might
-          // want to implement a server endpoint to list files in a directory.
-          const manifestResponse = await fetch(`/src/data/${folderName}/manifest.json`);
-          if (manifestResponse.ok) {
-            const manifest = await manifestResponse.json();
-            if (manifest.baseName) {
-              baseName = manifest.baseName;
-              hasJson = true;
-            }
-          }
-        } catch (err) {
-          // Fall back to assuming a file with the folder name exists
-          baseName = folderName.replace(/^test_/, '');
-          
-          // Try to verify if it exists
-          try {
-            const jsonResponse = await fetch(`/src/data/${folderName}/${baseName}.json`);
-            hasJson = jsonResponse.ok;
-          } catch (err) {
-            // If we can't verify, we'll assume it exists and let the load fail later if needed
-            hasJson = false;
-          }
-        }
-      }
-      
-      // Special case for Brother 814 folder - we know these files exist
-      if (folderName === 'test_Brother_814_Needle_Bar_Mechanism') {
-        baseName = 'Brother814_Needle_Bar_Mechanism';
-        hasJson = true;
-        hasCsv = true;
-        hasImage = true;
-        return { hasJson, hasCsv, hasImage, baseName };
-      }
-      
-      // Check for CSV file with the same base name
-      if (baseName) {
-        try {
-          const csvResponse = await fetch(`/src/data/${folderName}/${baseName}.csv`);
-          hasCsv = csvResponse.ok;
-        } catch (err) {
-          // If we can't verify, we'll check during actual load
-          hasCsv = false;
-        }
-        
-        // For images, we'll need to actually try loading one
-        const imagePath = await getImagePath(folderName, baseName);
-        hasImage = imagePath !== null && !imagePath.includes('placeholder');
-      }
-    } else {
-      // For production, we would need to fetch a manifest or make requests
+    // First, try to find a JSON file using common naming patterns
+    const commonJsonNames = [
+      `${folderName}`, // Same as folder name
+      `${folderName.replace(/^test_/, '')}`, // Without 'test_' prefix
+      `${folderName.replace(/^test2_/, '')}` // Without 'test2_' prefix
+    ];
+    
+    // For Brother 814, we know specific file names might exist
+    if (folderName === 'test_Brother_814_Needle_Bar_Mechanism' || 
+        folderName === 'test2_Brother_814_Needle_Bar_Mechanism') {
+      commonJsonNames.push('Brother814_Needle_Bar_Mechanism');
+    }
+    
+    for (const name of commonJsonNames) {
       try {
-        const response = await fetch(`/data/${folderName}/manifest.json`);
-        if (response.ok) {
-          const manifest = await response.json();
-          return {
-            hasJson: manifest.hasJson || false,
-            hasCsv: manifest.hasCsv || false,
-            hasImage: manifest.hasImage || false,
-            baseName: manifest.baseName || null
-          };
+        const jsonResponse = await fetch(`/src/data/${folderName}/${name}.json`);
+        if (jsonResponse.ok) {
+          hasJson = true;
+          baseName = name;
+          console.log(`Found JSON file: ${name}.json in folder ${folderName}`);
+          break;
         }
       } catch (err) {
-        // If no manifest, try common naming patterns
-        const possibleBaseName = folderName.replace(/^test_/, '');
-        
-        // Try to verify JSON exists
-        try {
-          const jsonResponse = await fetch(`/data/${folderName}/${possibleBaseName}.json`);
-          if (jsonResponse.ok) {
-            hasJson = true;
-            baseName = possibleBaseName;
-          }
-        } catch (err) {
-          // Continue with checks
-        }
-        
-        // Check for CSV
-        if (baseName) {
-          try {
-            const csvResponse = await fetch(`/data/${folderName}/${baseName}.csv`);
-            hasCsv = csvResponse.ok;
-          } catch (err) {
-            // Continue
-          }
-          
-          // For images, try loading
-          const imagePath = await getImagePath(folderName, baseName);
-          hasImage = imagePath !== null && !imagePath.includes('placeholder');
-        }
+        // Continue to next name
       }
     }
     
-    console.log(`Folder ${folderName} check: JSON: ${hasJson}, CSV: ${hasCsv}, Image: ${hasImage}, Base name: ${baseName}`);
+    // If no match found, try a more generic approach to find any JSON file
+    if (!baseName) {
+      try {
+        const response = await fetch(`/src/data/${folderName}/`);
+        if (response.ok) {
+          const html = await response.text();
+          
+          // Look for any JSON file
+          const jsonRegex = /href="([^"]+\.json)"/;
+          const match = html.match(jsonRegex);
+          
+          if (match && match[1]) {
+            const jsonFileName = match[1];
+            baseName = jsonFileName.replace(/\.json$/, '');
+            hasJson = true;
+            console.log(`Found JSON file through directory scan: ${jsonFileName}`);
+          }
+        }
+      } catch (err) {
+        console.log('Error searching for JSON file:', err);
+      }
+    }
+    
+    // Check for CSV file with the same base name if we found a JSON
+    if (baseName) {
+      try {
+        const csvResponse = await fetch(`/src/data/${folderName}/${baseName}.csv`);
+        hasCsv = csvResponse.ok;
+        if (hasCsv) {
+          console.log(`Found matching CSV file: ${baseName}.csv`);
+        }
+      } catch (err) {
+        // Try to find any CSV file in the folder
+        try {
+          const response = await fetch(`/src/data/${folderName}/`);
+          if (response.ok) {
+            const html = await response.text();
+            
+            // Look for any CSV file
+            const csvRegex = /href="([^"]+\.csv)"/;
+            const match = html.match(csvRegex);
+            
+            if (match && match[1]) {
+              hasCsv = true;
+              console.log(`Found CSV file through directory scan: ${match[1]}`);
+            }
+          }
+        } catch (searchErr) {
+          console.log('Error searching for CSV file:', searchErr);
+        }
+      }
+      
+      // For images, we need to check if any image file exists
+      const imagePath = await getImagePath(folderName, baseName);
+      hasImage = imagePath !== null && !imagePath.includes('placeholder');
+      if (hasImage) {
+        console.log(`Found image file for: ${baseName}`);
+      }
+    }
+    
+    console.log(`Folder ${folderName} check results: JSON: ${hasJson}, CSV: ${hasCsv}, Image: ${hasImage}, Base name: ${baseName}`);
     return { hasJson, hasCsv, hasImage, baseName };
   } catch (err) {
     console.error(`Error checking folder contents for ${folderName}:`, err);
