@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { ImageData } from "@/types";
@@ -27,7 +28,7 @@ const MOBILE_MIN_CIRCLE_SIZE = 12;
 // Rectangular shape settings - adjusted for better placement
 const BASE_RECT_WIDTH_FACTOR = 0.55; // Width factor for rectangle
 const BASE_RECT_HEIGHT = 28; // Base height for rectangle
-const RECT_HORIZONTAL_PADDING = "0px"; // Reduced padding for rectangle (was 1px)
+const RECT_HORIZONTAL_PADDING = "4px"; // Added padding for rectangle to center text better
 
 // Offset adjustments for multi-character labels
 const getLabelOffset = (number: string) => {
@@ -36,8 +37,8 @@ const getLabelOffset = (number: string) => {
   if (digitCount >= 3) {
     // Move 3+ character labels more to the right and down
     return {
-      xOffset: 25, // Increased from 6 to 10 for more rightward movement
-      yOffset: 10   // Increased from 4 to 8 for more downward movement
+      xOffset: 35, // Increased from 25 to 35 for more rightward movement
+      yOffset: 15   // Increased from 10 to 15 for more downward movement
     };
   }
   
@@ -227,9 +228,9 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
         const { xOffset, yOffset } = getLabelOffset(coord.number);
         
         // Adjust rectangle width factor based on digit count - tighter for longer strings
-        const rectWidthFactor = digitCount >= 3 ? 0.45 : BASE_RECT_WIDTH_FACTOR; // Reduced from 0.5 to 0.45
+        const rectWidthFactor = digitCount >= 3 ? 0.45 : BASE_RECT_WIDTH_FACTOR;
         
-        // Calculate rectangle width based on digit count - slightly narrower for long labels
+        // Calculate rectangle width based on digit count
         const rectWidth = Math.max(
           minCircleSize * 1.2,
           Math.min(DEFAULT_MAX_CIRCLE_SIZE * 1.6, 
@@ -271,7 +272,12 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
                 boxShadow: isHighlighted ? "0 0 0 4px #FFE4BA" : undefined,
                 outline: isHighlighted ? "1px solid #FFD580" : undefined,
                 fontWeight: isHighlighted ? 700 : 600,
-                padding: useRectangle ? `0 ${RECT_HORIZONTAL_PADDING}` : 0,
+                padding: useRectangle ? RECT_HORIZONTAL_PADDING : 0, // Added horizontal padding for better text centering
+                display: "flex",
+                alignItems: "center",     // Ensure vertical centering
+                justifyContent: "center", // Ensure horizontal centering
+                lineHeight: "1",          // Prevent line height from affecting vertical centering
+                textAlign: "center",      // Ensure text is centered
                 transition: "background 0.2s, color 0.2s, transform 0.15s, width 0.18s, height 0.18s",
               }}
               whileHover={{
@@ -300,3 +306,4 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
 };
 
 export default InteractiveImage;
+

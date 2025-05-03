@@ -1,4 +1,3 @@
-
 import { TableRow, ImageData } from "@/types";
 import { parseCSV } from "@/utils/csvParser";
 import { toast } from "sonner";
@@ -222,6 +221,106 @@ export const loadImageData = async (folderName: string, fileName: string): Promi
 };
 
 /**
+ * Try to detect available folders by checking for common file patterns
+ * This allows dynamic folder detection without hard-coding folder names
+ */
+const tryDetectFolders = async (): Promise<string[]> => {
+  try {
+    console.log("Attempting dynamic folder detection");
+    
+    // Try to find all folders in src/data directory
+    // Since browser security prevents directory listing, we'll use a more creative approach:
+    // We'll check if common file patterns exist in potential folder paths
+    
+    // List some common naming patterns for mechanism folders
+    const folderPatterns = [
+      // Needle bar mechanism patterns
+      'test_Brother_814_Needle_Bar_Mechanism',
+      'test2_Brother_814_Needle_Bar_Mechanism', 
+      'test3_Brother_814_Needle_Bar_Mechanism',
+      'test4_Brother_814_Needle_Bar_Mechanism',
+      'Brother_814_Needle_Bar_Mechanism',
+      // Generic mechanism patterns
+      'diagram_data',
+      'mechanism_diagrams', 
+      'sewing_machine_parts',
+      // Additional patterns that might be used
+      'mechanism',
+      'parts',
+      'diagrams'
+    ];
+    
+    // Common base directories where folders might be
+    const basePaths = [
+      '/src/data/',
+      '/data/'
+    ];
+    
+    // Check if we can detect folders by combining patterns and checking file existence
+    const detectedFolders: string[] = [];
+    const foundFolders = new Set<string>();
+    
+    // Function to extract folder name from a path
+    const extractFolderName = (path: string): string => {
+      const parts = path.split('/');
+      // Remove empty parts and get the part that would be a folder name
+      return parts.filter(p => p && p !== 'src' && p !== 'data')[0] || '';
+    };
+    
+    // Check well-known folder patterns first
+    for (const pattern of folderPatterns) {
+      for (const basePath of basePaths) {
+        try {
+          // Try to access a JSON file in this potential folder
+          const testPath = `${basePath}${pattern}/Brother814_Needle_Bar_Mechanism.json`;
+          const response = await fetch(testPath, { method: 'HEAD' });
+          
+          if (response.ok) {
+            const folderName = extractFolderName(`${basePath}${pattern}`);
+            if (folderName && !foundFolders.has(folderName)) {
+              foundFolders.add(folderName);
+              detectedFolders.push(folderName);
+              console.log(`Detected folder: ${folderName}`);
+            }
+          }
+          
+          // Also try checking for any JSON file with common names
+          const altFilePaths = [
+            `${basePath}${pattern}/diagram.json`,
+            `${basePath}${pattern}/parts.json`,
+            `${basePath}${pattern}/mechanism.json`
+          ];
+          
+          for (const altPath of altFilePaths) {
+            try {
+              const altResponse = await fetch(altPath, { method: 'HEAD' });
+              if (altResponse.ok) {
+                const folderName = extractFolderName(`${basePath}${pattern}`);
+                if (folderName && !foundFolders.has(folderName)) {
+                  foundFolders.add(folderName);
+                  detectedFolders.push(folderName);
+                  console.log(`Detected folder with alternative file: ${folderName}`);
+                  break; // Found a valid file in this folder, no need to check more
+                }
+              }
+            } catch (err) {
+              // Ignore errors for alternative paths
+            }
+          }
+        } catch (err) {
+          // Ignore errors for pattern checks
+        }
+      }
+    }
+    
+    return detectedFolders;
+  } catch (err) {
+    console.error("Error in dynamic folder detection:", err);
+    return [];
+  }
+};
+
+/**
  * Dynamically scan available directories in src/data 
  */
 export const getAvailableFolders = async (): Promise<string[]> => {
@@ -244,27 +343,15 @@ export const getAvailableFolders = async (): Promise<string[]> => {
       }
     }
     
-    // Direct folder detection approach
-    try {
-      // Try to fetch a listing endpoint (if available)
-      const listingUrl = isProd ? '/data/folders.json' : '/src/data/';
-      const response = await fetch(listingUrl);
-      
-      if (response.ok) {
-        // This might be possible if the server supports directory listings
-        if (response.headers.get('content-type')?.includes('json')) {
-          const data = await response.json();
-          if (data && Array.isArray(data.folders)) {
-            return data.folders;
-          }
-        }
-      }
-    } catch (err) {
-      console.log("Directory listing not available:", err);
+    // First try dynamic folder detection
+    const dynamicFolders = await tryDetectFolders();
+    if (dynamicFolders.length > 0) {
+      console.log("Found folders through dynamic detection:", dynamicFolders);
+      return dynamicFolders;
     }
     
-    // Test each known/potential folder to see if it exists
-    const potentialFolders = [
+    // Fallback to well-known folders as a last resort
+    const fallbackFolders = [
       'test_Brother_814_Needle_Bar_Mechanism',
       'test2_Brother_814_Needle_Bar_Mechanism',
       'test3_Brother_814_Needle_Bar_Mechanism',
@@ -275,9 +362,10 @@ export const getAvailableFolders = async (): Promise<string[]> => {
       'sewing_machine_parts'
     ];
     
+    // Test each known/potential folder to see if it exists
     const existingFolders: string[] = [];
     
-    for (const folder of potentialFolders) {
+    for (const folder of fallbackFolders) {
       try {
         // Check if a JSON file exists in this folder - if yes, it's probably valid
         const testPath = isProd ? 
