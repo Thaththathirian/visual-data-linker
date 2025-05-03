@@ -68,14 +68,14 @@ const ImageList = () => {
     return (
       <div className="text-center p-8 bg-gray-50 rounded-lg">
         <p className="text-gray-600">No diagram data available.</p>
-        <p className="text-sm text-gray-500 mt-2">
+        <div className="text-sm text-gray-500 mt-2">
           Add folders to the src/data directory, with each folder containing:
           <ul className="list-disc ml-6 mt-1 text-left">
             <li>A JSON file with coordinate data</li>
             <li>A CSV file with part information</li>
             <li>An image file (.jpg, .png, etc.)</li>
           </ul>
-        </p>
+        </div>
       </div>
     );
   }
