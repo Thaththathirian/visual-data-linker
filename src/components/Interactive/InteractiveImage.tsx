@@ -36,8 +36,8 @@ const getLabelOffset = (number: string) => {
   if (digitCount >= 3) {
     // Move 3+ character labels more to the right and down
     return {
-      xOffset: 10, // Increased from 6 to 10 for more rightward movement
-      yOffset: 8   // Increased from 4 to 8 for more downward movement
+      xOffset: 25, // Increased from 6 to 10 for more rightward movement
+      yOffset: 10   // Increased from 4 to 8 for more downward movement
     };
   }
   

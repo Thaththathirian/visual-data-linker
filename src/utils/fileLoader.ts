@@ -268,6 +268,7 @@ export const getAvailableFolders = async (): Promise<string[]> => {
       'test_Brother_814_Needle_Bar_Mechanism',
       'test2_Brother_814_Needle_Bar_Mechanism',
       'test3_Brother_814_Needle_Bar_Mechanism',
+      'test4_Brother_814_Needle_Bar_Mechanism',
       'Brother_814_Needle_Bar_Mechanism',
       'diagram_data',
       'mechanism_diagrams',
