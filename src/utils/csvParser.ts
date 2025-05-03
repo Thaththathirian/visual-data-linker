@@ -1,11 +1,13 @@
 
 import { TableRow } from "@/types";
+import Papa from "papaparse";
 
 export const parseCSV = (csvContent: string): TableRow[] => {
   const lines = csvContent.trim().split('\n');
   if (lines.length === 0) return [];
   
-  const headers = lines[0].split(',').map(header => header.trim());
+  // Parse the header line using Papa Parse to handle quotes properly
+  const headers = Papa.parse(lines[0], { quotes: true }).data[0] as string[];
   
   // Find important column indexes
   const numberIndex = headers.findIndex(h => h.toLowerCase() === 'number');
@@ -21,7 +23,8 @@ export const parseCSV = (csvContent: string): TableRow[] => {
     .map(line => line.trim())
     .filter(line => line.length > 0) // Skip empty lines
     .map((line, index) => {
-      const values = line.split(',').map(val => val.trim());
+      // Parse the CSV line properly handling quotes
+      const values = Papa.parse(line, { quotes: true }).data[0] as string[];
       const data: Record<string, any> = {};
       
       // Map values to columns

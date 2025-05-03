@@ -26,9 +26,26 @@ const DEFAULT_MAX_CIRCLE_SIZE = 32; // px, prevent too big
 const MOBILE_MIN_CIRCLE_SIZE = 12;
 
 // Rectangular shape settings
-const BASE_RECT_WIDTH_FACTOR = 0.5; // Reduced factor for tighter fit
+const BASE_RECT_WIDTH_FACTOR = 0.55; // Increased for better fit of longer numbers
 const BASE_RECT_HEIGHT = 28; // Base height for rectangle, same as circle
 const RECT_HORIZONTAL_PADDING = "2px"; // Consistent minimal horizontal padding for all digits
+
+// Adjustments for multi-character coordinates
+const getCoordinateOffsets = (number: string) => {
+  const digitCount = number.length;
+  
+  // No offset needed for 1-2 character numbers
+  if (digitCount <= 2) {
+    return { xOffset: 0, yOffset: 0 };
+  }
+  
+  // For 3+ character coordinates, apply small adjustment
+  // The longer the text, the more adjustment needed
+  const xOffset = Math.min(digitCount - 2, 3) * 1.5; // Pixels right
+  const yOffset = Math.min(digitCount - 2, 2) * 1; // Pixels down
+  
+  return { xOffset, yOffset };
+};
 
 const InteractiveImage: React.FC<InteractiveImageProps> = ({
   imagePath,
@@ -203,19 +220,20 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
       />
 
       {imageLoaded && imageData.coordinates.map((coord) => {
-        const scaledX = coord.x * scale;
-        const scaledY = coord.y * scale;
+        const { xOffset, yOffset } = getCoordinateOffsets(coord.number);
+        const scaledX = coord.x * scale + (xOffset * scale);
+        const scaledY = coord.y * scale + (yOffset * scale);
         const isHighlighted = highlightedNumber === coord.number;
         
         // Determine if we should use rectangle based on number length
         const useRectangle = coord.number.length >= 3;
         const digitCount = coord.number.length;
         
-        // Calculate rectangle width based on digit count - tighter fit
-        // Use consistent calculation for all digit counts
+        // Calculate rectangle width based on digit count - adjusted for better fit
         const rectWidth = Math.max(
           minCircleSize * 1.1,
-          Math.min(DEFAULT_MAX_CIRCLE_SIZE * 1.3, BASE_CIRCLE_SIZE * BASE_RECT_WIDTH_FACTOR * digitCount * scale)
+          Math.min(DEFAULT_MAX_CIRCLE_SIZE * 1.5, 
+            BASE_CIRCLE_SIZE * BASE_RECT_WIDTH_FACTOR * digitCount * scale)
         );
         
         // Calculate rectangle height
@@ -253,6 +271,11 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
               }}
               whileHover={{
                 scale: 1.08,
+              }}
+              animate={{
+                backgroundColor: isHighlighted 
+                  ? "rgba(249, 115, 22, 1)" // HIGHLIGHT_COLOR in rgba 
+                  : "rgba(229, 222, 255, 1)" // DEFAULT_CIRCLE_COLOR in rgba
               }}
               onMouseEnter={() => onCircleHover(coord.number)}
               onMouseLeave={() => onCircleHover(null)}
