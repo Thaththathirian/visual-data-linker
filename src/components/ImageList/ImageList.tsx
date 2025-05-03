@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { getAvailableFolders, checkFolderContents, loadImageData } from '@/utils/fileLoader';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle, FolderSearch } from "lucide-react";
+import { AlertCircle, FolderSearch, ExternalLink } from "lucide-react";
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 
@@ -27,12 +27,12 @@ const ImageList = () => {
         setLoading(true);
         setError(null);
         
-        // Get available folders with production awareness
+        // Get available folders
         const folders = await getAvailableFolders();
         console.log('Found folders:', folders);
         
         if (folders.length === 0) {
-          setError("No folders were detected in the data directory. If in production, check your build settings.");
+          setError("No folders were detected. Please ensure your data files are in the correct location.");
           setLoading(false);
           return;
         }
@@ -70,7 +70,7 @@ const ImageList = () => {
         setImages(imageDetails);
         
         if (imageDetails.length === 0) {
-          setError("No valid diagram data could be loaded from the available folders. If in production, verify data files were copied to the public folder.");
+          setError("No valid diagram data could be loaded. Make sure your data files are in the public folder for production.");
         }
       } catch (err) {
         console.error('Error loading image list:', err);
@@ -114,15 +114,35 @@ const ImageList = () => {
             <h3 className="font-medium mb-2">Deployment Tips</h3>
             <p className="text-sm mb-2">If you're seeing this error in production:</p>
             <ul className="list-disc pl-5 text-sm space-y-1 text-muted-foreground">
-              <li>Make sure your JSON files are copied to the <code className="bg-gray-100 px-1">public/</code> directory before build</li>
-              <li>Check the <code className="bg-gray-100 px-1">deployment-instructions.md</code> file</li>
-              <li>In Netlify, add this build command: <code className="bg-gray-100 px-1">mkdir -p public/data && cp -r src/data/* public/data/ && npm run build</code></li>
+              <li>Make sure your data files (JSON, CSV, images) are in the <code className="bg-gray-100 px-1">public/data/</code> directory</li>
+              <li>Each diagram should have its own folder (e.g., <code className="bg-gray-100 px-1">public/data/Brother_814_Needle_Bar_Mechanism/</code>)</li>
+              <li>Each folder needs a JSON file, a CSV file, and an image with matching names</li>
             </ul>
           </div>
           
-          <Button onClick={handleRefresh} variant="outline" size="sm">
+          <div className="border border-gray-200 rounded-md p-3 bg-gray-50">
+            <h4 className="text-sm font-medium mb-2">Structure Example</h4>
+            <pre className="text-xs text-gray-600">
+              public/data/your_folder_name/<br/>
+              ├── diagram_name.json<br/>
+              ├── diagram_name.csv<br/>
+              └── diagram_name.png
+            </pre>
+          </div>
+          
+          <Button onClick={handleRefresh} variant="outline" size="sm" className="self-start">
             <FolderSearch className="h-4 w-4 mr-2" /> Refresh Folder List
           </Button>
+          
+          <a 
+            href="https://github.com/Thaththathirian/visual-data-linker/tree/main/src/data/test_Brother_814_Needle_Bar_Mechanism" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="text-sm text-blue-600 hover:underline flex items-center self-start"
+          >
+            <ExternalLink className="h-3 w-3 mr-1" />
+            View example diagram files
+          </a>
         </div>
       </div>
     );
@@ -141,7 +161,7 @@ const ImageList = () => {
         <div className="text-center p-8 bg-gray-50 rounded-lg">
           <p className="text-gray-600">No diagram data available.</p>
           <div className="text-sm text-gray-500 mt-2">
-            Add folders to the src/data directory, with each folder containing:
+            Add folders to the data directory, with each folder containing:
             <ul className="list-disc ml-6 mt-1 text-left">
               <li>A JSON file with coordinate data</li>
               <li>A CSV file with part information</li>

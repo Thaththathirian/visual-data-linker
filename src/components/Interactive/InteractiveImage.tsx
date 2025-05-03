@@ -28,7 +28,7 @@ const MOBILE_MIN_CIRCLE_SIZE = 12;
 // Rectangular shape settings - adjusted for better placement
 const BASE_RECT_WIDTH_FACTOR = 0.55; // Width factor for rectangle
 const BASE_RECT_HEIGHT = 28; // Base height for rectangle
-const RECT_HORIZONTAL_PADDING = "4px"; // Added padding for rectangle to center text better
+const RECT_HORIZONTAL_PADDING = "6px"; // Added more padding for rectangle to center text better
 
 // Offset adjustments for multi-character labels
 const getLabelOffset = (number: string) => {
@@ -280,6 +280,7 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
                 textAlign: "center",      // Ensure text is centered
                 transition: "background 0.2s, color 0.2s, transform 0.15s, width 0.18s, height 0.18s",
                 whiteSpace: "nowrap",
+                boxSizing: "border-box", // Make sure padding doesn't affect overall dimensions
               }}
               whileHover={{
                 scale: 1.08,
@@ -297,7 +298,17 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
                 onCircleClick(coord.number);
               }}
             >
-              {coord.number}
+              <span style={{ 
+                display: "inline-block", 
+                lineHeight: 1, 
+                // Adjust vertical position to center text in rectangle
+                paddingBottom: useRectangle ? "1px" : "0px",
+                position: "relative",
+                // Small text alignment correction based on number length
+                top: digitCount >= 3 ? "1px" : "0px"
+              }}>
+                {coord.number}
+              </span>
             </motion.div>
           </div>
         );
@@ -307,4 +318,3 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
 };
 
 export default InteractiveImage;
-

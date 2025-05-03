@@ -14,7 +14,9 @@ const isProd = (): boolean => {
  * Gets the appropriate base path for data files based on environment
  */
 const getBasePath = (): string => {
-  return isProd() ? '/data' : '/src/data';
+  // In both production and development, we'll try to use the public folder first
+  // This makes it consistent between environments
+  return '/data';
 }
 
 /**
@@ -99,6 +101,49 @@ export const getImagePath = async (folderName: string, fileName: string): Promis
     console.log('Error finding alternative image:', err);
   }
   
+  // Try development path as fallback - this helps during development
+  if (!isProd()) {
+    try {
+      // Fallback to src/data for development
+      const devBasePath = '/src/data';
+      for (const ext of extensions) {
+        const url = `${devBasePath}/${folderName}/${baseName}${ext}`;
+        
+        const img = new Image();
+        const imagePromise = new Promise<boolean>((resolve) => {
+          img.onload = () => resolve(true);
+          img.onerror = () => resolve(false);
+        });
+        
+        img.src = url;
+        const exists = await imagePromise;
+        
+        if (exists) {
+          console.log(`Found image in development path: ${url}`);
+          return url;
+        }
+      }
+      
+      // Check for test_Brother814_Needle_Bar_Mechanism_2.png in dev path
+      const devTestPath = `${devBasePath}/${folderName}/test_Brother814_Needle_Bar_Mechanism_2.png`;
+      const img = new Image();
+      const imagePromise = new Promise<boolean>((resolve) => {
+        img.onload = () => resolve(true);
+        img.onerror = () => resolve(false);
+      });
+      
+      img.src = devTestPath;
+      const exists = await imagePromise;
+      
+      if (exists) {
+        console.log(`Found dev test image: ${devTestPath}`);
+        return devTestPath;
+      }
+    } catch (err) {
+      console.log('Error with development fallback:', err);
+    }
+  }
+  
   // Return a default placeholder image
   return `/placeholder.svg`;
 };
@@ -114,13 +159,21 @@ export const parseCSVFile = async (folderName: string, fileName: string): Promis
       fileName;
 
     const basePath = getBasePath();
-    const filePath = `${basePath}/${folderName}/${baseName}.csv`;
+    let filePath = `${basePath}/${folderName}/${baseName}.csv`;
     console.log(`Fetching CSV file from: ${filePath}`);
 
-    const response = await fetch(filePath);
+    let response = await fetch(filePath);
+    
+    // If not found in public/data, try src/data (development fallback)
+    if (!response.ok && !isProd()) {
+      const devPath = `/src/data/${folderName}/${baseName}.csv`;
+      console.log(`Trying development path for CSV: ${devPath}`);
+      response = await fetch(devPath);
+    }
+    
     if (!response.ok) {
       console.error(`Failed to load CSV: ${response.status} ${response.statusText}`);
-      throw new Error(`Failed to load CSV from ${filePath}`);
+      throw new Error(`Failed to load CSV file`);
     }
 
     const csvText = await response.text();
@@ -154,11 +207,70 @@ export const loadImageData = async (folderName: string, fileName: string): Promi
       const jsonPath = `${basePath}/${folderName}/${baseName}.json`;
       
       console.log(`Attempting to load JSON from: ${jsonPath}`);
-      const response = await fetch(jsonPath);
+      let response = await fetch(jsonPath);
+      
+      // If not found in public/data, try src/data (development fallback)
+      if (!response.ok && !isProd()) {
+        const devPath = `/src/data/${folderName}/${baseName}.json`;
+        console.log(`Trying development path for JSON: ${devPath}`);
+        response = await fetch(devPath);
+      }
       
       if (!response.ok) {
-        console.log(`Failed to load JSON from ${jsonPath} with status ${response.status}`);
-        throw new Error(`Failed to load JSON from ${jsonPath}`);
+        console.log(`Failed to load JSON with status ${response.status}`);
+        
+        // Try finding any JSON file in the folder as fallback
+        try {
+          // Try a few common basenames for mechanism diagrams
+          const alternateBaseNames = [
+            "Brother814_Needle_Bar_Mechanism",
+            "diagram",
+            "parts",
+            "mechanism"
+          ];
+          
+          for (const altName of alternateBaseNames) {
+            const alternatePath = `${basePath}/${folderName}/${altName}.json`;
+            
+            console.log(`Trying alternate JSON path: ${alternatePath}`);
+            
+            try {
+              const altResponse = await fetch(alternatePath);
+              if (!altResponse.ok && !isProd()) {
+                // Try development path for alternate
+                const devAltPath = `/src/data/${folderName}/${altName}.json`;
+                const devAltResponse = await fetch(devAltPath);
+                if (devAltResponse.ok) {
+                  jsonData = await devAltResponse.json();
+                  if (jsonData && jsonData.coordinates) {
+                    console.log(`Successfully loaded alternate JSON data from dev path: ${devAltPath}`);
+                    return jsonData;
+                  }
+                }
+                continue;
+              }
+              
+              if (!altResponse.ok) continue;
+              
+              try {
+                jsonData = await altResponse.json();
+                if (jsonData && jsonData.coordinates) {
+                  console.log(`Successfully loaded alternate JSON data from ${altName}.json`);
+                  return jsonData;
+                }
+              } catch (parseErr) {
+                console.log(`Failed to parse JSON from ${alternatePath}`);
+                continue;
+              }
+            } catch (altErr) {
+              console.log(`Failed alternate JSON attempt for ${altName}: ${altErr}`);
+            }
+          }
+        } catch (fallbackErr) {
+          console.error(`Failed all JSON fallbacks: ${fallbackErr}`);
+        }
+        
+        throw new Error(`No valid JSON file found for ${folderName}`);
       }
       
       // Check content type and parse as JSON
@@ -182,43 +294,7 @@ export const loadImageData = async (folderName: string, fileName: string): Promi
       }
     } catch (err) {
       console.log(`Error with JSON load attempt: ${err instanceof Error ? err.message : String(err)}`);
-      
-      // Try finding any JSON file in the folder as fallback
-      try {
-        // Try a few common basenames for mechanism diagrams
-        const alternateBaseNames = [
-          "Brother814_Needle_Bar_Mechanism",
-          "diagram",
-          "parts",
-          "mechanism"
-        ];
-        
-        for (const altName of alternateBaseNames) {
-          const alternatePath = `${basePath}/${folderName}/${altName}.json`;
-          
-          console.log(`Trying alternate JSON path: ${alternatePath}`);
-          
-          try {
-            const response = await fetch(alternatePath);
-            if (!response.ok) continue;
-            
-            try {
-              jsonData = await response.json();
-              if (jsonData && jsonData.coordinates) {
-                console.log(`Successfully loaded alternate JSON data from ${altName}.json`);
-                return jsonData;
-              }
-            } catch (parseErr) {
-              console.log(`Failed to parse JSON from ${alternatePath}`);
-              continue;
-            }
-          } catch (altErr) {
-            console.log(`Failed alternate JSON attempt for ${altName}: ${altErr}`);
-          }
-        }
-      } catch (fallbackErr) {
-        console.error(`Failed all JSON fallbacks: ${fallbackErr}`);
-      }
+      throw err;
     }
     
     if (!jsonData) {
@@ -242,9 +318,9 @@ const tryDetectFolders = async (): Promise<string[]> => {
     
     const basePath = getBasePath();
     
-    // List some common naming patterns for mechanism folders
+    // List of known folder patterns to try
     const folderPatterns = [
-      // Needle bar mechanism patterns
+      // Standard folder patterns
       'test_Brother_814_Needle_Bar_Mechanism',
       'test2_Brother_814_Needle_Bar_Mechanism', 
       'test3_Brother_814_Needle_Bar_Mechanism',
@@ -265,7 +341,7 @@ const tryDetectFolders = async (): Promise<string[]> => {
     const detectedFolders: string[] = [];
     const foundFolders = new Set<string>();
     
-    // Check well-known folder patterns first
+    // Check well-known folder patterns
     for (const pattern of folderPatterns) {
       try {
         // Try to access a JSON file in this potential folder
@@ -285,7 +361,7 @@ const tryDetectFolders = async (): Promise<string[]> => {
               if (!foundFolders.has(pattern)) {
                 foundFolders.add(pattern);
                 detectedFolders.push(pattern);
-                console.log(`Detected folder: ${pattern}`);
+                console.log(`Detected folder in public path: ${pattern}`);
                 break;  // Found a valid file in this folder, no need to check more
               }
             }
@@ -298,6 +374,43 @@ const tryDetectFolders = async (): Promise<string[]> => {
       }
     }
     
+    // In development, try src/data path too
+    if (!isProd() && detectedFolders.length === 0) {
+      const devBasePath = '/src/data';
+      console.log("Trying src/data path for development...");
+      
+      for (const pattern of folderPatterns) {
+        try {
+          // Check for JSON file in development path
+          const checkPaths = [
+            `${devBasePath}/${pattern}/Brother814_Needle_Bar_Mechanism.json`,
+            `${devBasePath}/${pattern}/diagram.json`,
+            `${devBasePath}/${pattern}/parts.json`,
+            `${devBasePath}/${pattern}/mechanism.json`
+          ];
+          
+          for (const checkPath of checkPaths) {
+            try {
+              const response = await fetch(checkPath, { method: 'HEAD' });
+              
+              if (response.ok) {
+                if (!foundFolders.has(pattern)) {
+                  foundFolders.add(pattern);
+                  detectedFolders.push(pattern);
+                  console.log(`Detected folder in development path: ${pattern}`);
+                  break;
+                }
+              }
+            } catch (pathErr) {
+              // Ignore individual path errors
+            }
+          }
+        } catch (err) {
+          // Ignore pattern errors
+        }
+      }
+    }
+    
     return detectedFolders;
   } catch (err) {
     console.error("Error in dynamic folder detection:", err);
@@ -306,94 +419,55 @@ const tryDetectFolders = async (): Promise<string[]> => {
 };
 
 /**
- * Dynamically scan available directories in src/data 
+ * Dynamically scan available directories in data folders
  */
 export const getAvailableFolders = async (): Promise<string[]> => {
   try {
     console.log("Starting folder detection");
     
-    // In production, we'd check a folders.json manifest
-    if (isProd()) {
-      try {
-        console.log("Checking production folders.json");
-        const folderJsonPath = '/data/folders.json';
-        const response = await fetch(folderJsonPath);
-        
-        if (response.ok) {
-          const data = await response.json();
-          console.log("Found folders.json with folders:", data.folders);
-          if (data.folders && data.folders.length > 0) {
-            return data.folders;
-          }
-        } else {
-          console.warn(`folders.json not found or invalid at ${folderJsonPath}, trying alternative detection`);
-        }
-      } catch (err) {
-        console.error('Error loading production folders:', err);
-      }
-    }
-    
-    // First try dynamic folder detection
+    // First try dynamic folder detection - this works in both dev and prod
     const dynamicFolders = await tryDetectFolders();
     if (dynamicFolders.length > 0) {
       console.log("Found folders through dynamic detection:", dynamicFolders);
       return dynamicFolders;
     }
     
-    // Fallback to well-known folders as a last resort
-    const fallbackFolders = [
-      'test_Brother_814_Needle_Bar_Mechanism',
-      'test2_Brother_814_Needle_Bar_Mechanism',
-      'test3_Brother_814_Needle_Bar_Mechanism',
-      'test4_Brother_814_Needle_Bar_Mechanism',
-      'test5_Brother_814_Needle_Bar_Mechanism',
-      'Brother_814_Needle_Bar_Mechanism',
-      'diagram_data',
-      'mechanism_diagrams',
-      'sewing_machine_parts'
-    ];
-    
-    // Test each known/potential folder to see if it exists
-    const existingFolders: string[] = [];
-    
-    for (const folder of fallbackFolders) {
-      try {
-        const basePath = getBasePath();
-        
-        // Check if a JSON file exists in this folder
-        const testPaths = [
-          `${basePath}/${folder}/Brother814_Needle_Bar_Mechanism.json`,
-          `${basePath}/${folder}/diagram.json`,
-          `${basePath}/${folder}/parts.json`,
-          `${basePath}/${folder}/mechanism.json`
-        ];
-        
-        for (const testPath of testPaths) {
-          try {
-            const response = await fetch(testPath);
-            // If response is 200, folder exists and has data
-            if (response.ok) {
-              existingFolders.push(folder);
-              console.log(`Found existing folder: ${folder}`);
-              break;  // Stop checking other paths for this folder
-            }
-          } catch (pathErr) {
-            // Ignore individual path errors
+    // If no folders detected dynamically, try the development data folders
+    if (!isProd()) {
+      console.log("No folders detected. Falling back to development folders");
+      const devFolders = [
+        'test_Brother_814_Needle_Bar_Mechanism',
+        'test2_Brother_814_Needle_Bar_Mechanism',
+        'test3_Brother_814_Needle_Bar_Mechanism',
+        'test4_Brother_814_Needle_Bar_Mechanism',
+        'test5_Brother_814_Needle_Bar_Mechanism',
+        'Brother_814_Needle_Bar_Mechanism'
+      ];
+      
+      // Check for any development folders that exist
+      const existingDevFolders = [];
+      for (const folder of devFolders) {
+        try {
+          const testPath = `/src/data/${folder}/Brother814_Needle_Bar_Mechanism.json`;
+          const response = await fetch(testPath, { method: 'HEAD' });
+          if (response.ok) {
+            existingDevFolders.push(folder);
           }
+        } catch (err) {
+          // Skip folders that don't exist
         }
-      } catch (err) {
-        console.log(`Error checking folder ${folder}:`, err);
+      }
+      
+      if (existingDevFolders.length > 0) {
+        console.log("Found existing development folders:", existingDevFolders);
+        return existingDevFolders;
       }
     }
     
-    if (existingFolders.length > 0) {
-      console.log("Found folders through testing:", existingFolders);
-      return existingFolders;
-    }
-    
-    // Ultimate fallback - return at least one known folder
-    console.log("Falling back to known folder list");
-    return ['test_Brother_814_Needle_Bar_Mechanism', 'test2_Brother_814_Needle_Bar_Mechanism', 'test3_Brother_814_Needle_Bar_Mechanism'];
+    console.log("Could not detect any valid folders. Returning placeholder");
+    // If we've exhausted all options, return at least the default folder names
+    // to show proper error messages to the user
+    return ['test_Brother_814_Needle_Bar_Mechanism', 'Brother_814_Needle_Bar_Mechanism'];
   } catch (err) {
     console.error('Error detecting folders:', err);
     // Ultimate fallback - return at least one known folder
@@ -412,6 +486,8 @@ export const checkFolderContents = async (folderName: string): Promise<{
 }> => {
   try {
     const basePath = getBasePath();
+    const devBasePath = !isProd() ? '/src/data' : '';
+    
     console.log(`Checking contents of folder: ${folderName} at base path: ${basePath}`);
     
     let baseName = null;
@@ -427,12 +503,13 @@ export const checkFolderContents = async (folderName: string): Promise<{
       'mechanism'
     ];
     
+    // First check the public/data path
     for (const bName of knownBaseNames) {
       // Check for JSON file with this basename
       try {
         const jsonPath = `${basePath}/${folderName}/${bName}.json`;
         console.log(`Checking for JSON: ${jsonPath}`);
-        const jsonResponse = await fetch(jsonPath);
+        const jsonResponse = await fetch(jsonPath, { method: 'HEAD' });
         if (jsonResponse.ok) {
           hasJson = true;
           baseName = bName;
@@ -444,12 +521,32 @@ export const checkFolderContents = async (folderName: string): Promise<{
       }
     }
     
+    // If not found in public path and in development, try src/data
+    if (!hasJson && !isProd() && devBasePath) {
+      for (const bName of knownBaseNames) {
+        try {
+          const jsonPath = `${devBasePath}/${folderName}/${bName}.json`;
+          console.log(`Checking for JSON in dev path: ${jsonPath}`);
+          const jsonResponse = await fetch(jsonPath, { method: 'HEAD' });
+          if (jsonResponse.ok) {
+            hasJson = true;
+            baseName = bName;
+            console.log(`Found JSON file in dev path: ${bName}.json in folder ${folderName}`);
+            break;
+          }
+        } catch (err) {
+          console.log(`Error checking for dev ${bName}.json:`, err);
+        }
+      }
+    }
+    
     // If we found a valid baseName, check for matching CSV
     if (baseName) {
+      // First try public path
       try {
         const csvPath = `${basePath}/${folderName}/${baseName}.csv`;
         console.log(`Checking for CSV: ${csvPath}`);
-        const csvResponse = await fetch(csvPath);
+        const csvResponse = await fetch(csvPath, { method: 'HEAD' });
         hasCsv = csvResponse.ok;
         if (hasCsv) {
           console.log(`Found matching CSV file: ${baseName}.csv`);
@@ -458,7 +555,22 @@ export const checkFolderContents = async (folderName: string): Promise<{
         console.log(`Error checking for ${baseName}.csv:`, err);
       }
       
-      // Check for matching image with various extensions
+      // If not found and in dev mode, check src/data
+      if (!hasCsv && !isProd() && devBasePath) {
+        try {
+          const csvPath = `${devBasePath}/${folderName}/${baseName}.csv`;
+          console.log(`Checking for CSV in dev path: ${csvPath}`);
+          const csvResponse = await fetch(csvPath, { method: 'HEAD' });
+          hasCsv = csvResponse.ok;
+          if (hasCsv) {
+            console.log(`Found matching CSV file in dev path: ${baseName}.csv`);
+          }
+        } catch (err) {
+          console.log(`Error checking for dev ${baseName}.csv:`, err);
+        }
+      }
+      
+      // Check for matching image with various extensions in public path
       const imageExts = ['.png', '.jpg', '.jpeg', '.webp', '.gif'];
       for (const ext of imageExts) {
         try {
@@ -483,9 +595,35 @@ export const checkFolderContents = async (folderName: string): Promise<{
         }
       }
       
+      // If image not found and in dev mode, check src/data
+      if (!hasImage && !isProd() && devBasePath) {
+        for (const ext of imageExts) {
+          try {
+            const imgPath = `${devBasePath}/${folderName}/${baseName}${ext}`;
+            console.log(`Checking for image in dev path: ${imgPath}`);
+            
+            const img = new Image();
+            const imagePromise = new Promise<boolean>((resolve) => {
+              img.onload = () => resolve(true);
+              img.onerror = () => resolve(false);
+            });
+            
+            img.src = imgPath;
+            hasImage = await imagePromise;
+            
+            if (hasImage) {
+              console.log(`Found image file in dev path: ${baseName}${ext} in ${folderName}`);
+              break;
+            }
+          } catch (err) {
+            console.log(`Error checking for dev ${baseName}${ext}:`, err);
+          }
+        }
+      }
+      
       // If no direct image match, try common patterns
       if (!hasImage) {
-        // For Brother 814, we know specific file names exist
+        // Try the Brother 814 specific image
         try {
           const imgPath = `${basePath}/${folderName}/test_Brother814_Needle_Bar_Mechanism_2.png`;
           console.log(`Checking for alternate image: ${imgPath}`);
@@ -504,6 +642,29 @@ export const checkFolderContents = async (folderName: string): Promise<{
           }
         } catch (err) {
           console.log(`Error checking for alternate image:`, err);
+        }
+        
+        // Try in development path if not found
+        if (!hasImage && !isProd() && devBasePath) {
+          try {
+            const imgPath = `${devBasePath}/${folderName}/test_Brother814_Needle_Bar_Mechanism_2.png`;
+            console.log(`Checking for alternate image in dev path: ${imgPath}`);
+            
+            const img = new Image();
+            const imagePromise = new Promise<boolean>((resolve) => {
+              img.onload = () => resolve(true);
+              img.onerror = () => resolve(false);
+            });
+            
+            img.src = imgPath;
+            hasImage = await imagePromise;
+            
+            if (hasImage) {
+              console.log(`Found alternate image file in dev path for ${folderName}`);
+            }
+          } catch (err) {
+            console.log(`Error checking for dev alternate image:`, err);
+          }
         }
       }
     }
