@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, memo } from "react";
 import { motion } from "framer-motion";
 import { ImageData } from "@/types";
 import { toast } from "sonner";
@@ -18,32 +18,126 @@ const DEFAULT_CIRCLE_COLOR = "#E5DEFF"; // Soft Purple
 const BASE_CIRCLE_SIZE = 28; // px, for image natural width
 const BASE_FONT_SIZE = 13; // px
 
-// Default min and max sizes
-const DEFAULT_MIN_CIRCLE_SIZE = 17; // px, prevent too small on mobile
-const DEFAULT_MAX_CIRCLE_SIZE = 32; // px, prevent too big
-
-// Smaller min size on very small screens
+const DEFAULT_MIN_CIRCLE_SIZE = 17;
+const DEFAULT_MAX_CIRCLE_SIZE = 32;
 const MOBILE_MIN_CIRCLE_SIZE = 12;
 
-// Rectangular shape settings - adjusted for better placement
-const BASE_RECT_WIDTH_FACTOR = 0.55; // Width factor for rectangle
-const BASE_RECT_HEIGHT = 28; // Base height for rectangle
-const RECT_HORIZONTAL_PADDING = "6px"; // Added more padding for rectangle to center text better
+// Improved rectangle settings for better text alignment
+const BASE_RECT_WIDTH_FACTOR = 0.55;
+const BASE_RECT_HEIGHT = 28;
 
-// Offset adjustments for multi-character labels
-const getLabelOffset = (number: string) => {
-  const digitCount = number.length;
+// Create a memoized component for individual coordinate points
+const CoordinatePoint = memo(({ 
+  coord, 
+  isHighlighted, 
+  scale, 
+  circleSize, 
+  circleFontSize,
+  minCircleSize,
+  maxCircleSize,
+  onMouseEnter, 
+  onMouseLeave, 
+  onClick 
+}: { 
+  coord: any, 
+  isHighlighted: boolean, 
+  scale: number, 
+  circleSize: number,
+  circleFontSize: number,
+  minCircleSize: number,
+  maxCircleSize: number,
+  onMouseEnter: () => void, 
+  onMouseLeave: () => void, 
+  onClick: (e: React.MouseEvent) => void 
+}) => {
+  const useRectangle = coord.number.length >= 3;
+  const digitCount = coord.number.length;
   
-  if (digitCount >= 3) {
-    // Move 3+ character labels more to the right and down
-    return {
-      xOffset: 27, // Increased from 25 to 35 for more rightward movement
-      yOffset: 15   // Increased from 10 to 15 for more downward movement
-    };
-  }
+  // Adjust position for multi-digit labels
+  const xOffset = digitCount >= 3 ? 27 : 0;
+  const yOffset = digitCount >= 3 ? 15 : 0;
   
-  return { xOffset: 0, yOffset: 0 }; // No offset for 1-2 character labels
-};
+  // Calculate rectangle dimensions based on digit count
+  const rectWidthFactor = digitCount >= 3 ? 0.45 : BASE_RECT_WIDTH_FACTOR;
+  const rectWidth = Math.max(
+    minCircleSize * 1.2,
+    Math.min(maxCircleSize * 1.6, 
+      BASE_CIRCLE_SIZE * rectWidthFactor * digitCount * scale)
+  );
+  
+  const rectHeight = Math.max(
+    minCircleSize,
+    Math.min(maxCircleSize, 
+      digitCount >= 3 ? BASE_RECT_HEIGHT * scale * 0.9 : BASE_RECT_HEIGHT * scale)
+  );
+
+  // Calculate the position with scaling and apply offsets
+  const scaledX = (coord.x + xOffset) * scale;
+  const scaledY = (coord.y + yOffset) * scale;
+
+  return (
+    <div
+      className="absolute"
+      style={{
+        left: `${scaledX}px`,
+        top: `${scaledY}px`,
+        transform: `translate(-50%, -50%)`,
+        pointerEvents: "auto",
+        zIndex: 10,
+      }}
+    >
+      <motion.div
+        className={`flex items-center justify-center cursor-pointer ${useRectangle ? 'rounded-md' : 'rounded-full'}`}
+        style={{
+          width: useRectangle ? `${rectWidth}px` : `${circleSize}px`,
+          height: useRectangle ? `${rectHeight}px` : `${circleSize}px`,
+          fontSize: `${circleFontSize}px`,
+          backgroundColor: isHighlighted ? HIGHLIGHT_COLOR : DEFAULT_CIRCLE_COLOR,
+          color: isHighlighted ? "white" : "#5411a1",
+          border: isHighlighted ? "2px solid #F97316" : "none",
+          boxShadow: isHighlighted ? "0 0 0 4px #FFE4BA" : undefined,
+          outline: isHighlighted ? "1px solid #FFD580" : undefined,
+          fontWeight: isHighlighted ? 700 : 600,
+          padding: useRectangle ? "0 6px" : 0,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          lineHeight: "1",
+          textAlign: "center",
+          transition: "background 0.2s, color 0.2s, transform 0.15s",
+          whiteSpace: "nowrap",
+          boxSizing: "border-box",
+        }}
+        whileHover={{
+          scale: 1.08,
+        }}
+        animate={{
+          backgroundColor: isHighlighted 
+            ? "rgba(249, 115, 22, 1)" 
+            : "rgba(229, 222, 255, 1)"
+        }}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
+        onClick={onClick}
+      >
+        <span style={{ 
+          display: "inline-block", 
+          lineHeight: "1", 
+          padding: useRectangle ? "1px 0 0" : 0,
+          margin: 0,
+          position: "relative",
+          top: useRectangle ? "1px" : 0,
+          // This is crucial for vertical alignment
+          transform: "translateY(0)",
+          textAlign: "center",
+          width: "100%"
+        }}>
+          {coord.number}
+        </span>
+      </motion.div>
+    </div>
+  );
+});
 
 const InteractiveImage: React.FC<InteractiveImageProps> = ({
   imagePath,
@@ -61,20 +155,44 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
   const [retryCount, setRetryCount] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
+  
+  // Implement lazy loading for images
+  const [imageStartedLoading, setImageStartedLoading] = useState(false);
 
-  // Use effect to auto-retry loading the image with a delay (up to 3 times)
+  // Use intersection observer for lazy loading
+  useEffect(() => {
+    if (!containerRef.current) return;
+    
+    const observer = new IntersectionObserver(
+      entries => {
+        if (entries[0].isIntersecting && !imageStartedLoading) {
+          setImageStartedLoading(true);
+        }
+      },
+      { threshold: 0.1 }
+    );
+    
+    observer.observe(containerRef.current);
+    
+    return () => {
+      observer.disconnect();
+    };
+  }, [imageStartedLoading]);
+  
+  // Auto-retry loading the image with a delay
   useEffect(() => {
     if (imageError && retryCount < 3) {
       const timer = setTimeout(() => {
         console.log(`Retrying image load attempt ${retryCount + 1} for: ${imagePath}`);
         setImageError(false);
         setRetryCount(prev => prev + 1);
-      }, 1000 * (retryCount + 1)); // Exponential backoff
+      }, 1000 * (retryCount + 1));
       
       return () => clearTimeout(timer);
     }
   }, [imageError, retryCount, imagePath]);
 
+  // Handle image resizing
   useEffect(() => {
     const updateScale = () => {
       if (imageRef.current && imageRef.current.naturalWidth) {
@@ -104,12 +222,12 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
         observer.unobserve(containerRef.current);
       }
     };
-  }, [imagePath]);
+  }, [imagePath, imageStartedLoading]);
 
-  // Detect if screen width is small (mobile)
+  // Detect mobile devices
   useEffect(() => {
     const checkMobile = () => {
-      setIsMobile(window.innerWidth < 640); // sm breakpoint approx
+      setIsMobile(window.innerWidth < 640);
     };
 
     checkMobile();
@@ -118,7 +236,6 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
   }, []);
 
   const handleImageLoad = () => {
-    console.log("Image loaded successfully:", imagePath);
     setImageLoaded(true);
     setImageError(false);
     
@@ -157,15 +274,17 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
 
   // Choose min circle size depending on mobile or not
   const minCircleSize = isMobile ? MOBILE_MIN_CIRCLE_SIZE : DEFAULT_MIN_CIRCLE_SIZE;
+  const maxCircleSize = DEFAULT_MAX_CIRCLE_SIZE;
 
-  // Make the circles and font scale with image, clamp for reasonable size
+  // Make the circles and font scale with image
   const circleSize = Math.max(
     minCircleSize,
-    Math.min(DEFAULT_MAX_CIRCLE_SIZE, BASE_CIRCLE_SIZE * scale)
+    Math.min(maxCircleSize, BASE_CIRCLE_SIZE * scale)
   );
+  
   const circleFontSize = Math.max(
     minCircleSize * 0.5,
-    Math.min(DEFAULT_MAX_CIRCLE_SIZE * 0.65, BASE_FONT_SIZE * scale)
+    Math.min(maxCircleSize * 0.65, BASE_FONT_SIZE * scale)
   );
 
   // Display placeholder if image fails to load
@@ -207,114 +326,45 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
         </div>
       )}
       
-      <img
-        ref={imageRef}
-        src={imagePath}
-        alt={imageData.imageName}
-        className={`w-full h-auto ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
-        style={{ maxWidth: "100%", height: "auto", objectFit: "contain", transition: "opacity 0.3s" }}
-        onLoad={handleImageLoad}
-        onError={handleImageError}
-      />
+      {imageStartedLoading && (
+        <img
+          ref={imageRef}
+          src={imagePath}
+          alt={imageData.imageName}
+          className={`w-full h-auto ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
+          style={{ 
+            maxWidth: "100%", 
+            height: "auto", 
+            objectFit: "contain", 
+            transition: "opacity 0.3s" 
+          }}
+          onLoad={handleImageLoad}
+          onError={handleImageError}
+          loading="lazy"
+        />
+      )}
 
-      {imageLoaded && imageData.coordinates.map((coord) => {
-        const isHighlighted = highlightedNumber === coord.number;
-        
-        // Determine if we should use rectangle based on number length
-        const useRectangle = coord.number.length >= 3;
-        const digitCount = coord.number.length;
-        
-        // Get offsets based on label length
-        const { xOffset, yOffset } = getLabelOffset(coord.number);
-        
-        // Adjust rectangle width factor based on digit count - tighter for longer strings
-        const rectWidthFactor = digitCount >= 3 ? 0.45 : BASE_RECT_WIDTH_FACTOR;
-        
-        // Calculate rectangle width based on digit count
-        const rectWidth = Math.max(
-          minCircleSize * 1.2,
-          Math.min(DEFAULT_MAX_CIRCLE_SIZE * 1.6, 
-            BASE_CIRCLE_SIZE * rectWidthFactor * digitCount * scale)
-        );
-        
-        // Calculate rectangle height - slightly smaller for multi-digit
-        const rectHeight = Math.max(
-          minCircleSize,
-          Math.min(DEFAULT_MAX_CIRCLE_SIZE, 
-            digitCount >= 3 ? BASE_RECT_HEIGHT * scale * 0.9 : BASE_RECT_HEIGHT * scale)
-        );
-
-        // Calculate the position with scaling and apply offsets
-        const scaledX = (coord.x + xOffset) * scale;
-        const scaledY = (coord.y + yOffset) * scale;
-
-        return (
-          <div
-            key={coord.id}
-            className="absolute"
-            style={{
-              left: `${scaledX}px`,
-              top: `${scaledY}px`,
-              transform: `translate(-50%, -50%)`, // Center both shapes
-              pointerEvents: "auto",
-              zIndex: 10,
-            }}
-          >
-            <motion.div
-              className={`flex items-center justify-center cursor-pointer ${useRectangle ? 'rounded-md' : 'rounded-full'}`}
-              style={{
-                width: useRectangle ? `${rectWidth}px` : `${circleSize}px`,
-                height: useRectangle ? `${rectHeight}px` : `${circleSize}px`,
-                fontSize: `${circleFontSize}px`,
-                backgroundColor: isHighlighted ? HIGHLIGHT_COLOR : DEFAULT_CIRCLE_COLOR,
-                color: isHighlighted ? "white" : "#5411a1",
-                border: isHighlighted ? "2px solid #F97316" : "none",
-                boxShadow: isHighlighted ? "0 0 0 4px #FFE4BA" : undefined,
-                outline: isHighlighted ? "1px solid #FFD580" : undefined,
-                fontWeight: isHighlighted ? 700 : 600,
-                padding: useRectangle ? RECT_HORIZONTAL_PADDING : 0, // Added horizontal padding for better text centering
-                display: "flex",
-                alignItems: "center",     // Ensure vertical centering
-                justifyContent: "center", // Ensure horizontal centering
-                lineHeight: "1",          // Prevent line height from affecting vertical centering
-                textAlign: "center",      // Ensure text is centered
-                transition: "background 0.2s, color 0.2s, transform 0.15s, width 0.18s, height 0.18s",
-                whiteSpace: "nowrap",
-                boxSizing: "border-box", // Make sure padding doesn't affect overall dimensions
-              }}
-              whileHover={{
-                scale: 1.08,
-              }}
-              animate={{
-                backgroundColor: isHighlighted 
-                  ? "rgba(249, 115, 22, 1)" // HIGHLIGHT_COLOR in rgba 
-                  : "rgba(229, 222, 255, 1)" // DEFAULT_CIRCLE_COLOR in rgba
-              }}
-              onMouseEnter={() => onCircleHover(coord.number)}
-              onMouseLeave={() => onCircleHover(null)}
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onCircleClick(coord.number);
-              }}
-            >
-              <span style={{ 
-                display: "inline-block", 
-                lineHeight: 1, 
-                // Adjust vertical position to center text in rectangle
-                paddingBottom: useRectangle ? "1px" : "0px",
-                position: "relative",
-                // Small text alignment correction based on number length
-                top: digitCount >= 3 ? "1px" : "0px"
-              }}>
-                {coord.number}
-              </span>
-            </motion.div>
-          </div>
-        );
-      })}
+      {imageLoaded && imageData.coordinates.map((coord) => (
+        <CoordinatePoint
+          key={coord.id}
+          coord={coord}
+          isHighlighted={highlightedNumber === coord.number}
+          scale={scale}
+          circleSize={circleSize}
+          circleFontSize={circleFontSize}
+          minCircleSize={minCircleSize}
+          maxCircleSize={maxCircleSize}
+          onMouseEnter={() => onCircleHover(coord.number)}
+          onMouseLeave={() => onCircleHover(null)}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onCircleClick(coord.number);
+          }}
+        />
+      ))}
     </div>
   );
 };
 
-export default InteractiveImage;
+export default memo(InteractiveImage);

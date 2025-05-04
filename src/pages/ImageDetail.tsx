@@ -1,25 +1,29 @@
-import React, { useState, useEffect, useMemo } from "react";
+
+import React, { useState, useEffect, useMemo, lazy, Suspense } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import InteractiveImage from "@/components/Interactive/InteractiveImage";
-import DataTable from "@/components/Table/DataTable";
-import Breadcrumb from "@/components/Navigation/Breadcrumb";
 import { toast } from "sonner";
 import { TableRow, ImageData } from "@/types";
 import { parseCSVFile, loadImageData, getImagePath, checkFolderContents } from "@/utils/fileLoader";
+import Breadcrumb from "@/components/Navigation/Breadcrumb";
+import { Skeleton } from "@/components/ui/skeleton";
+
+// Lazy load components to improve initial page load
+const InteractiveImage = lazy(() => import("@/components/Interactive/InteractiveImage"));
+const DataTable = lazy(() => import("@/components/Table/DataTable"));
 
 const ImageDetail: React.FC = () => {
   const { folderName, partNumber } = useParams<{ folderName: string; partNumber: string }>();
   const navigate = useNavigate();
   const [imageData, setImageData] = useState<ImageData | null>(null);
   const [tableData, setTableData] = useState<TableRow[]>([]);
-  const [imagePath, setImagePath] = useState<string>('/placeholder.svg'); // Default placeholder
+  const [imagePath, setImagePath] = useState<string>('/placeholder.svg');
   const [highlightedNumber, setHighlightedNumber] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [baseName, setBaseName] = useState<string | null>(null);
 
   // Fall back to a default folder if none specified in URL
-  const currentFolderName = folderName || "test_Brother_814_Needle_Bar_Mechanism";
+  const currentFolderName = folderName || "Brother_814_Needle_Bar_Mechanism";
 
   const numberToPartNumberMap = useMemo(() => {
     const map: Record<string, string> = {};
@@ -35,8 +39,7 @@ const ImageDetail: React.FC = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        console.log(`Loading data for folder: ${currentFolderName}`);
-
+        
         // Step 1: Check folder contents to find files
         const folderContents = await checkFolderContents(currentFolderName);
         if (!folderContents.hasJson || !folderContents.baseName) {
@@ -45,34 +48,32 @@ const ImageDetail: React.FC = () => {
         
         setBaseName(folderContents.baseName);
         
-        // Step 2: Load JSON data for image
-        const imgData = await loadImageData(currentFolderName, folderContents.baseName);
+        // Use Promise.all to execute these requests in parallel
+        const [imgData, imgPath, tableRows] = await Promise.all([
+          // Step 2: Load JSON data for image
+          loadImageData(currentFolderName, folderContents.baseName),
+          
+          // Step 3: Find the actual image path
+          getImagePath(currentFolderName, folderContents.baseName),
+          
+          // Step 4: Load CSV table data
+          parseCSVFile(currentFolderName, folderContents.baseName)
+        ]);
+
         if (!imgData) {
           throw new Error(`Failed to load image data for: ${currentFolderName}`);
         }
-        setImageData(imgData);
-        console.log(`Loaded JSON data for: ${currentFolderName}/${folderContents.baseName}`);
         
-        // Step 3: Find the actual image path
-        const imgPath = await getImagePath(currentFolderName, folderContents.baseName);
+        setImageData(imgData);
+        
         if (imgPath) {
           setImagePath(imgPath);
-          console.log(`Found image at path: ${imgPath}`);
         } else {
-          console.warn(`Could not locate image for: ${currentFolderName}/${folderContents.baseName}, using placeholder`);
+          console.warn(`Could not locate image for: ${currentFolderName}/${folderContents.baseName}`);
           toast.warning("Using placeholder image - actual image not found");
         }
 
-        // Step 4: Load CSV table data
-        // NOTE: If columns aren't showing properly, check the CSV parsing in csvParser.ts
-        // The column mapping logic determines how CSV fields are displayed
-        const tableRows = await parseCSVFile(currentFolderName, folderContents.baseName);
-        if (tableRows.length === 0) {
-          console.warn(`No data found in the CSV file for: ${currentFolderName}/${folderContents.baseName}`);
-          toast.warning("No part data found for this image");
-        }
         setTableData(tableRows);
-        console.log(`Loaded ${tableRows.length} table rows for: ${currentFolderName}/${folderContents.baseName}`);
         
         // If a specific part number is provided in the URL, highlight it
         if (partNumber) {
@@ -116,10 +117,22 @@ const ImageDetail: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="container mx-auto px-4 py-8 min-h-[60vh] flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-custom-blue mx-auto"></div>
-          <p className="mt-4">Loading...</p>
+      <div className="container mx-auto px-4 py-8">
+        <div className="mb-4">
+          <Skeleton className="h-8 w-64" />
+        </div>
+        <div className="flex flex-col lg:flex-row gap-6">
+          <div className="w-full lg:w-2/3 bg-white p-4 rounded-lg shadow min-h-[580px]">
+            <Skeleton className="w-full h-[580px]" />
+          </div>
+          <div className="w-full lg:w-1/3 bg-white p-4 rounded-lg shadow">
+            <Skeleton className="h-8 w-40 mb-4" />
+            <div className="space-y-2">
+              {[1, 2, 3, 4, 5].map(i => (
+                <Skeleton key={i} className="h-12 w-full" />
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -159,13 +172,15 @@ const ImageDetail: React.FC = () => {
       </h1>
       <div className="flex flex-col lg:flex-row gap-6">
         <div className="w-full lg:w-2/3 bg-white p-4 rounded-lg shadow min-h-[580px] overflow-auto">
-          <InteractiveImage
-            imagePath={imagePath}
-            imageData={imageData}
-            highlightedNumber={highlightedNumber}
-            onCircleHover={handleCircleHover}
-            onCircleClick={handleCircleClick}
-          />
+          <Suspense fallback={<div className="w-full h-[580px] flex items-center justify-center">Loading image viewer...</div>}>
+            <InteractiveImage
+              imagePath={imagePath}
+              imageData={imageData}
+              highlightedNumber={highlightedNumber}
+              onCircleHover={handleCircleHover}
+              onCircleClick={handleCircleClick}
+            />
+          </Suspense>
         </div>
         <div
           className="hidden lg:block w-full lg:w-1/3 bg-white p-4 rounded-lg shadow"
@@ -175,12 +190,14 @@ const ImageDetail: React.FC = () => {
           <div
             style={{ height: "530px", maxHeight: "530px", overflow: "auto" }}
           >
-            <DataTable
-              data={tableData}
-              highlightedNumber={highlightedNumber}
-              onRowClick={handleRowClick}
-              onRowHover={handleRowHover}
-            />
+            <Suspense fallback={<div className="w-full h-full flex items-center justify-center">Loading parts data...</div>}>
+              <DataTable
+                data={tableData}
+                highlightedNumber={highlightedNumber}
+                onRowClick={handleRowClick}
+                onRowHover={handleRowHover}
+              />
+            </Suspense>
           </div>
         </div>
       </div>
@@ -190,12 +207,14 @@ const ImageDetail: React.FC = () => {
       >
         <h2 className="text-lg font-semibold mb-2">Parts List</h2>
         <div style={{ maxHeight: "530px", overflow: "auto" }}>
-          <DataTable
-            data={tableData}
-            highlightedNumber={highlightedNumber}
-            onRowClick={handleRowClick}
-            onRowHover={handleRowHover}
-          />
+          <Suspense fallback={<div className="w-full h-64 flex items-center justify-center">Loading parts data...</div>}>
+            <DataTable
+              data={tableData}
+              highlightedNumber={highlightedNumber}
+              onRowClick={handleRowClick}
+              onRowHover={handleRowHover}
+            />
+          </Suspense>
         </div>
       </div>
     </div>
