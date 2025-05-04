@@ -1,4 +1,3 @@
-
 import { TableRow, ImageData } from "@/types";
 import { parseCSV } from "@/utils/csvParser";
 import { toast } from "sonner";
@@ -70,7 +69,7 @@ export const getImagePath = async (folderName: string, fileName: string): Promis
   // Try different common image extensions
   const extensions = ['.png', '.jpg', '.jpeg', '.webp', '.gif'];
   
-  // Try to find the file with the exact same base name as JSON/CSV
+  // Try to find the file with the exact same base name as JSON/CSV files
   for (const ext of extensions) {
     const url = `${basePath}/${folderName}/${baseName}${ext}`;
     
