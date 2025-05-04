@@ -41,10 +41,10 @@ const cachedFetch = async (url: string, options = {}, bypassCache = false): Prom
 };
 
 /**
- * Gets the appropriate base path for data files based on environment
+ * Gets the appropriate base path for data files - same path for both dev and prod
  */
 const getBasePath = (): string => {
-  // Always use /data as the base path - works for both dev and production
+  // Use a consistent data path for both development and production
   return '/data';
 };
 
@@ -92,27 +92,7 @@ export const getImagePath = async (folderName: string, fileName: string): Promis
     }
   }
   
-  // Check for known test image file
-  const testImagePath = `${basePath}/${folderName}/test_Brother814_Needle_Bar_Mechanism_2.png`;
-  try {
-    const img = new Image();
-    const imagePromise = new Promise<boolean>((resolve) => {
-      img.onload = () => resolve(true);
-      img.onerror = () => resolve(false);
-    });
-    
-    img.src = testImagePath;
-    const exists = await imagePromise;
-    
-    if (exists) {
-      return testImagePath;
-    }
-  } catch (err) {
-    // Continue with fallback
-  }
-  
-  // Return a default placeholder image
-  return `/placeholder.svg`;
+  return null; // Return null instead of fallback to avoid showing fallback images
 };
 
 /**
@@ -151,45 +131,6 @@ export const parseCSVFile = async (folderName: string, fileName: string): Promis
   }
 };
 
-// Default mock data to use as a fallback when JSON file is not available
-const fallbackImageData: ImageData = {
-  imageName: "Fallback Image",
-  coordinates: [
-    { id: 1, x: 100, y: 100, number: "1" },
-    { id: 2, x: 200, y: 200, number: "2" },
-    { id: 3, x: 300, y: 300, number: "3" }
-  ]
-};
-
-// Helper function to validate JSON data structure
-const isValidImageData = (data: any): boolean => {
-  return (
-    data &&
-    typeof data === 'object' &&
-    typeof data.imageName === 'string' &&
-    Array.isArray(data.coordinates) &&
-    data.coordinates.length > 0 &&
-    data.coordinates.every((coord: any) => 
-      typeof coord === 'object' &&
-      typeof coord.id === 'number' &&
-      typeof coord.x === 'number' &&
-      typeof coord.y === 'number' &&
-      typeof coord.number === 'string'
-    )
-  );
-};
-
-// Helper function to sanitize JSON text before parsing
-const sanitizeJsonText = (text: string): string => {
-  // Remove BOM if present
-  let sanitized = text.replace(/^\uFEFF/, '');
-  
-  // Remove any leading whitespace (including newlines)
-  sanitized = sanitized.trim();
-  
-  return sanitized;
-};
-
 /**
  * Load image JSON data dynamically from a specified folder
  */
@@ -205,7 +146,7 @@ export const loadImageData = async (folderName: string, fileName: string): Promi
     
     try {
       // Use cached fetch to avoid redundant requests
-      const response = await cachedFetch(jsonPath, {}, true); // Bypass cache for now
+      const response = await cachedFetch(jsonPath, {}, true);
       
       if (!response.ok) {
         console.error(`Failed to load JSON with status ${response.status}`);
@@ -220,65 +161,84 @@ export const loadImageData = async (folderName: string, fileName: string): Promi
         throw new Error(`Empty JSON response from ${jsonPath}`);
       }
       
-      // Sanitize the JSON text before parsing
-      const sanitizedText = sanitizeJsonText(rawText);
-      
       // Try to parse the JSON
-      let jsonData;
       try {
-        // Use a more controlled way to parse JSON
-        jsonData = JSON.parse(sanitizedText);
+        // Parse JSON after ensuring no BOM and properly trimmed
+        const jsonData = JSON.parse(rawText.trim().replace(/^\uFEFF/, ''));
+        
+        // Return the data if it's valid
+        if (jsonData && typeof jsonData === 'object' && 
+            typeof jsonData.imageName === 'string' && 
+            Array.isArray(jsonData.coordinates)) {
+          return jsonData;
+        } else {
+          console.error(`Invalid JSON data structure in ${jsonPath}`);
+          return null;
+        }
       } catch (parseError) {
         console.error(`JSON parse error for ${jsonPath}:`, parseError);
         throw new Error(`Failed to parse JSON from ${jsonPath}: ${parseError.message}`);
       }
-      
-      // Validate the JSON structure
-      if (!isValidImageData(jsonData)) {
-        console.error(`Invalid JSON data structure in ${jsonPath}`);
-        return fallbackImageData; // Return fallback data instead of null
-      }
-      
-      return jsonData;
     } catch (err) {
       console.error(`Error loading JSON data:`, err);
-      
-      // Try to load from an alternative source (src/data instead of public/data)
-      try {
-        const srcJsonPath = `/src/data/${folderName}/${baseName}.json`;
-        const srcResponse = await fetch(srcJsonPath);
-        
-        if (srcResponse.ok) {
-          const srcRawText = await srcResponse.text();
-          if (srcRawText && srcRawText.trim() !== '') {
-            const sanitizedText = sanitizeJsonText(srcRawText);
-            const srcJsonData = JSON.parse(sanitizedText);
-            
-            if (isValidImageData(srcJsonData)) {
-              return srcJsonData;
-            }
-          }
-        }
-      } catch (srcErr) {
-        console.warn(`Tried alternative source but failed:`, srcErr);
-      }
-      
-      // Return fallback data in case of any error
-      return fallbackImageData;
+      return null;
     }
   } catch (err) {
     console.error(`Error processing image data:`, err);
-    return fallbackImageData; // Return fallback data as a last resort
+    return null;
   }
 };
 
-// Known folder names for the application
-const knownFolderPatterns = [
-  'Brother_814_Needle_Bar_Mechanism',
-  'test2_Brother_814_Needle_Bar_Mechanism', 
-  'test3_Brother_814_Needle_Bar_Mechanism',
-  'test4_Brother_814_Needle_Bar_Mechanism'
-];
+/**
+ * Scan the data directory to find all available folders automatically
+ */
+export const getAvailableFolders = async (): Promise<string[]> => {
+  try {
+    const basePath = getBasePath();
+    
+    // Attempt to fetch the directory listing
+    try {
+      const response = await fetch(`${basePath}/`);
+      
+      if (!response.ok) {
+        console.warn("Directory listing not supported - using manual folder checking");
+        // Fall back to checking known folder patterns
+        return scanForValidFolders();
+      }
+      
+      // Try to parse as HTML to extract directory listings (works on some servers)
+      const html = await response.text();
+      const folderPattern = /href="([^"]+)\/?"/g;
+      const matches = [...html.matchAll(folderPattern)];
+      
+      const potentialFolders = matches
+        .map(match => match[1].replace(/\/$/, '')) // Remove trailing slash
+        .filter(folder => !folder.includes('.') && folder !== '..' && folder !== ''); // Filter out files and navigation
+      
+      if (potentialFolders.length > 0) {
+        // Verify folders by checking for JSON files
+        const validFolders = [];
+        
+        for (const folder of potentialFolders) {
+          const { hasJson } = await checkFolderContents(folder);
+          if (hasJson) {
+            validFolders.push(folder);
+          }
+        }
+        
+        return validFolders;
+      }
+    } catch (err) {
+      console.warn("Error fetching directory listing:", err);
+    }
+    
+    // Fallback to manual folder scanning
+    return scanForValidFolders();
+  } catch (err) {
+    console.error("Error getting available folders:", err);
+    return [];
+  }
+};
 
 /**
  * Check if a folder has the required files (JSON, image)
@@ -297,12 +257,51 @@ export const checkFolderContents = async (folderName: string): Promise<{
     let hasCsv = false;
     let hasImage = false;
     
+    // First, try to fetch the directory listing
+    try {
+      const response = await cachedFetch(`${basePath}/${folderName}/`, {}, true);
+      
+      if (response.ok) {
+        // Try to parse as HTML to extract files
+        const html = await response.text();
+        const filePattern = /href="([^"]+)"/g;
+        const matches = [...html.matchAll(filePattern)];
+        
+        const files = matches
+          .map(match => match[1])
+          .filter(file => file.includes('.') && !file.includes('..'));
+        
+        // Look for .json files
+        const jsonFiles = files.filter(file => file.endsWith('.json'));
+        if (jsonFiles.length > 0) {
+          const jsonFile = jsonFiles[0];
+          baseName = jsonFile.substring(0, jsonFile.lastIndexOf('.'));
+          hasJson = true;
+          
+          // Check if matching CSV exists
+          hasCsv = files.some(file => file === `${baseName}.csv`);
+          
+          // Check if matching image exists
+          hasImage = files.some(file => 
+            ['.png', '.jpg', '.jpeg', '.webp', '.gif'].some(ext => 
+              file === `${baseName}${ext}`
+            )
+          );
+          
+          return { hasJson, hasCsv, hasImage, baseName };
+        }
+      }
+    } catch (err) {
+      // Fall back to manual checking
+    }
+    
     // Try known base names for this project
     const knownBaseNames = [
       'Brother814_Needle_Bar_Mechanism',
       'diagram',
       'parts',
-      'mechanism'
+      'mechanism',
+      'data'
     ];
     
     // Check for JSON file with a known basename
@@ -355,24 +354,6 @@ export const checkFolderContents = async (folderName: string): Promise<{
           // Continue trying other extensions
         }
       }
-      
-      // If no direct image match, try the standard test image
-      if (!hasImage) {
-        try {
-          const imgPath = `${basePath}/${folderName}/test_Brother814_Needle_Bar_Mechanism_2.png`;
-          
-          const img = new Image();
-          const imagePromise = new Promise<boolean>((resolve) => {
-            img.onload = () => resolve(true);
-            img.onerror = () => resolve(false);
-          });
-          
-          img.src = imgPath;
-          hasImage = await imagePromise;
-        } catch (err) {
-          // Skip if not found
-        }
-      }
     }
     
     return { hasJson, hasCsv, hasImage, baseName };
@@ -383,61 +364,61 @@ export const checkFolderContents = async (folderName: string): Promise<{
 };
 
 /**
- * Get available folders by checking for the existence of known folder patterns
+ * Scan for folders containing valid data
  */
-export const getAvailableFolders = async (): Promise<string[]> => {
-  try {
-    const basePath = getBasePath();
-    const foundFolders = new Set<string>();
-    const detectedFolders: string[] = [];
-    
-    // Prioritize these specific folders first that we know have valid data
-    const priorityFolders = [
-      'Brother_814_Needle_Bar_Mechanism'
+const scanForValidFolders = async (): Promise<string[]> => {
+  // Pattern for Brother mechanism folders and any folders that have 'mechanism' in the name
+  const folderPatterns = [
+    // Specific folders we know exist
+    'Brother_814_Needle_Bar_Mechanism',
+    'test2_Brother_814_Needle_Bar_Mechanism',
+    'test3_Brother_814_Needle_Bar_Mechanism',
+    'test4_Brother_814_Needle_Bar_Mechanism',
+    // Generic pattern for trying other folders
+    'mechanism'
+  ];
+  
+  const detectedFolders: string[] = [];
+  const basePath = getBasePath();
+  
+  for (const pattern of folderPatterns) {
+    try {
+      const folderPath = pattern.includes('_') ? pattern : `*${pattern}*`;
+      const checkPath = `${basePath}/${folderPath}/`;
+      
+      // Try a HEAD request to check if the folder exists
+      const exists = await fetch(checkPath)
+        .then(res => res.status !== 404)
+        .catch(() => false);
+      
+      if (exists) {
+        const { hasJson, baseName } = await checkFolderContents(folderPath);
+        if (hasJson && baseName) {
+          detectedFolders.push(folderPath);
+        }
+      }
+    } catch (err) {
+      console.warn(`Error checking ${pattern} folder:`, err);
+    }
+  }
+  
+  // If no folders found, check for individual folders directly
+  if (detectedFolders.length === 0) {
+    // Try a direct list of folders to check
+    const specificFolders = [
+      'Brother_814_Needle_Bar_Mechanism',
+      'test2_Brother_814_Needle_Bar_Mechanism',
+      'test3_Brother_814_Needle_Bar_Mechanism',
+      'test4_Brother_814_Needle_Bar_Mechanism'
     ];
     
-    // First check priority folders
-    for (const folderName of priorityFolders) {
-      try {
-        const { hasJson } = await checkFolderContents(folderName);
-        
-        if (hasJson && !foundFolders.has(folderName)) {
-          foundFolders.add(folderName);
-          detectedFolders.push(folderName);
-        }
-      } catch (err) {
-        // Continue checking other folders
+    for (const folder of specificFolders) {
+      const { hasJson } = await checkFolderContents(folder);
+      if (hasJson) {
+        detectedFolders.push(folder);
       }
     }
-    
-    // If we already found the priority folders, return early to avoid unnecessary checks
-    if (detectedFolders.length > 0) {
-      return detectedFolders;
-    }
-    
-    // Check for each known folder pattern
-    for (const folderName of knownFolderPatterns) {
-      try {
-        // For each folder, check if it contains a valid JSON file
-        const { hasJson } = await checkFolderContents(folderName);
-        
-        if (hasJson && !foundFolders.has(folderName)) {
-          foundFolders.add(folderName);
-          detectedFolders.push(folderName);
-        }
-      } catch (err) {
-        // Continue checking other folders
-      }
-    }
-    
-    if (detectedFolders.length > 0) {
-      return detectedFolders;
-    }
-    
-    // If no folders detected, return the most likely to work
-    return ['Brother_814_Needle_Bar_Mechanism'];
-  } catch (err) {
-    console.error('Error detecting folders:', err);
-    return ['Brother_814_Needle_Bar_Mechanism'];
   }
+  
+  return detectedFolders;
 };

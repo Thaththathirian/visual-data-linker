@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { getAvailableFolders, checkFolderContents, loadImageData } from '@/utils/fileLoader';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle, FolderSearch, ExternalLink, RefreshCw } from "lucide-react";
+import { AlertCircle, FolderSearch, ExternalLink, RefreshCw, FileJson, FileCsv, Image } from "lucide-react";
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -45,7 +45,7 @@ const ImageList = () => {
           // Check if folder has required files
           const { hasJson, hasImage, baseName } = await checkFolderContents(folder);
           
-          if ((hasJson || hasImage) && baseName) {
+          if (hasJson && baseName) {
             try {
               // Load the JSON data to get the image name and coordinates
               const imageData = await loadImageData(folder, baseName);
@@ -61,14 +61,7 @@ const ImageList = () => {
               return null;
             } catch (jsonErr) {
               console.error(`Error parsing JSON for ${folder}/${baseName}:`, jsonErr);
-              
-              // Create a fallback entry when JSON fails but we know the folder exists
-              return {
-                name: folder.replace(/_/g, ' '),
-                folderName: folder,
-                fileName: baseName || 'Brother814_Needle_Bar_Mechanism',
-                pointCount: 0
-              };
+              return null;
             }
           }
           return null;
@@ -130,15 +123,6 @@ const ImageList = () => {
     toast.info("Force refreshing and bypassing cache...");
   };
 
-  // Function to create test data if none exists
-  const handleCreateTestData = () => {
-    toast.loading("Creating test data...");
-    
-    // Reset retry count
-    setRetryCount(0);
-    setRefreshTrigger(prev => prev + 20000);
-  };
-
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -179,23 +163,30 @@ const ImageList = () => {
           
           <div className="flex flex-col space-y-4">
             <div>
-              <h3 className="font-medium mb-2">Deployment Tips</h3>
-              <p className="text-sm mb-2">If you're seeing this error in production:</p>
+              <h3 className="font-medium mb-2">Data Folder Setup</h3>
+              <p className="text-sm mb-2">To add diagrams to this application:</p>
               <ul className="list-disc pl-5 text-sm space-y-1 text-muted-foreground">
-                <li>Make sure your data files (JSON, CSV, images) are in the <code className="bg-gray-100 px-1">public/data/</code> directory</li>
-                <li>Each diagram should have its own folder (e.g., <code className="bg-gray-100 px-1">public/data/Brother_814_Needle_Bar_Mechanism/</code>)</li>
-                <li>Each folder needs a JSON file and an image with matching names</li>
+                <li>Create a folder in <code className="bg-gray-100 px-1">public/data/</code> with your diagram name (e.g., <code className="bg-gray-100 px-1">public/data/Your_Diagram_Name/</code>)</li>
+                <li>Add these files with matching names inside the folder:
+                  <ul className="list-circle pl-5 mt-1 space-y-1">
+                    <li><FileJson className="inline h-3 w-3 mr-1" /> A JSON file (e.g., <code>diagram.json</code>)</li>
+                    <li><FileCsv className="inline h-3 w-3 mr-1" /> A CSV file (e.g., <code>diagram.csv</code>)</li>
+                    <li><Image className="inline h-3 w-3 mr-1" /> An image file with the same name (e.g., <code>diagram.png</code>)</li>
+                  </ul>
+                </li>
+                <li>The files MUST have the same base name (e.g., <code>diagram.json</code>, <code>diagram.csv</code>, and <code>diagram.png</code>)</li>
+                <li>The JSON file should contain the image name and coordinate data</li>
                 <li>For image files, we support .png, .jpg, .jpeg, .webp, and .gif formats</li>
-                <li>Check that your JSON files have proper formatting and no trailing commas</li>
               </ul>
             </div>
             
             <div className="border border-gray-200 rounded-md p-3 bg-gray-50">
-              <h4 className="text-sm font-medium mb-2">Structure Example</h4>
+              <h4 className="text-sm font-medium mb-2">Example Folder Structure</h4>
               <pre className="text-xs text-gray-600">
-                public/data/your_folder_name/<br/>
-                ├── diagram_name.json<br/>
-                └── diagram_name.png
+                public/data/Your_Diagram_Name/<br/>
+                ├── diagram.json<br/>
+                ├── diagram.csv<br/>
+                └── diagram.png
               </pre>
             </div>
             
@@ -248,12 +239,17 @@ const ImageList = () => {
               <p className="text-center text-gray-600 mb-4">
                 We couldn't detect any diagrams in the data directory.
               </p>
-              <div className="flex space-x-2">
+              <div className="flex flex-col gap-4">
+                <div className="p-4 bg-gray-50 rounded-md border border-gray-200">
+                  <h4 className="font-medium text-sm mb-2">How to Add Diagrams</h4>
+                  <p className="text-sm text-gray-600 mb-2">Add your diagram files to:</p>
+                  <code className="block bg-gray-100 p-2 rounded text-sm mb-2">
+                    public/data/Your_Diagram_Name/
+                  </code>
+                  <p className="text-sm text-gray-600">Include matching JSON, CSV, and image files</p>
+                </div>
                 <Button onClick={handleRefresh} variant="outline">
                   <FolderSearch className="h-4 w-4 mr-2" /> Try Again
-                </Button>
-                <Button onClick={handleCreateTestData} variant="secondary">
-                  Create Test Data
                 </Button>
               </div>
             </div>
