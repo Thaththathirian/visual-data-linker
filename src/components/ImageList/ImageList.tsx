@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -46,18 +45,18 @@ const ImageList = () => {
         // Process each folder one at a time
         for (const folder of folders) {
           try {
-            // First try to find the JSON files by checking folder contents
+            // Check folder contents to find files
             const { hasJson, hasCsv, hasImage, baseName } = await checkFolderContents(folder);
-            
-            if (!hasJson) {
-              failedFolders.push(folder);
-              issues.push(`Folder "${folder}": No valid JSON file found`);
-              continue;
-            }
             
             if (!baseName) {
               failedFolders.push(folder);
-              issues.push(`Folder "${folder}": JSON file exists but couldn't determine base name`);
+              issues.push(`Folder "${folder}": Could not determine base filename`);
+              continue;
+            }
+            
+            if (!hasJson) {
+              failedFolders.push(folder);
+              issues.push(`Folder "${folder}": No valid JSON file found for "${baseName}.json"`);
               continue;
             }
             
@@ -81,24 +80,8 @@ const ImageList = () => {
                   pointCount: imageData.coordinates?.length || 0
                 });
               } else {
-                // Try with the standard file name as a fallback
-                const standardFileName = 'Brother814_Needle_Bar_Mechanism';
-                if (baseName !== standardFileName) {
-                  const standardImageData = await loadImageData(folder, standardFileName);
-                  
-                  if (standardImageData) {
-                    imageDetails.push({
-                      name: standardImageData.imageName.replace(/-/g, ' '),
-                      folderName: folder,
-                      fileName: standardFileName,
-                      pointCount: standardImageData.coordinates?.length || 0
-                    });
-                    continue;
-                  }
-                }
-                
                 failedFolders.push(folder);
-                issues.push(`Folder "${folder}": JSON file "${baseName}.json" exists but contains invalid data or HTML instead of JSON`);
+                issues.push(`Folder "${folder}": JSON file exists but contains invalid data`);
               }
             } catch (jsonErr) {
               failedFolders.push(folder);
@@ -122,7 +105,7 @@ const ImageList = () => {
           if (failedFolders.length > 0) {
             setError(`No valid diagram data could be loaded. We found ${failedFolders.length} folders but they contained invalid or missing files.`);
           } else {
-            setError("No valid diagram data could be loaded. Make sure your data files are in the public folder.");
+            setError("No valid diagram data could be loaded. Make sure your data files are in the correct format.");
           }
         }
         
@@ -131,7 +114,7 @@ const ImageList = () => {
       }
     } catch (err) {
       console.error('Error loading image list:', err);
-      setError(`Failed to load image list: ${err.message}`);
+      setError(`Failed to load image list: ${err instanceof Error ? err.message : String(err)}`);
       setLoading(false);
     }
   }, [loading, loadingComplete]);
