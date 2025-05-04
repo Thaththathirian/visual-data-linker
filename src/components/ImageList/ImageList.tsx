@@ -1,9 +1,10 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { getAvailableFolders, checkFolderContents, loadImageData } from '@/utils/fileLoader';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle, FolderSearch, ExternalLink, RefreshCw, FileJson, FileText, Image } from "lucide-react";
+import { AlertCircle, FolderSearch, ExternalLink, FileText, FileJson, Image } from "lucide-react";
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -19,7 +20,6 @@ const ImageList = () => {
   const [images, setImages] = useState<ImageListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [retryCount, setRetryCount] = useState(0);
 
   // Use memoized function to prevent unnecessary re-renders
@@ -42,7 +42,7 @@ const ImageList = () => {
       const folderPromises = folders.map(async (folder) => {
         try {
           // Check if folder has required files
-          const { hasJson, hasImage, baseName } = await checkFolderContents(folder);
+          const { hasJson, baseName } = await checkFolderContents(folder);
           
           if (hasJson && baseName) {
             try {
@@ -83,9 +83,7 @@ const ImageList = () => {
       if (imageDetails.length === 0 && retryCount < 3) {
         // Auto-retry up to 3 times if no images were found
         setRetryCount(prev => prev + 1);
-        setTimeout(() => {
-          setRefreshTrigger(prev => prev + 1);
-        }, 1000); // Wait 1 second before retrying
+        setTimeout(() => loadImages(), 1000);
       } else if (imageDetails.length === 0) {
         setError("No valid diagram data could be loaded. Make sure your data files are in the public folder.");
       }
@@ -99,16 +97,10 @@ const ImageList = () => {
 
   useEffect(() => {
     loadImages();
-  }, [loadImages, refreshTrigger]); 
+  }, [loadImages]); 
 
-  // Function to manually refresh the folder list
-  const handleRefresh = () => {
-    setRefreshTrigger(prev => prev + 1);
-    toast.info("Refreshing folder list...");
-  };
-
-  // Force a refresh with cache bypass if still having issues
-  const handleForceRefresh = () => {
+  // Function to reload the folder list
+  const handleScan = () => {
     // Clear browser cache for data files
     caches.keys().then(names => {
       names.forEach(name => {
@@ -116,24 +108,19 @@ const ImageList = () => {
       });
     });
     
-    // Reset retry count
+    // Reset retry count and load images again
     setRetryCount(0);
-    setRefreshTrigger(prev => prev + 10000); // Use a large number to ensure a different value
-    toast.info("Force refreshing and bypassing cache...");
+    toast.info("Scanning for diagram folders...");
+    loadImages();
   };
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-lg font-semibold">Available Diagrams</h2>
-        <div className="flex space-x-2">
-          <Button onClick={handleRefresh} variant="outline" size="sm">
-            <FolderSearch className="h-4 w-4 mr-2" /> Refresh
-          </Button>
-          <Button onClick={handleForceRefresh} variant="outline" size="sm">
-            <RefreshCw className="h-4 w-4 mr-2" /> Force Refresh
-          </Button>
-        </div>
+        <Button onClick={handleScan} variant="outline" size="sm">
+          <FolderSearch className="h-4 w-4 mr-2" /> Scan Folders
+        </Button>
       </div>
 
       {loading ? (
@@ -189,25 +176,9 @@ const ImageList = () => {
               </pre>
             </div>
             
-            <div className="flex space-x-2">
-              <Button onClick={handleRefresh} variant="outline" size="sm">
-                <FolderSearch className="h-4 w-4 mr-2" /> Refresh 
-              </Button>
-              
-              <Button onClick={handleForceRefresh} variant="outline" size="sm">
-                <RefreshCw className="h-4 w-4 mr-2" /> Clear Cache & Reload
-              </Button>
-            </div>
-            
-            <a 
-              href="https://github.com/Thaththathirian/visual-data-linker/tree/main/src/data/test_Brother_814_Needle_Bar_Mechanism" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-sm text-blue-600 hover:underline flex items-center self-start"
-            >
-              <ExternalLink className="h-3 w-3 mr-1" />
-              View example diagram files
-            </a>
+            <Button onClick={handleScan} variant="outline">
+              <FolderSearch className="h-4 w-4 mr-2" /> Scan Again
+            </Button>
           </div>
         </div>
       ) : (
@@ -247,7 +218,7 @@ const ImageList = () => {
                   </code>
                   <p className="text-sm text-gray-600">Include matching JSON, CSV, and image files</p>
                 </div>
-                <Button onClick={handleRefresh} variant="outline">
+                <Button onClick={handleScan} variant="outline">
                   <FolderSearch className="h-4 w-4 mr-2" /> Try Again
                 </Button>
               </div>

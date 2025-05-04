@@ -32,12 +32,12 @@ const DataTable: React.FC<DataTableProps> = ({
         <div className="text-gray-500 text-sm">
           <p>Possible reasons:</p>
           <ul className="list-disc list-inside mt-2">
-            <li>The data file couldn't be located</li>
+            <li>The CSV file couldn't be located</li>
             <li>The file format is incorrect</li>
-            <li>The file path is incorrect in the deployed environment</li>
+            <li>The file name doesn't match the JSON and image files</li>
           </ul>
           <p className="mt-4 text-xs">
-            Check the deployment instructions to ensure all XLSX files are correctly copied to the public/tables directory.
+            Make sure your CSV file has the same name as your JSON and image files in the data folder.
           </p>
         </div>
       </div>
@@ -45,7 +45,7 @@ const DataTable: React.FC<DataTableProps> = ({
   }
   
   return (
-    <ScrollArea className="h-full">
+    <ScrollArea className="h-full max-h-[500px]">
       <Table>
         <TableHeader className="bg-gray-50 sticky top-0 z-10">
           <ShadcnTableRow>
@@ -60,7 +60,7 @@ const DataTable: React.FC<DataTableProps> = ({
             <motion.tr
               key={row.id}
               className={`cursor-pointer hover:bg-orange-50 ${
-                highlightedNumber === row.number ? "!bg-orange-100" : ""
+                highlightedNumber === row.number ? "bg-orange-100" : ""
               }`}
               onMouseEnter={() => onRowHover(row.number)}
               onMouseLeave={() => onRowHover(null)}
