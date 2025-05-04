@@ -1,12 +1,16 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { getAvailableFolders, checkFolderContents, loadImageData } from '@/utils/fileLoader';
+import { getAvailableFolders, checkFolderContents, loadImageData, clearCache } from '@/utils/fileLoader';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle, FolderSearch, ExternalLink, FileText, FileJson, Image } from "lucide-react";
+import { AlertCircle, FolderSearch, FileText, FileJson, Image } from "lucide-react";
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Skeleton } from '@/components/ui/skeleton';
+import { LoadingState } from './LoadingState';
+import { ErrorState } from './ErrorState';
+import { EmptyState } from './EmptyState';
 
 interface ImageListItem {
   name: string;
@@ -22,7 +26,6 @@ const ImageList = () => {
   const [loadingComplete, setLoadingComplete] = useState(false);
   const [troubleshootingInfo, setTroubleshootingInfo] = useState<string[]>([]);
 
-  // Use memoized function to prevent unnecessary re-renders
   const loadImages = useCallback(async () => {
     try {
       if (loading && !loadingComplete) {
@@ -94,6 +97,9 @@ const ImageList = () => {
             console.error(`Error processing folder ${folder}:`, folderErr);
             issues.push(`Folder "${folder}": General error: ${folderErr.message}`);
           }
+          
+          // Add a small delay between folder processing to avoid overwhelming the server
+          await new Promise(resolve => setTimeout(resolve, 100));
         }
         
         setImages(imageDetails);
@@ -123,28 +129,12 @@ const ImageList = () => {
 
   // Function to reload the folder list
   const handleScan = () => {
-    // Clear browser cache for data files
-    try {
-      caches.keys().then(names => {
-        names.forEach(name => {
-          caches.delete(name);
-        });
-      });
-    } catch (err) {
-      console.warn('Error clearing cache:', err);
-    }
-    
-    // Clear internal application cache
-    // This assumes you've added a clearCache function to fileLoader.ts
-    try {
-      // If you add a clearCache export to fileLoader.ts, use it here
-      // clearCache();
-    } catch (err) {
-      console.warn('Error clearing internal cache:', err);
-    }
+    // Clear all caches
+    clearCache();
     
     setLoadingComplete(false);
     setLoading(true);
+    setImages([]);
     setTroubleshootingInfo([]);
     toast.info("Scanning for diagram folders...");
   };
@@ -159,96 +149,13 @@ const ImageList = () => {
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {[1, 2].map(i => (
-            <Card key={i} className="overflow-hidden">
-              <CardHeader>
-                <Skeleton className="h-6 w-3/4" />
-              </CardHeader>
-              <CardContent>
-                <Skeleton className="h-4 w-1/2 mb-4" />
-                <Skeleton className="h-8 w-24" />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <LoadingState />
       ) : error ? (
-        <div className="space-y-4">
-          <Alert variant="destructive" className="mb-6">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Error</AlertTitle>
-            <AlertDescription>
-              {error}
-            </AlertDescription>
-          </Alert>
-          
-          {troubleshootingInfo.length > 0 && (
-            <Alert variant="warning" className="mb-6">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Troubleshooting Information</AlertTitle>
-              <AlertDescription>
-                <div className="mt-2">
-                  <details>
-                    <summary className="cursor-pointer font-medium">View detected issues</summary>
-                    <ul className="list-disc pl-5 text-sm space-y-1 mt-2 text-muted-foreground">
-                      {troubleshootingInfo.map((issue, index) => (
-                        <li key={index}>{issue}</li>
-                      ))}
-                    </ul>
-                  </details>
-                </div>
-              </AlertDescription>
-            </Alert>
-          )}
-          
-          <div className="flex flex-col space-y-4">
-            <div>
-              <h3 className="font-medium mb-2">Data Folder Setup</h3>
-              <p className="text-sm mb-2">To add diagrams to this application:</p>
-              <ul className="list-disc pl-5 text-sm space-y-1 text-muted-foreground">
-                <li>Create a folder in <code className="bg-gray-100 px-1">public/data/</code> with your diagram name (e.g., <code className="bg-gray-100 px-1">public/data/Your_Diagram_Name/</code>)</li>
-                <li>Add these files with matching names inside the folder:
-                  <ul className="list-circle pl-5 mt-1 space-y-1">
-                    <li><FileJson className="inline h-3 w-3 mr-1" /> A JSON file (e.g., <code>diagram.json</code>) with valid JSON format</li>
-                    <li><FileText className="inline h-3 w-3 mr-1" /> A CSV file (e.g., <code>diagram.csv</code>)</li>
-                    <li><Image className="inline h-3 w-3 mr-1" /> An image file with the same name (e.g., <code>diagram.png</code>)</li>
-                  </ul>
-                </li>
-                <li>The files MUST have the same base name (e.g., <code>diagram.json</code>, <code>diagram.csv</code>, and <code>diagram.png</code>)</li>
-                <li>The JSON file must be properly formatted JSON - check for HTML content or syntax errors</li>
-                <li>The JSON file should contain the image name and coordinate data with this structure:</li>
-              </ul>
-              
-              <pre className="bg-gray-100 p-3 rounded-md text-xs mt-2 mb-2 overflow-x-auto">
-{`{
-  "imageName": "Your Diagram Name",
-  "coordinates": [
-    { "id": 1, "x": 100, "y": 100, ... },
-    ...
-  ]
-}`}
-              </pre>
-              
-              <ul className="list-disc pl-5 text-sm space-y-1 text-muted-foreground">
-                <li>For image files, we support .png, .jpg, .jpeg, .webp, and .gif formats</li>
-              </ul>
-            </div>
-            
-            <div className="border border-gray-200 rounded-md p-3 bg-gray-50">
-              <h4 className="text-sm font-medium mb-2">Example Folder Structure</h4>
-              <pre className="text-xs text-gray-600">
-                public/data/Your_Diagram_Name/<br/>
-                ├── diagram.json<br/>
-                ├── diagram.csv<br/>
-                └── diagram.png
-              </pre>
-            </div>
-            
-            <Button onClick={handleScan} variant="outline">
-              <FolderSearch className="h-4 w-4 mr-2" /> Scan Again
-            </Button>
-          </div>
-        </div>
+        <ErrorState 
+          error={error}
+          troubleshootingInfo={troubleshootingInfo}
+          onRescan={handleScan}
+        />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {images.length > 0 ? (
@@ -271,26 +178,7 @@ const ImageList = () => {
               </Card>
             ))
           ) : (
-            <div className="col-span-2 flex flex-col items-center justify-center p-8 border rounded-md">
-              <AlertCircle className="h-10 w-10 text-amber-500 mb-4" />
-              <h3 className="text-lg font-medium mb-2">No Diagrams Found</h3>
-              <p className="text-center text-gray-600 mb-4">
-                We couldn't detect any diagrams in the data directory.
-              </p>
-              <div className="flex flex-col gap-4">
-                <div className="p-4 bg-gray-50 rounded-md border border-gray-200">
-                  <h4 className="font-medium text-sm mb-2">How to Add Diagrams</h4>
-                  <p className="text-sm text-gray-600 mb-2">Add your diagram files to:</p>
-                  <code className="block bg-gray-100 p-2 rounded text-sm mb-2">
-                    public/data/Your_Diagram_Name/
-                  </code>
-                  <p className="text-sm text-gray-600">Include matching JSON, CSV, and image files</p>
-                </div>
-                <Button onClick={handleScan} variant="outline">
-                  <FolderSearch className="h-4 w-4 mr-2" /> Try Again
-                </Button>
-              </div>
-            </div>
+            <EmptyState onRescan={handleScan} />
           )}
         </div>
       )}
