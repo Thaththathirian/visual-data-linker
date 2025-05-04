@@ -22,8 +22,8 @@ export const ErrorState = ({ error, troubleshootingInfo, onRescan }: ErrorStateP
       </Alert>
       
       {troubleshootingInfo.length > 0 && (
-        <Alert variant="warning" className="mb-6">
-          <AlertCircle className="h-4 w-4" />
+        <Alert variant="default" className="mb-6 border-amber-300 bg-amber-50">
+          <AlertCircle className="h-4 w-4 text-amber-500" />
           <AlertTitle>Troubleshooting Information</AlertTitle>
           <AlertDescription>
             <div className="mt-2">
