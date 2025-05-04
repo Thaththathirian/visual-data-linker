@@ -112,6 +112,13 @@ export const parseCSVFile = async (folderName: string, fileName: string): Promis
       }
 
       const csvText = await response.text();
+      
+      // Check if the response is HTML instead of CSV
+      if (csvText.trim().startsWith('<!DOCTYPE') || csvText.trim().startsWith('<html')) {
+        console.error(`Received HTML instead of CSV for ${filePath}`);
+        return [];
+      }
+      
       const parsedData = parseCSV(csvText);
 
       return parsedData;
@@ -151,7 +158,7 @@ export const loadImageData = async (folderName: string, fileName: string): Promi
       const response = await cachedFetch(jsonPath);
       
       if (!response.ok) {
-        console.error(`Failed to load JSON with status ${response.status}`);
+        console.error(`Failed to load JSON with status ${response.status} for ${jsonPath}`);
         return null;
       }
       
@@ -160,6 +167,12 @@ export const loadImageData = async (folderName: string, fileName: string): Promi
       
       if (!rawText || rawText.trim() === '') {
         console.error(`Empty JSON response from ${jsonPath}`);
+        return null;
+      }
+      
+      // Check if the response is HTML instead of JSON (improved error detection)
+      if (rawText.trim().startsWith('<!DOCTYPE') || rawText.trim().startsWith('<html')) {
+        console.error(`Received HTML instead of JSON for ${jsonPath}`);
         return null;
       }
       
@@ -184,7 +197,7 @@ export const loadImageData = async (folderName: string, fileName: string): Promi
         return null;
       }
     } catch (err) {
-      console.error(`Error loading JSON data:`, err);
+      console.error(`Error loading JSON data for ${jsonPath}:`, err);
       return null;
     }
   } catch (err) {
@@ -206,16 +219,23 @@ export const getAvailableFolders = async (): Promise<string[]> => {
       const response = await fetch(`${basePath}/`);
       
       if (response.ok) {
-        const html = await response.text();
-        // Extract folder names from directory listing
-        const folderPattern = /href="([^"\.][^"]*?)\/?"/g;
-        const matches = [...html.matchAll(folderPattern)];
+        const contentType = response.headers.get('content-type');
         
-        for (const match of matches) {
-          const folderName = match[1].replace(/\/$/, ''); // Remove trailing slash
-          if (!folderName.includes('.') && folderName !== '..' && folderName !== '') {
-            dataFolders.push(folderName);
+        // Only process as HTML if the content type is HTML
+        if (contentType && contentType.includes('text/html')) {
+          const html = await response.text();
+          // Extract folder names from directory listing
+          const folderPattern = /href="([^"\.][^"]*?)\/?"/g;
+          const matches = [...html.matchAll(folderPattern)];
+          
+          for (const match of matches) {
+            const folderName = match[1].replace(/\/$/, ''); // Remove trailing slash
+            if (!folderName.includes('.') && folderName !== '..' && folderName !== '') {
+              dataFolders.push(folderName);
+            }
           }
+        } else {
+          console.warn("Directory listing response is not HTML, cannot extract folders");
         }
       } else {
         console.warn("Could not get directory listing, trying direct folder access");
@@ -231,30 +251,26 @@ export const getAvailableFolders = async (): Promise<string[]> => {
         'Brother_814_Needle_Bar_Mechanism',
         'test2_Brother_814_Needle_Bar_Mechanism',
         'test3_Brother_814_Needle_Bar_Mechanism',
-        'test4_Brother_814_Needle_Bar_Mechanism'
+        'test4_Brother_814_Needle_Bar_Mechanism',
+        'test5_Brother_814_Needle_Bar_Mechanism'
       ];
       
       for (const folder of testFolders) {
-        try {
-          // Try to fetch a folder to see if it exists
-          const response = await fetch(`${basePath}/${folder}/`);
-          if (response.ok || response.status === 404) {
-            // Even if we get a 404, the folder might exist but not return a directory listing
-            // We'll check for actual content in the next step
-            dataFolders.push(folder);
-          }
-        } catch (err) {
-          // Ignore error and continue
-        }
+        dataFolders.push(folder); // Add all potential folders to check later
       }
     }
     
     // Filter folders to only include those with valid data files
     const validFolders: string[] = [];
     for (const folder of dataFolders) {
-      const { hasJson } = await checkFolderContents(folder);
-      if (hasJson) {
-        validFolders.push(folder);
+      try {
+        const { hasJson } = await checkFolderContents(folder);
+        if (hasJson) {
+          validFolders.push(folder);
+        }
+      } catch (err) {
+        console.warn(`Error checking folder ${folder}:`, err);
+        // Continue to next folder
       }
     }
     
@@ -282,12 +298,17 @@ export const checkFolderContents = async (folderName: string): Promise<{
     try {
       const response = await fetch(`${basePath}/${folderName}/`);
       if (response.ok) {
-        const html = await response.text();
-        const filePattern = /href="([^"]+)"/g;
-        const matches = [...html.matchAll(filePattern)];
-        fileList = matches
-          .map(match => match[1])
-          .filter(file => file.includes('.') && !file.includes('..'));
+        const contentType = response.headers.get('content-type');
+        
+        // Only process as HTML if the content type is HTML
+        if (contentType && contentType.includes('text/html')) {
+          const html = await response.text();
+          const filePattern = /href="([^"]+)"/g;
+          const matches = [...html.matchAll(filePattern)];
+          fileList = matches
+            .map(match => match[1])
+            .filter(file => file.includes('.') && !file.includes('..'));
+        }
       }
     } catch (err) {
       console.warn(`Could not get file listing for ${folderName}:`, err);
@@ -324,33 +345,66 @@ export const checkFolderContents = async (folderName: string): Promise<{
       for (const baseName of commonBaseNames) {
         // Check for JSON file
         try {
-          const jsonResponse = await fetch(`${basePath}/${folderName}/${baseName}.json`, { method: 'HEAD' });
+          const jsonPath = `${basePath}/${folderName}/${baseName}.json`;
+          const jsonResponse = await fetch(jsonPath, { method: 'HEAD' });
+          
           if (jsonResponse.ok) {
-            // Found a JSON file, now check for matching CSV and image
-            let hasCsv = false;
-            let hasImage = false;
-            
+            // Verify it's actually JSON by getting a small sample
             try {
-              const csvResponse = await fetch(`${basePath}/${folderName}/${baseName}.csv`, { method: 'HEAD' });
-              hasCsv = csvResponse.ok;
-            } catch (err) {
-              // Ignore CSV check error
-            }
-            
-            // Check for images with different extensions
-            for (const ext of ['.png', '.jpg', '.jpeg', '.webp', '.gif']) {
-              try {
-                const imgResponse = await fetch(`${basePath}/${folderName}/${baseName}${ext}`, { method: 'HEAD' });
-                if (imgResponse.ok) {
-                  hasImage = true;
-                  break;
+              const verifyResponse = await fetch(jsonPath);
+              if (verifyResponse.ok) {
+                const sample = await verifyResponse.text();
+                
+                // Skip if it's HTML instead of JSON
+                if (sample.trim().startsWith('<!DOCTYPE') || sample.trim().startsWith('<html')) {
+                  console.warn(`File at ${jsonPath} is HTML, not JSON`);
+                  continue;
                 }
-              } catch (err) {
-                // Continue checking other extensions
+                
+                // Try parsing to ensure it's valid JSON
+                try {
+                  // Only parse the first few characters to verify it's JSON
+                  // without loading the entire file
+                  const firstChar = sample.trim()[0];
+                  if (firstChar !== '{' && firstChar !== '[') {
+                    console.warn(`File at ${jsonPath} doesn't start with valid JSON`);
+                    continue;
+                  }
+                  
+                  // Found a JSON file, now check for matching CSV and image
+                  let hasCsv = false;
+                  let hasImage = false;
+                  
+                  try {
+                    const csvResponse = await fetch(`${basePath}/${folderName}/${baseName}.csv`, { method: 'HEAD' });
+                    hasCsv = csvResponse.ok;
+                  } catch (err) {
+                    // Ignore CSV check error
+                  }
+                  
+                  // Check for images with different extensions
+                  for (const ext of ['.png', '.jpg', '.jpeg', '.webp', '.gif']) {
+                    try {
+                      const imgResponse = await fetch(`${basePath}/${folderName}/${baseName}${ext}`, { method: 'HEAD' });
+                      if (imgResponse.ok) {
+                        hasImage = true;
+                        break;
+                      }
+                    } catch (err) {
+                      // Continue checking other extensions
+                    }
+                  }
+                  
+                  return { hasJson: true, hasCsv, hasImage, baseName };
+                } catch (parseErr) {
+                  console.warn(`File at ${jsonPath} is not valid JSON`);
+                  continue;
+                }
               }
+            } catch (verifyErr) {
+              console.warn(`Error verifying JSON at ${jsonPath}:`, verifyErr);
+              continue;
             }
-            
-            return { hasJson: true, hasCsv, hasImage, baseName };
           }
         } catch (err) {
           // Continue checking other base names
