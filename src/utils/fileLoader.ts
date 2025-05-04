@@ -156,8 +156,10 @@ export const loadImageData = async (folderName: string, fileName: string): Promi
     const basePath = getBasePath();
     const jsonPath = `${basePath}/${folderName}/${baseName}.json`;
     
+    console.log(`Attempting to load JSON from: ${jsonPath}`);
+    
     try {
-      // Use a regular fetch instead of cached fetch to avoid the "body already read" error
+      // Use a new fetch instance instead of cached fetch to avoid body stream issues
       const response = await fetch(jsonPath);
       
       if (!response.ok) {
@@ -235,33 +237,30 @@ export const getAvailableFolders = async (): Promise<string[]> => {
   try {
     const basePath = getBasePath();
     
-    // Try to get a list of all data files by checking for a common path pattern
-    // Instead of scanning for directories, check for known JSON files directly
-    
-    // Try to find folders using a HEAD request on the data directory
-    const dataFolders: string[] = [];
-    
-    // This approach requires a directory listing, which may not work on all servers
-    // Instead of relying on directory listing, we'll look for a predefined or user-added list
-    
     // 1. Check if there's a folders.json file that lists available folders
     try {
       const foldersResponse = await fetch(`${basePath}/folders.json`);
       if (foldersResponse.ok) {
         const foldersData = await foldersResponse.json();
         if (Array.isArray(foldersData.folders)) {
-          // Use this predefined list
+          console.log(`Found folders from folders.json:`, foldersData.folders);
           return foldersData.folders;
         }
       }
     } catch (err) {
-      console.warn("No folders.json found:", err);
+      console.warn("No folders.json found or error reading it:", err);
     }
     
     // 2. Check for specific folders that we know should exist
     const knownFolders = [
-      'Brother_814_Needle_Bar_Mechanism'
+      'Brother_814_Needle_Bar_Mechanism',
+      'test2_Brother_814_Needle_Bar_Mechanism',
+      'test3_Brother_814_Needle_Bar_Mechanism',
+      'test4_Brother_814_Needle_Bar_Mechanism',
+      'test5_Brother_814_Needle_Bar_Mechanism'
     ];
+    
+    const dataFolders = [];
     
     for (const folder of knownFolders) {
       const folderPath = `${basePath}/${folder}`;
@@ -270,43 +269,7 @@ export const getAvailableFolders = async (): Promise<string[]> => {
       }
     }
     
-    // 3. If no folders found yet, check any folder that has a JSON file with a common pattern
-    if (dataFolders.length === 0) {
-      const fallbackFolders = [];
-      
-      // If no specific folders are found, scan the data directory for any folder
-      // that contains valid JSON files
-      try {
-        const response = await fetch(`${basePath}/`);
-        
-        if (response.ok) {
-          const contentType = response.headers.get('content-type');
-          
-          if (contentType && contentType.includes('text/html')) {
-            const html = await response.text();
-            const folderPattern = /href="([^"\.][^"]*?)\/?"/g;
-            const matches = [...html.matchAll(folderPattern)];
-            
-            for (const match of matches) {
-              const folderName = match[1].replace(/\/$/, ''); // Remove trailing slash
-              if (!folderName.includes('.') && folderName !== '..' && folderName !== '') {
-                fallbackFolders.push(folderName);
-              }
-            }
-          }
-        }
-      } catch (err) {
-        console.warn("Error scanning data directory:", err);
-      }
-      
-      // Check each potential folder for valid data files
-      for (const folder of fallbackFolders) {
-        const { hasJson } = await checkFolderContents(folder);
-        if (hasJson) {
-          dataFolders.push(folder);
-        }
-      }
-    }
+    console.log(`Found folders from known list:`, dataFolders);
     
     return dataFolders;
   } catch (err) {
@@ -333,19 +296,24 @@ export const checkFolderContents = async (folderName: string): Promise<{
     const basePath = getBasePath();
     const folderPath = `${basePath}/${folderName}/`;
     
-    // Instead of trying to list files in the directory, which might not be supported,
-    // check for common file patterns directly
-    
-    // Check for common base names
-    const commonBaseNames = [
-      folderName.includes('_') ? folderName.split('_').pop() : folderName,
+    // Check for specific file names that might exist in the folder
+    const possibleBaseNames = [
+      // Try the exact folder name first (without path)
+      folderName.includes('/') ? folderName.split('/').pop() : folderName,
+      // Try to extract the name part after an underscore
+      folderName.includes('_') ? folderName.split('_').pop() : null,
+      // Generic names to try
+      'Brother814_Needle_Bar_Mechanism',
       'diagram',
       'data',
       'parts',
-      'main'
-    ];
+      'main',
+      'Mechanism'
+    ].filter(Boolean); // Remove null values
     
-    for (const baseName of commonBaseNames) {
+    console.log(`Checking folder ${folderName} with possible base names:`, possibleBaseNames);
+    
+    for (const baseName of possibleBaseNames) {
       if (!baseName) continue;
       
       // Check for JSON file first
@@ -355,6 +323,7 @@ export const checkFolderContents = async (folderName: string): Promise<{
         const jsonResponse = await fetch(jsonPath, { method: 'HEAD' });
         if (jsonResponse.ok) {
           // Found a JSON file, now check for matching CSV and image
+          console.log(`Found JSON file at ${jsonPath}`);
           let hasCsv = false;
           let hasImage = false;
           
@@ -362,6 +331,9 @@ export const checkFolderContents = async (folderName: string): Promise<{
             const csvPath = `${folderPath}${baseName}.csv`;
             const csvResponse = await fetch(csvPath, { method: 'HEAD' });
             hasCsv = csvResponse.ok;
+            if (hasCsv) {
+              console.log(`Found CSV file at ${csvPath}`);
+            }
           } catch (err) {
             // Ignore CSV check error
           }
@@ -373,6 +345,7 @@ export const checkFolderContents = async (folderName: string): Promise<{
               const imgResponse = await fetch(imgPath, { method: 'HEAD' });
               if (imgResponse.ok) {
                 hasImage = true;
+                console.log(`Found image file at ${imgPath}`);
                 break;
               }
             } catch (err) {
@@ -386,9 +359,11 @@ export const checkFolderContents = async (folderName: string): Promise<{
         }
       } catch (err) {
         // Try next base name
+        console.log(`No JSON found at ${jsonPath}, trying next name`);
       }
     }
     
+    console.log(`No valid files found in folder ${folderName}`);
     const result = { hasJson: false, hasCsv: false, hasImage: false, baseName: null };
     folderContentsCache[cacheKey] = result;
     return result;

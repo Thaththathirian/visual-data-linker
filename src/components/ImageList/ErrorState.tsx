@@ -55,6 +55,7 @@ export const ErrorState = ({ error, troubleshootingInfo, onRescan }: ErrorStateP
             </li>
             <li>The files MUST have the same base name (e.g., <code>diagram.json</code>, <code>diagram.csv</code>, and <code>diagram.png</code>)</li>
             <li>The JSON file must be properly formatted JSON - check for HTML content or syntax errors</li>
+            <li>Add your folder name to the <code>folders.json</code> file in the <code>public/data/</code> directory</li>
           </ul>
           
           <pre className="bg-gray-100 p-3 rounded-md text-xs mt-2 mb-2 overflow-x-auto">
@@ -69,6 +70,7 @@ export const ErrorState = ({ error, troubleshootingInfo, onRescan }: ErrorStateP
           
           <ul className="list-disc pl-5 text-sm space-y-1 text-muted-foreground">
             <li>For image files, we support .png, .jpg, .jpeg, .webp, and .gif formats</li>
+            <li>Make sure all files have the same base name (e.g., "Brother814_Needle_Bar_Mechanism")</li>
           </ul>
         </div>
         
@@ -76,9 +78,9 @@ export const ErrorState = ({ error, troubleshootingInfo, onRescan }: ErrorStateP
           <h4 className="text-sm font-medium mb-2">Example Folder Structure</h4>
           <pre className="text-xs text-gray-600">
             public/data/Your_Diagram_Name/<br/>
-            ├── diagram.json<br/>
-            ├── diagram.csv<br/>
-            └── diagram.png
+            ├── Brother814_Needle_Bar_Mechanism.json<br/>
+            ├── Brother814_Needle_Bar_Mechanism.csv<br/>
+            └── Brother814_Needle_Bar_Mechanism.png
           </pre>
         </div>
         
