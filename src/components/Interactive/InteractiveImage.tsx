@@ -120,6 +120,7 @@ const CoordinatePoint = memo(
           }}
           whileHover={{
             scale: 1.08,
+            transformOrigin: "center center" // Ensure scaling happens from center
           }}
           animate={{
             backgroundColor: isHighlighted
@@ -132,16 +133,20 @@ const CoordinatePoint = memo(
         >
           <span
             style={{
-              display: "inline-block",
-              lineHeight: "1",
-              // padding: useRectangle ? "1px 1px 0" : 0,
-              margin: 0,
-              position: "relative",
-              top: useRectangle ? "1px" : 0,
-              // This is crucial for vertical alignment
-              transform: "translateY(0)",
-              textAlign: "center",
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
               width: "100%",
+              height: "100%",
+              lineHeight: "1",
+              margin: 0,
+              padding: 0,
+              textAlign: "center",
+              // Ensure text stays centered
+              position: "absolute",
+              left: "50%",
+              top: "50%",
+              transform: "translate(-50%, -50%)"
             }}
           >
             {coord.number}
