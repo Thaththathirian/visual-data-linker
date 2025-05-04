@@ -20,80 +20,69 @@ const ImageList = () => {
   const [images, setImages] = useState<ImageListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [retryCount, setRetryCount] = useState(0);
+  const [loadingComplete, setLoadingComplete] = useState(false);
 
   // Use memoized function to prevent unnecessary re-renders
   const loadImages = useCallback(async () => {
     try {
-      setLoading(true);
-      setError(null);
-      
-      // Get available folders
-      const folders = await getAvailableFolders();
-      console.log('Found folders:', folders);
-      
-      if (folders.length === 0) {
-        setError("No folders were detected. Please ensure your data files are in the correct location.");
-        setLoading(false);
-        return;
-      }
-      
-      const imageDetails: ImageListItem[] = [];
-      const folderPromises = folders.map(async (folder) => {
-        try {
-          // Check if folder has required files
-          const { hasJson, baseName } = await checkFolderContents(folder);
-          
-          if (hasJson && baseName) {
-            try {
-              // Load the JSON data to get the image name and coordinates
-              const imageData = await loadImageData(folder, baseName);
-              
-              if (imageData) {
-                return {
-                  name: imageData.imageName.replace(/-/g, ' '),
-                  folderName: folder,
-                  fileName: baseName,
-                  pointCount: imageData.coordinates?.length || 0
-                };
-              }
-              return null;
-            } catch (jsonErr) {
-              console.error(`Error parsing JSON for ${folder}/${baseName}:`, jsonErr);
-              return null;
-            }
-          }
-          return null;
-        } catch (folderErr) {
-          console.error(`Error processing folder ${folder}:`, folderErr);
-          return null;
+      if (loading && !loadingComplete) {
+        setError(null);
+        
+        // Get available folders
+        const folders = await getAvailableFolders();
+        console.log('Found folders:', folders);
+        
+        if (folders.length === 0) {
+          setError("No folders were detected. Please ensure your data files are in the correct location.");
+          setLoading(false);
+          return;
         }
-      });
-      
-      // Wait for all folder processing to complete in parallel
-      const results = await Promise.all(folderPromises);
-      
-      // Filter out null results and add to imageDetails
-      results.filter(Boolean).forEach(item => {
-        if (item) imageDetails.push(item);
-      });
-      
-      setImages(imageDetails);
-      
-      if (imageDetails.length === 0 && retryCount < 3) {
-        // Auto-retry up to 3 times if no images were found
-        setRetryCount(prev => prev + 1);
-        setTimeout(() => loadImages(), 1000);
-      } else if (imageDetails.length === 0) {
-        setError("No valid diagram data could be loaded. Make sure your data files are in the public folder.");
+        
+        const imageDetails: ImageListItem[] = [];
+        
+        // Process each folder one at a time to avoid parallel requests issues
+        for (const folder of folders) {
+          try {
+            // Check if folder has required files
+            const { hasJson, baseName } = await checkFolderContents(folder);
+            
+            if (hasJson && baseName) {
+              try {
+                // Load the JSON data to get the image name and coordinates
+                const imageData = await loadImageData(folder, baseName);
+                
+                if (imageData) {
+                  imageDetails.push({
+                    name: imageData.imageName.replace(/-/g, ' '),
+                    folderName: folder,
+                    fileName: baseName,
+                    pointCount: imageData.coordinates?.length || 0
+                  });
+                }
+              } catch (jsonErr) {
+                console.error(`Error parsing JSON for ${folder}/${baseName}:`, jsonErr);
+              }
+            }
+          } catch (folderErr) {
+            console.error(`Error processing folder ${folder}:`, folderErr);
+          }
+        }
+        
+        setImages(imageDetails);
+        
+        if (imageDetails.length === 0) {
+          setError("No valid diagram data could be loaded. Make sure your data files are in the public folder.");
+        }
+        
+        setLoadingComplete(true);
+        setLoading(false);
       }
     } catch (err) {
       console.error('Error loading image list:', err);
       setError("Failed to load image list. Check console for details.");
-    } finally {
       setLoading(false);
     }
-  }, [retryCount]);
+  }, [loading, loadingComplete]);
 
   useEffect(() => {
     loadImages();
@@ -108,10 +97,9 @@ const ImageList = () => {
       });
     });
     
-    // Reset retry count and load images again
-    setRetryCount(0);
+    setLoadingComplete(false);
+    setLoading(true);
     toast.info("Scanning for diagram folders...");
-    loadImages();
   };
 
   return (

@@ -1,4 +1,3 @@
-
 import { TableRow, ImageData } from "@/types";
 import { parseCSV } from "@/utils/csvParser";
 import { toast } from "sonner";
@@ -18,7 +17,7 @@ const cachedFetch = async (url: string, options = {}): Promise<Response> => {
   if (cache[cacheKey] && cacheTimestamps[cacheKey] && 
       Date.now() - cacheTimestamps[cacheKey] < CACHE_TIMEOUT) {
     console.log(`Using cached response for ${url}`);
-    return cache[cacheKey];
+    return cache[cacheKey].clone(); // Return a clone to avoid consuming the body
   }
   
   // Make the actual fetch request
@@ -39,6 +38,9 @@ const cachedFetch = async (url: string, options = {}): Promise<Response> => {
     throw err;
   }
 };
+
+// Cache for parsed JSON data
+const jsonDataCache: Record<string, any> = {};
 
 /**
  * Gets the appropriate base path for data files - same path for both dev and prod
@@ -128,6 +130,14 @@ export const parseCSVFile = async (folderName: string, fileName: string): Promis
  */
 export const loadImageData = async (folderName: string, fileName: string): Promise<ImageData | null> => {
   try {
+    // Create a cache key for this specific JSON file
+    const cacheKey = `jsonData:${folderName}/${fileName}`;
+    
+    // Check if we have this JSON data cached
+    if (jsonDataCache[cacheKey]) {
+      return jsonDataCache[cacheKey];
+    }
+    
     // Strip any extension if present
     const baseName = fileName.includes('.') ? 
       fileName.substring(0, fileName.lastIndexOf('.')) : 
@@ -137,7 +147,7 @@ export const loadImageData = async (folderName: string, fileName: string): Promi
     const jsonPath = `${basePath}/${folderName}/${baseName}.json`;
     
     try {
-      // Use cached fetch to avoid redundant requests
+      // Use cached fetch to avoid redundant requests, and get a fresh clone of the response
       const response = await cachedFetch(jsonPath);
       
       if (!response.ok) {
@@ -145,7 +155,7 @@ export const loadImageData = async (folderName: string, fileName: string): Promi
         return null;
       }
       
-      // Get the raw text first to verify it's not empty or malformed
+      // Get the raw text once
       const rawText = await response.text();
       
       if (!rawText || rawText.trim() === '') {
@@ -162,6 +172,8 @@ export const loadImageData = async (folderName: string, fileName: string): Promi
         if (jsonData && typeof jsonData === 'object' && 
             typeof jsonData.imageName === 'string' && 
             Array.isArray(jsonData.coordinates)) {
+          // Store in cache before returning
+          jsonDataCache[cacheKey] = jsonData;
           return jsonData;
         } else {
           console.error(`Invalid JSON data structure in ${jsonPath}`);
