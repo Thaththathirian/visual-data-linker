@@ -1,3 +1,4 @@
+
 import { TableRow, ImageData } from "@/types";
 import { parseCSV } from "@/utils/csvParser";
 import { toast } from "sonner";
@@ -150,6 +151,24 @@ export const parseCSVFile = async (folderName: string, fileName: string): Promis
   }
 };
 
+// Helper function to validate JSON data structure
+const isValidImageData = (data: any): boolean => {
+  return (
+    data &&
+    typeof data === 'object' &&
+    typeof data.imageName === 'string' &&
+    Array.isArray(data.coordinates) &&
+    data.coordinates.length > 0 &&
+    data.coordinates.every((coord: any) => 
+      typeof coord === 'object' &&
+      typeof coord.id === 'number' &&
+      typeof coord.x === 'number' &&
+      typeof coord.y === 'number' &&
+      typeof coord.number === 'string'
+    )
+  );
+};
+
 /**
  * Load image JSON data dynamically from a specified folder
  */
@@ -172,21 +191,31 @@ export const loadImageData = async (folderName: string, fileName: string): Promi
         return null;
       }
       
-      // Add try-catch for JSON parsing
+      // Get the raw text first to verify it's not empty or malformed
+      const rawText = await response.clone().text();
+      
+      if (!rawText || rawText.trim() === '') {
+        console.error(`Empty JSON response from ${jsonPath}`);
+        throw new Error(`Empty JSON response from ${jsonPath}`);
+      }
+      
+      // Try to parse the JSON
+      let jsonData;
       try {
-        const jsonData = await response.json();
-        
-        // Basic validation of required fields
-        if (!jsonData || !jsonData.imageName || !jsonData.coordinates) {
-          console.error(`Invalid JSON data structure in ${jsonPath}`);
-          return null;
-        }
-        
-        return jsonData;
+        // Use a more controlled way to parse JSON
+        jsonData = JSON.parse(rawText);
       } catch (parseError) {
         console.error(`JSON parse error for ${jsonPath}:`, parseError);
         throw new Error(`Failed to parse JSON from ${jsonPath}: ${parseError.message}`);
       }
+      
+      // Validate the JSON structure
+      if (!isValidImageData(jsonData)) {
+        console.error(`Invalid JSON data structure in ${jsonPath}`);
+        return null;
+      }
+      
+      return jsonData;
     } catch (err) {
       console.error(`Error loading JSON data:`, err);
       return null;
