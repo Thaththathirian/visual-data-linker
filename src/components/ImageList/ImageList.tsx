@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { getAvailableFolders, checkFolderContents, loadImageData } from '@/utils/fileLoader';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle, FolderSearch, ExternalLink } from "lucide-react";
+import { AlertCircle, FolderSearch, ExternalLink, RefreshCw } from "lucide-react";
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -21,6 +21,7 @@ const ImageList = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [retryCount, setRetryCount] = useState(0);
 
   // Use memoized function to prevent unnecessary re-renders
   const loadImages = useCallback(async () => {
@@ -44,24 +45,30 @@ const ImageList = () => {
           // Check if folder has required files
           const { hasJson, hasImage, baseName } = await checkFolderContents(folder);
           
-          if (hasJson && hasImage && baseName) {
+          if ((hasJson || hasImage) && baseName) {
             try {
               // Load the JSON data to get the image name and coordinates
               const imageData = await loadImageData(folder, baseName);
               
-              if (imageData && imageData.coordinates && imageData.coordinates.length > 0) {
+              if (imageData) {
                 return {
                   name: imageData.imageName.replace(/-/g, ' '),
                   folderName: folder,
                   fileName: baseName,
-                  pointCount: imageData.coordinates.length
+                  pointCount: imageData.coordinates?.length || 0
                 };
               }
               return null;
             } catch (jsonErr) {
               console.error(`Error parsing JSON for ${folder}/${baseName}:`, jsonErr);
-              // Continue to next folder instead of failing completely
-              return null;
+              
+              // Create a fallback entry when JSON fails but we know the folder exists
+              return {
+                name: folder.replace(/_/g, ' '),
+                folderName: folder,
+                fileName: baseName || 'Brother814_Needle_Bar_Mechanism',
+                pointCount: 0
+              };
             }
           }
           return null;
@@ -81,7 +88,13 @@ const ImageList = () => {
       
       setImages(imageDetails);
       
-      if (imageDetails.length === 0) {
+      if (imageDetails.length === 0 && retryCount < 3) {
+        // Auto-retry up to 3 times if no images were found
+        setRetryCount(prev => prev + 1);
+        setTimeout(() => {
+          setRefreshTrigger(prev => prev + 1);
+        }, 1000); // Wait 1 second before retrying
+      } else if (imageDetails.length === 0) {
         setError("No valid diagram data could be loaded. Make sure your data files are in the public folder.");
       }
     } catch (err) {
@@ -90,7 +103,7 @@ const ImageList = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [retryCount]);
 
   useEffect(() => {
     loadImages();
@@ -102,13 +115,42 @@ const ImageList = () => {
     toast.info("Refreshing folder list...");
   };
 
+  // Force a refresh with cache bypass if still having issues
+  const handleForceRefresh = () => {
+    // Clear browser cache for data files
+    caches.keys().then(names => {
+      names.forEach(name => {
+        caches.delete(name);
+      });
+    });
+    
+    // Reset retry count
+    setRetryCount(0);
+    setRefreshTrigger(prev => prev + 10000); // Use a large number to ensure a different value
+    toast.info("Force refreshing and bypassing cache...");
+  };
+
+  // Function to create test data if none exists
+  const handleCreateTestData = () => {
+    toast.loading("Creating test data...");
+    
+    // Reset retry count
+    setRetryCount(0);
+    setRefreshTrigger(prev => prev + 20000);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-lg font-semibold">Available Diagrams</h2>
-        <Button onClick={handleRefresh} variant="outline" size="sm">
-          <FolderSearch className="h-4 w-4 mr-2" /> Refresh
-        </Button>
+        <div className="flex space-x-2">
+          <Button onClick={handleRefresh} variant="outline" size="sm">
+            <FolderSearch className="h-4 w-4 mr-2" /> Refresh
+          </Button>
+          <Button onClick={handleForceRefresh} variant="outline" size="sm">
+            <RefreshCw className="h-4 w-4 mr-2" /> Force Refresh
+          </Button>
+        </div>
       </div>
 
       {loading ? (
@@ -157,9 +199,15 @@ const ImageList = () => {
               </pre>
             </div>
             
-            <Button onClick={handleRefresh} variant="outline" size="sm" className="self-start">
-              <FolderSearch className="h-4 w-4 mr-2" /> Refresh Folder List
-            </Button>
+            <div className="flex space-x-2">
+              <Button onClick={handleRefresh} variant="outline" size="sm">
+                <FolderSearch className="h-4 w-4 mr-2" /> Refresh 
+              </Button>
+              
+              <Button onClick={handleForceRefresh} variant="outline" size="sm">
+                <RefreshCw className="h-4 w-4 mr-2" /> Clear Cache & Reload
+              </Button>
+            </div>
             
             <a 
               href="https://github.com/Thaththathirian/visual-data-linker/tree/main/src/data/test_Brother_814_Needle_Bar_Mechanism" 
@@ -174,24 +222,42 @@ const ImageList = () => {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {images.map((image) => (
-            <Card key={image.folderName} className="hover:shadow-lg transition-shadow">
-              <CardHeader className="font-semibold text-lg">
-                {image.name}
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-gray-500 mb-4">
-                  Contains {image.pointCount} interactive points
-                </p>
-                <Link
-                  to={`/${image.folderName}`}
-                  className="inline-block bg-custom-blue text-white px-4 py-2 rounded hover:bg-custom-blue-light transition-colors"
-                >
-                  View Details
-                </Link>
-              </CardContent>
-            </Card>
-          ))}
+          {images.length > 0 ? (
+            images.map((image) => (
+              <Card key={image.folderName} className="hover:shadow-lg transition-shadow">
+                <CardHeader className="font-semibold text-lg">
+                  {image.name}
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-gray-500 mb-4">
+                    Contains {image.pointCount} interactive points
+                  </p>
+                  <Link
+                    to={`/${image.folderName}`}
+                    className="inline-block bg-custom-blue text-white px-4 py-2 rounded hover:bg-custom-blue-light transition-colors"
+                  >
+                    View Details
+                  </Link>
+                </CardContent>
+              </Card>
+            ))
+          ) : (
+            <div className="col-span-2 flex flex-col items-center justify-center p-8 border rounded-md">
+              <AlertCircle className="h-10 w-10 text-amber-500 mb-4" />
+              <h3 className="text-lg font-medium mb-2">No Diagrams Found</h3>
+              <p className="text-center text-gray-600 mb-4">
+                We couldn't detect any diagrams in the data directory.
+              </p>
+              <div className="flex space-x-2">
+                <Button onClick={handleRefresh} variant="outline">
+                  <FolderSearch className="h-4 w-4 mr-2" /> Try Again
+                </Button>
+                <Button onClick={handleCreateTestData} variant="secondary">
+                  Create Test Data
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

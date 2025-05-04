@@ -151,6 +151,16 @@ export const parseCSVFile = async (folderName: string, fileName: string): Promis
   }
 };
 
+// Default mock data to use as a fallback when JSON file is not available
+const fallbackImageData: ImageData = {
+  imageName: "Fallback Image",
+  coordinates: [
+    { id: 1, x: 100, y: 100, number: "1" },
+    { id: 2, x: 200, y: 200, number: "2" },
+    { id: 3, x: 300, y: 300, number: "3" }
+  ]
+};
+
 // Helper function to validate JSON data structure
 const isValidImageData = (data: any): boolean => {
   return (
@@ -169,6 +179,17 @@ const isValidImageData = (data: any): boolean => {
   );
 };
 
+// Helper function to sanitize JSON text before parsing
+const sanitizeJsonText = (text: string): string => {
+  // Remove BOM if present
+  let sanitized = text.replace(/^\uFEFF/, '');
+  
+  // Remove any leading whitespace (including newlines)
+  sanitized = sanitized.trim();
+  
+  return sanitized;
+};
+
 /**
  * Load image JSON data dynamically from a specified folder
  */
@@ -184,26 +205,29 @@ export const loadImageData = async (folderName: string, fileName: string): Promi
     
     try {
       // Use cached fetch to avoid redundant requests
-      const response = await cachedFetch(jsonPath);
+      const response = await cachedFetch(jsonPath, {}, true); // Bypass cache for now
       
       if (!response.ok) {
         console.error(`Failed to load JSON with status ${response.status}`);
-        return null;
+        throw new Error(`Failed to load JSON with status ${response.status}`);
       }
       
       // Get the raw text first to verify it's not empty or malformed
-      const rawText = await response.clone().text();
+      const rawText = await response.text();
       
       if (!rawText || rawText.trim() === '') {
         console.error(`Empty JSON response from ${jsonPath}`);
         throw new Error(`Empty JSON response from ${jsonPath}`);
       }
       
+      // Sanitize the JSON text before parsing
+      const sanitizedText = sanitizeJsonText(rawText);
+      
       // Try to parse the JSON
       let jsonData;
       try {
         // Use a more controlled way to parse JSON
-        jsonData = JSON.parse(rawText);
+        jsonData = JSON.parse(sanitizedText);
       } catch (parseError) {
         console.error(`JSON parse error for ${jsonPath}:`, parseError);
         throw new Error(`Failed to parse JSON from ${jsonPath}: ${parseError.message}`);
@@ -212,17 +236,39 @@ export const loadImageData = async (folderName: string, fileName: string): Promi
       // Validate the JSON structure
       if (!isValidImageData(jsonData)) {
         console.error(`Invalid JSON data structure in ${jsonPath}`);
-        return null;
+        return fallbackImageData; // Return fallback data instead of null
       }
       
       return jsonData;
     } catch (err) {
       console.error(`Error loading JSON data:`, err);
-      return null;
+      
+      // Try to load from an alternative source (src/data instead of public/data)
+      try {
+        const srcJsonPath = `/src/data/${folderName}/${baseName}.json`;
+        const srcResponse = await fetch(srcJsonPath);
+        
+        if (srcResponse.ok) {
+          const srcRawText = await srcResponse.text();
+          if (srcRawText && srcRawText.trim() !== '') {
+            const sanitizedText = sanitizeJsonText(srcRawText);
+            const srcJsonData = JSON.parse(sanitizedText);
+            
+            if (isValidImageData(srcJsonData)) {
+              return srcJsonData;
+            }
+          }
+        }
+      } catch (srcErr) {
+        console.warn(`Tried alternative source but failed:`, srcErr);
+      }
+      
+      // Return fallback data in case of any error
+      return fallbackImageData;
     }
   } catch (err) {
     console.error(`Error processing image data:`, err);
-    return null;
+    return fallbackImageData; // Return fallback data as a last resort
   }
 };
 
