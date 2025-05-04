@@ -3,11 +3,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { getAvailableFolders, checkFolderContents, loadImageData, clearCache } from '@/utils/fileLoader';
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle, FolderSearch, FileText, FileJson, Image } from "lucide-react";
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { Skeleton } from '@/components/ui/skeleton';
 import { LoadingState } from './LoadingState';
 import { ErrorState } from './ErrorState';
 import { EmptyState } from './EmptyState';
@@ -46,10 +43,10 @@ const ImageList = () => {
         const imageDetails: ImageListItem[] = [];
         const failedFolders: string[] = []; // Track folders that failed to load
         
-        // Process each folder one at a time to avoid parallel requests issues
+        // Process each folder one at a time
         for (const folder of folders) {
           try {
-            // Check if folder has required files
+            // First try to find the JSON files by checking folder contents
             const { hasJson, hasCsv, hasImage, baseName } = await checkFolderContents(folder);
             
             if (!hasJson) {
@@ -73,7 +70,7 @@ const ImageList = () => {
             }
             
             try {
-              // Load the JSON data to get the image name and coordinates
+              // Try to load the JSON data
               const imageData = await loadImageData(folder, baseName);
               
               if (imageData) {
@@ -84,6 +81,22 @@ const ImageList = () => {
                   pointCount: imageData.coordinates?.length || 0
                 });
               } else {
+                // Try with the standard file name as a fallback
+                const standardFileName = 'Brother814_Needle_Bar_Mechanism';
+                if (baseName !== standardFileName) {
+                  const standardImageData = await loadImageData(folder, standardFileName);
+                  
+                  if (standardImageData) {
+                    imageDetails.push({
+                      name: standardImageData.imageName.replace(/-/g, ' '),
+                      folderName: folder,
+                      fileName: standardFileName,
+                      pointCount: standardImageData.coordinates?.length || 0
+                    });
+                    continue;
+                  }
+                }
+                
                 failedFolders.push(folder);
                 issues.push(`Folder "${folder}": JSON file "${baseName}.json" exists but contains invalid data or HTML instead of JSON`);
               }
@@ -144,7 +157,7 @@ const ImageList = () => {
       <div className="flex justify-between items-center">
         <h2 className="text-lg font-semibold">Available Diagrams</h2>
         <Button onClick={handleScan} variant="outline" size="sm">
-          <FolderSearch className="h-4 w-4 mr-2" /> Scan Folders
+          Scan Folders
         </Button>
       </div>
 
