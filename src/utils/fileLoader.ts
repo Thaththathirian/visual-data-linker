@@ -1,4 +1,3 @@
-
 import { TableRow, ImageData } from "@/types";
 import { parseCSV } from "@/utils/csvParser";
 import { toast } from "sonner";
@@ -173,8 +172,21 @@ export const loadImageData = async (folderName: string, fileName: string): Promi
         return null;
       }
       
-      const jsonData = await response.json();
-      return jsonData;
+      // Add try-catch for JSON parsing
+      try {
+        const jsonData = await response.json();
+        
+        // Basic validation of required fields
+        if (!jsonData || !jsonData.imageName || !jsonData.coordinates) {
+          console.error(`Invalid JSON data structure in ${jsonPath}`);
+          return null;
+        }
+        
+        return jsonData;
+      } catch (parseError) {
+        console.error(`JSON parse error for ${jsonPath}:`, parseError);
+        throw new Error(`Failed to parse JSON from ${jsonPath}: ${parseError.message}`);
+      }
     } catch (err) {
       console.error(`Error loading JSON data:`, err);
       return null;
@@ -187,18 +199,10 @@ export const loadImageData = async (folderName: string, fileName: string): Promi
 
 // Known folder names for the application
 const knownFolderPatterns = [
-  'test_Brother_814_Needle_Bar_Mechanism',
+  'Brother_814_Needle_Bar_Mechanism',
   'test2_Brother_814_Needle_Bar_Mechanism', 
   'test3_Brother_814_Needle_Bar_Mechanism',
-  'test4_Brother_814_Needle_Bar_Mechanism',
-  'test5_Brother_814_Needle_Bar_Mechanism',
-  'Brother_814_Needle_Bar_Mechanism',
-  'diagram_data',
-  'mechanism_diagrams', 
-  'sewing_machine_parts',
-  'mechanism',
-  'parts',
-  'diagrams'
+  'test4_Brother_814_Needle_Bar_Mechanism'
 ];
 
 /**
@@ -312,6 +316,30 @@ export const getAvailableFolders = async (): Promise<string[]> => {
     const foundFolders = new Set<string>();
     const detectedFolders: string[] = [];
     
+    // Prioritize these specific folders first that we know have valid data
+    const priorityFolders = [
+      'Brother_814_Needle_Bar_Mechanism'
+    ];
+    
+    // First check priority folders
+    for (const folderName of priorityFolders) {
+      try {
+        const { hasJson } = await checkFolderContents(folderName);
+        
+        if (hasJson && !foundFolders.has(folderName)) {
+          foundFolders.add(folderName);
+          detectedFolders.push(folderName);
+        }
+      } catch (err) {
+        // Continue checking other folders
+      }
+    }
+    
+    // If we already found the priority folders, return early to avoid unnecessary checks
+    if (detectedFolders.length > 0) {
+      return detectedFolders;
+    }
+    
     // Check for each known folder pattern
     for (const folderName of knownFolderPatterns) {
       try {
@@ -331,8 +359,8 @@ export const getAvailableFolders = async (): Promise<string[]> => {
       return detectedFolders;
     }
     
-    // If no folders detected, return a fallback list of the most common folders
-    return ['Brother_814_Needle_Bar_Mechanism', 'test2_Brother_814_Needle_Bar_Mechanism', 'test3_Brother_814_Needle_Bar_Mechanism', 'test4_Brother_814_Needle_Bar_Mechanism'];
+    // If no folders detected, return the most likely to work
+    return ['Brother_814_Needle_Bar_Mechanism'];
   } catch (err) {
     console.error('Error detecting folders:', err);
     return ['Brother_814_Needle_Bar_Mechanism'];

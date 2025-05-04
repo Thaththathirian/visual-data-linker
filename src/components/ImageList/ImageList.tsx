@@ -45,17 +45,24 @@ const ImageList = () => {
           const { hasJson, hasImage, baseName } = await checkFolderContents(folder);
           
           if (hasJson && hasImage && baseName) {
-            // Load the JSON data to get the image name and coordinates
-            const imageData = await loadImageData(folder, baseName);
-            
-            if (imageData && imageData.coordinates && imageData.coordinates.length > 0) {
-              return {
-                name: imageData.imageName.replace(/-/g, ' '),
-                folderName: folder,
-                fileName: baseName,
-                pointCount: imageData.coordinates.length
-              };
-            } 
+            try {
+              // Load the JSON data to get the image name and coordinates
+              const imageData = await loadImageData(folder, baseName);
+              
+              if (imageData && imageData.coordinates && imageData.coordinates.length > 0) {
+                return {
+                  name: imageData.imageName.replace(/-/g, ' '),
+                  folderName: folder,
+                  fileName: baseName,
+                  pointCount: imageData.coordinates.length
+                };
+              }
+              return null;
+            } catch (jsonErr) {
+              console.error(`Error parsing JSON for ${folder}/${baseName}:`, jsonErr);
+              // Continue to next folder instead of failing completely
+              return null;
+            }
           }
           return null;
         } catch (folderErr) {
@@ -106,7 +113,7 @@ const ImageList = () => {
 
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {[1, 2, 3, 4].map(i => (
+          {[1, 2].map(i => (
             <Card key={i} className="overflow-hidden">
               <CardHeader>
                 <Skeleton className="h-6 w-3/4" />
@@ -137,6 +144,7 @@ const ImageList = () => {
                 <li>Each diagram should have its own folder (e.g., <code className="bg-gray-100 px-1">public/data/Brother_814_Needle_Bar_Mechanism/</code>)</li>
                 <li>Each folder needs a JSON file and an image with matching names</li>
                 <li>For image files, we support .png, .jpg, .jpeg, .webp, and .gif formats</li>
+                <li>Check that your JSON files have proper formatting and no trailing commas</li>
               </ul>
             </div>
             
