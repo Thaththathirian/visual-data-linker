@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { getAvailableFolders, checkFolderContents, loadImageData } from '@/utils/fileLoader';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle, FolderSearch, ExternalLink, RefreshCw, FileJson, FileCsv, Image } from "lucide-react";
+import { AlertCircle, FolderSearch, ExternalLink, RefreshCw, FileJson, FileText, Image } from "lucide-react";
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -170,7 +169,7 @@ const ImageList = () => {
                 <li>Add these files with matching names inside the folder:
                   <ul className="list-circle pl-5 mt-1 space-y-1">
                     <li><FileJson className="inline h-3 w-3 mr-1" /> A JSON file (e.g., <code>diagram.json</code>)</li>
-                    <li><FileCsv className="inline h-3 w-3 mr-1" /> A CSV file (e.g., <code>diagram.csv</code>)</li>
+                    <li><FileText className="inline h-3 w-3 mr-1" /> A CSV file (e.g., <code>diagram.csv</code>)</li>
                     <li><Image className="inline h-3 w-3 mr-1" /> An image file with the same name (e.g., <code>diagram.png</code>)</li>
                   </ul>
                 </li>
