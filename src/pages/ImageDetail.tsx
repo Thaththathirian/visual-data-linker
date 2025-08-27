@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo, lazy, Suspense } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { TableRow, ImageData } from "@/types";
-import { parseCSVFile, loadImageData, getImagePath, checkFolderContents } from "@/utils/fileLoader";
+import { parseGoogleDriveCSVFile, loadGoogleDriveImageData, getGoogleDriveImagePath, checkGoogleDriveFolderContents } from "@/utils/googleDriveDynamicLoader";
 import Breadcrumb from "@/components/Navigation/Breadcrumb";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -23,7 +23,10 @@ const ImageDetail: React.FC = () => {
   const [baseName, setBaseName] = useState<string | null>(null);
 
   // Fall back to a default folder if none specified in URL
-  const currentFolderName = folderName || "Brother_814_Needle_Bar_Mechanism";
+  const currentFolderName = folderName ? decodeURIComponent(folderName) : "Needle Bar Mechanism";
+  
+  // Debug: Log the folder name being used
+  console.log(`🔍 ImageDetail: Using folder name: "${currentFolderName}"`);
 
   const numberToPartNumberMap = useMemo(() => {
     const map: Record<string, string> = {};
@@ -40,28 +43,28 @@ const ImageDetail: React.FC = () => {
       try {
         setLoading(true);
         
-        // Step 1: Check folder contents to find files
-        const folderContents = await checkFolderContents(currentFolderName);
+        // Step 1: Check Google Drive folder contents to find files
+        const folderContents = await checkGoogleDriveFolderContents(currentFolderName);
         if (!folderContents.hasJson || !folderContents.baseName) {
-          throw new Error(`Required JSON file not found in folder: ${currentFolderName}`);
+          throw new Error(`Required JSON file not found in Google Drive folder: ${currentFolderName}`);
         }
         
         setBaseName(folderContents.baseName);
         
         // Use Promise.all to execute these requests in parallel
         const [imgData, imgPath, tableRows] = await Promise.all([
-          // Step 2: Load JSON data for image
-          loadImageData(currentFolderName, folderContents.baseName),
+          // Step 2: Load JSON data for image from Google Drive
+          loadGoogleDriveImageData(currentFolderName, folderContents.baseName),
           
-          // Step 3: Find the actual image path
-          getImagePath(currentFolderName, folderContents.baseName),
+          // Step 3: Find the actual image path from Google Drive
+          getGoogleDriveImagePath(currentFolderName, folderContents.baseName),
           
-          // Step 4: Load CSV table data
-          parseCSVFile(currentFolderName, folderContents.baseName)
+          // Step 4: Load CSV table data from Google Drive
+          parseGoogleDriveCSVFile(currentFolderName, folderContents.baseName)
         ]);
 
         if (!imgData) {
-          throw new Error(`Failed to load image data for: ${currentFolderName}`);
+          throw new Error(`Failed to load image data from Google Drive for: ${currentFolderName}. The JSON file might be empty or invalid.`);
         }
         
         setImageData(imgData);
@@ -69,8 +72,8 @@ const ImageDetail: React.FC = () => {
         if (imgPath) {
           setImagePath(imgPath);
         } else {
-          console.warn(`Could not locate image for: ${currentFolderName}/${folderContents.baseName}`);
-          toast.warning("Using placeholder image - actual image not found");
+          console.warn(`Could not locate image in Google Drive for: ${currentFolderName}/${folderContents.baseName}`);
+          toast.warning("Using placeholder image - actual image not found in Google Drive");
         }
 
         setTableData(tableRows);

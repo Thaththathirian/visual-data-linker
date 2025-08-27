@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google Drive Direct Access Test</title>
+</head>
+<body>
+    <h1>Google Drive Direct Access Test</h1>
+    <p>Testing access to Google Drive files from: <a href="https://drive.google.com/drive/folders/1aMYBHHbnZX-ijd0-8b8VSnrZkFmtTC77?usp=sharing" target="_blank">Google Drive Folder</a></p>
+    
+    <div id="results"></div>
+    
+    <script>
+        const GOOGLE_DRIVE_FOLDER_ID = "1aMYBHHbnZX-ijd0-8b8VSnrZkFmtTC77";
+        const resultsDiv = document.getElementById('results');
+        
+        async function testFileAccess(folderName, fileType) {
+            const baseName = folderName.replace(/\s+/g, '');
+            const fileName = `${baseName}.${fileType}`;
+            
+            const urlPatterns = [
+                `https://drive.google.com/uc?export=download&id=${GOOGLE_DRIVE_FOLDER_ID}/${fileName}`,
+                `https://docs.google.com/uc?export=download&id=${GOOGLE_DRIVE_FOLDER_ID}/${fileName}`,
+                `https://drive.google.com/uc?export=download&id=${GOOGLE_DRIVE_FOLDER_ID}&file=${fileName}`,
+                `https://docs.google.com/uc?export=download&id=${GOOGLE_DRIVE_FOLDER_ID}&file=${fileName}`,
+            ];
+            
+            for (const url of urlPatterns) {
+                try {
+                    console.log(`Testing: ${url}`);
+                    const response = await fetch(url);
+                    
+                    if (response.ok) {
+                        const content = await response.text();
+                        
+                        if (content && 
+                            !content.includes('<!DOCTYPE html>') && 
+                            !content.includes('Google Drive') &&
+                            !content.includes('Error') &&
+                            content.length > 100) {
+                            return { success: true, url, contentLength: content.length };
+                        }
+                    }
+                } catch (err) {
+                    console.warn(`Failed: ${url}`, err);
+                }
+            }
+            
+            return { success: false };
+        }
+        
+        async function runTests() {
+            const testFolders = [
+                "Miscellaneous Cover",
+                "Thread Eyelet Parts",
+                "Needle Bar Mechanism"
+            ];
+            
+            const testTypes = ['json', 'csv', 'png'];
+            
+            for (const folder of testFolders) {
+                const folderDiv = document.createElement('div');
+                folderDiv.innerHTML = `<h3>Testing folder: ${folder}</h3>`;
+                
+                for (const fileType of testTypes) {
+                    const result = await testFileAccess(folder, fileType);
+                    const statusDiv = document.createElement('div');
+                    statusDiv.innerHTML = `
+                        <p>${fileType.toUpperCase()}: ${result.success ? '✅ SUCCESS' : '❌ FAILED'} 
+                        ${result.success ? `(Length: ${result.contentLength} chars)` : ''}</p>
+                    `;
+                    folderDiv.appendChild(statusDiv);
+                }
+                
+                resultsDiv.appendChild(folderDiv);
+            }
+        }
+        
+        runTests();
+    </script>
+</body>
+</html>

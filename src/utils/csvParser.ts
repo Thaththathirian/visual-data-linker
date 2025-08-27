@@ -10,7 +10,12 @@ export const parseCSV = (csvContent: string): TableRow[] => {
   const headers = parsedHeader.data[0] as string[];
   
   // Find important column indexes
-  const numberIndex = headers.findIndex(h => h.toLowerCase() === 'nuxmber');
+  const numberIndex = headers.findIndex(h => 
+    h.toLowerCase() === 'number' || 
+    h.toLowerCase() === 's.no.' || 
+    h.toLowerCase() === 'sno' ||
+    h.toLowerCase() === 'no.'
+  );
   const partNoIndex = headers.findIndex(h => /part\s*no/i.test(h));
   const descIndex = headers.findIndex(h => h.toLowerCase().includes('description'));
   const qtyIndex = headers.findIndex(h => 
@@ -18,6 +23,22 @@ export const parseCSV = (csvContent: string): TableRow[] => {
     h.toLowerCase() === 'quantity'
   );
   const nameIndex = headers.findIndex(h => h.toLowerCase() === 'name');
+  
+  console.log(`📊 CSV Headers:`, headers);
+  console.log(`📊 Column indexes:`, {
+    number: numberIndex,
+    partNo: partNoIndex,
+    description: descIndex,
+    qty: qtyIndex,
+    name: nameIndex
+  });
+  
+  // Debug: Show what we found for each column
+  if (numberIndex >= 0) console.log(`📊 Found number column: "${headers[numberIndex]}" at index ${numberIndex}`);
+  if (partNoIndex >= 0) console.log(`📊 Found part number column: "${headers[partNoIndex]}" at index ${partNoIndex}`);
+  if (descIndex >= 0) console.log(`📊 Found description column: "${headers[descIndex]}" at index ${descIndex}`);
+  if (qtyIndex >= 0) console.log(`📊 Found qty column: "${headers[qtyIndex]}" at index ${qtyIndex}`);
+  if (nameIndex >= 0) console.log(`📊 Found name column: "${headers[nameIndex]}" at index ${nameIndex}`);
   
   return lines.slice(1)
     .map(line => line.trim())

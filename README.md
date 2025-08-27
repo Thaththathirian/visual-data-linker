@@ -71,3 +71,22 @@ Yes, you can!
 To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
 Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+
+## Environment variables
+
+Create a .env file at the project root to configure Google Drive access.
+
+Frontend (Vite): create `.env.local` or `.env` with:
+
+```
+VITE_GOOGLE_DRIVE_FOLDER_ID=1aMYBHHbnZX-ijd0-8b8VSnrZkFmtTC77
+```
+
+Backend (server.js): same `.env` or your shell env:
+
+```
+GOOGLE_DRIVE_FOLDER_ID=1aMYBHHbnZX-ijd0-8b8VSnrZkFmtTC77
+GOOGLE_API_KEY=YOUR_GOOGLE_API_KEY
+```
+
+Restart dev server after changes. Frontend reads `VITE_GOOGLE_DRIVE_FOLDER_ID`; backend reads `GOOGLE_DRIVE_FOLDER_ID`.
