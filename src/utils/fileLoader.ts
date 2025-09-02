@@ -2,6 +2,18 @@
 import { TableRow, ImageData } from "@/types";
 import { parseCSV } from "@/utils/csvParser";
 import { toast } from "sonner";
+import {
+  isDriveEnabled,
+  getRootFolderId,
+  resolveFolderByNameUnderRoot,
+  resolveFolderByPath,
+  fetchJsonInFolderByCandidates,
+  fetchCsvRowsInFolder,
+  findImageFileInFolder,
+  listSubfolders,
+  listAllSubfoldersRecursive,
+  listFilesInFolder,
+} from "@/utils/googleDrive";
 
 // Create a simple cache to avoid repeated network requests
 const cache: Record<string, any> = {};
@@ -70,25 +82,14 @@ export const getTablePath = (folderName: string, fileName: string) => {
  * Gets the appropriate image path with fallback for different extensions
  */
 export const getImagePath = async (folderName: string, fileName: string): Promise<string | null> => {
-  // Try different common image extensions
-  const extensions = ['.png', '.jpg', '.jpeg', '.webp', '.gif'];
-  
-  // Always try the standard file name first (matching JSON file name)
-  const basePath = getBasePath();
-  for (const ext of extensions) {
-    const filePath = `${folderName}/${fileName}${ext}`;
-    const staticUrl = `${basePath}/${filePath}`;
-    try {
-      const response = await fetch(staticUrl, { method: 'HEAD' });
-      if (response.ok) {
-        return staticUrl;
-      }
-    } catch (err) {
-      // Continue trying other extensions
-    }
-  }
-  
-  return null;
+  console.log("[Drive] getImagePath using Google Drive for", { folderName, fileName });
+  const normalizedFolderName = folderName.replace(/\s+/g, ' ').trim();
+  const folder = normalizedFolderName.includes('/')
+    ? await resolveFolderByPath(normalizedFolderName)
+    : await resolveFolderByNameUnderRoot(normalizedFolderName);
+  if (!folder) return null;
+  const url = await findImageFileInFolder(folder.id, fileName);
+  return url;
 };
 
 /**
@@ -96,44 +97,15 @@ export const getImagePath = async (folderName: string, fileName: string): Promis
  */
 export const parseCSVFile = async (folderName: string, fileName: string): Promise<TableRow[]> => {
   try {
-    // Use static file path instead of API endpoint
-    const filePath = `${folderName}/${fileName}.csv`;
-    const staticUrl = `${getBasePath()}/${filePath}`;
-    
-    console.log(`[CSV Loader] Attempting to load CSV from: ${staticUrl}`);
-    console.log(`[CSV Loader] Folder: ${folderName}, File: ${fileName}`);
-    
-    try {
-      // Use cached fetch to avoid redundant requests
-      const response = await cachedFetch(staticUrl);
-      
-      console.log(`[CSV Loader] Response status: ${response.status} ${response.statusText}`);
-      
-      if (!response.ok) {
-        console.error(`[CSV Loader] Failed to load CSV: ${response.status} ${response.statusText}`);
-        return [];
-      }
-
-      const csvText = await response.text();
-      console.log(`[CSV Loader] CSV content length: ${csvText.length} characters`);
-      console.log(`[CSV Loader] CSV content preview: ${csvText.substring(0, 200)}...`);
-      
-      // Check if the response is HTML instead of CSV
-      if (csvText.trim().startsWith('<!DOCTYPE') || csvText.trim().startsWith('<html')) {
-        console.error(`[CSV Loader] Received HTML instead of CSV for ${staticUrl}`);
-        return [];
-      }
-      
-      console.log(`[CSV Loader] Parsing CSV content...`);
-      const parsedData = parseCSV(csvText);
-      console.log(`[CSV Loader] Parsed ${parsedData.length} rows from CSV`);
-      console.log(`[CSV Loader] First row sample:`, parsedData[0]);
-      
-      return parsedData;
-    } catch (err) {
-      console.error(`[CSV Loader] Error fetching CSV file:`, err);
-      return [];
-    }
+    console.log("[Drive] parseCSVFile using Google Drive for", { folderName, fileName });
+    const normalizedFolderName = folderName.replace(/\s+/g, ' ').trim();
+    const folder = normalizedFolderName.includes('/')
+      ? await resolveFolderByPath(normalizedFolderName)
+      : await resolveFolderByNameUnderRoot(normalizedFolderName);
+    if (!folder) return [];
+    const csvText = await fetchCsvRowsInFolder(folder.id, fileName);
+    if (!csvText) return [];
+    return parseCSV(csvText);
   } catch (err) {
     console.error(`[CSV Loader] Unexpected error in parseCSVFile:`, err);
     return [];
@@ -204,89 +176,28 @@ export const loadImageData = async (folderName: string, fileName: string): Promi
       return jsonDataCache[cacheKey];
     }
     
-    // Use static file path instead of API endpoint
-    const filePath = `${folderName}/${fileName}.json`;
-    const staticUrl = `${getBasePath()}/${filePath}`;
-    
-    console.log(`Loading JSON data from: ${staticUrl}`);
-    let jsonData = await safeParseJSON(staticUrl);
-    
-    // If primary file fails, try alternative naming patterns
-    if (!jsonData) {
-      console.log(`Primary JSON file failed, trying alternative patterns...`);
-      
-      // Try with -coordinates suffix (actual naming pattern used)
-      const coordinatesFileName = `${fileName}-coordinates`;
-      const coordinatesFilePath = `${folderName}/${coordinatesFileName}.json`;
-      const coordinatesUrl = `${getBasePath()}/${coordinatesFilePath}`;
-      
-      console.log(`Trying coordinates JSON path: ${coordinatesUrl}`);
-      jsonData = await safeParseJSON(coordinatesUrl);
-      
-      // If still no success, try with underscores removed
-      if (!jsonData) {
-        const altFileName = fileName.replace(/_/g, '');
-        const altFilePath = `${folderName}/${altFileName}.json`;
-        const altUrl = `${getBasePath()}/${altFilePath}`;
-        
-        console.log(`Trying alternative JSON path: ${altUrl}`);
-        jsonData = await safeParseJSON(altUrl);
-        
-        // Try with -coordinates suffix for the underscore-removed version too
-        if (!jsonData) {
-          const altCoordinatesFileName = `${altFileName}-coordinates`;
-          const altCoordinatesFilePath = `${folderName}/${altCoordinatesFileName}.json`;
-          const altCoordinatesUrl = `${getBasePath()}/${altCoordinatesFilePath}`;
-          
-          console.log(`Trying alt coordinates JSON path: ${altCoordinatesUrl}`);
-          jsonData = await safeParseJSON(altCoordinatesUrl);
-        }
-      }
-      
-      // If still no success, try with the folder name as base
-      if (!jsonData) {
-        const folderBaseName = folderName.includes('/') ? 
-          folderName.split('/').pop()! : 
-          folderName;
-        const folderFileName = folderBaseName.replace(/_/g, '');
-        const folderFilePath = `${folderName}/${folderFileName}.json`;
-        const folderUrl = `${getBasePath()}/${folderFilePath}`;
-        
-        console.log(`Trying folder-based JSON path: ${folderUrl}`);
-        jsonData = await safeParseJSON(folderUrl);
-        
-        // Try with -coordinates suffix for the folder-based version too
-        if (!jsonData) {
-          const folderCoordinatesFileName = `${folderFileName}-coordinates`;
-          const folderCoordinatesFilePath = `${folderName}/${folderCoordinatesFileName}.json`;
-          const folderCoordinatesUrl = `${getBasePath()}/${folderCoordinatesFilePath}`;
-          
-          console.log(`Trying folder coordinates JSON path: ${folderCoordinatesUrl}`);
-          jsonData = await safeParseJSON(folderCoordinatesUrl);
-        }
-      }
-    }
-    
-    if (jsonData && typeof jsonData === 'object' && 
-        typeof jsonData.imageName === 'string' && 
-        Array.isArray(jsonData.coordinates)) {
+    console.log("[Drive] loadImageData using Google Drive for", { folderName, fileName });
+    const normalizedFolderName = folderName.replace(/\s+/g, ' ').trim();
+    const folder = normalizedFolderName.includes('/')
+      ? await resolveFolderByPath(normalizedFolderName)
+      : await resolveFolderByNameUnderRoot(normalizedFolderName);
+    if (!folder) return null;
+    const candidateNames: string[] = [
+      fileName,
+      `${fileName}-coordinates`,
+      fileName.replace(/_/g, ''),
+      `${fileName.replace(/_/g, '')}-coordinates`,
+    ];
+    // Also try folder-based name
+    const folderBaseName = folderName.includes('/') ? folderName.split('/').pop()! : folderName;
+    const folderFileBase = folderBaseName.replace(/_/g, '');
+    candidateNames.push(folderFileBase, `${folderFileBase}-coordinates`);
+
+    const jsonData = await fetchJsonInFolderByCandidates(folder.id, candidateNames);
+    if (jsonData && typeof jsonData === 'object' && typeof jsonData.imageName === 'string' && Array.isArray(jsonData.coordinates)) {
       jsonDataCache[cacheKey] = jsonData;
       return jsonData;
     }
-    
-    // Provide more detailed error information
-    if (!jsonData) {
-      console.error(`All JSON file attempts failed for folder: ${folderName}`);
-      console.error(`Tried paths: ${staticUrl}, ${fileName}-coordinates.json, ${fileName.replace(/_/g, '')}.json, ${fileName.replace(/_/g, '')}-coordinates.json, and folder-based naming with coordinates`);
-    } else if (typeof jsonData !== 'object') {
-      console.error(`JSON data is not an object: ${typeof jsonData}`);
-    } else if (typeof jsonData.imageName !== 'string') {
-      console.error(`JSON missing or invalid imageName: ${typeof jsonData.imageName}`);
-    } else if (!Array.isArray(jsonData.coordinates)) {
-      console.error(`JSON missing or invalid coordinates: ${typeof jsonData.coordinates}`);
-    }
-    
-    console.error(`No valid JSON data found for folder ${folderName}`);
     return null;
   } catch (err) {
     console.error(`Error processing image data:`, err);
@@ -309,64 +220,50 @@ export const checkFolderContents = async (folderName: string): Promise<{
   }
   
   try {
-    const basePath = getBasePath();
-    const folderPath = `${basePath}/${folderName}/`;
-    
-    // First try with the same name as the folder
-    const folderBaseName = folderName.includes('/') ? 
-      folderName.split('/').pop()! : 
-      folderName;
-    
-    // Replace underscores with nothing in file name
-    const fileBaseName = folderBaseName.replace(/_/g, '')
-    const jsonPath = `${folderPath}${fileBaseName}.json`;
-    
-    if (await fileExists(jsonPath)) {
-      console.log(`Found JSON file at ${jsonPath}`);
-      
-      // Check for matching CSV and image files
-      let hasCsv = await fileExists(`${folderPath}${fileBaseName}.csv`);
-      let hasImage = false;
-      
-      // Check for images with different extensions
-      for (const ext of ['.png', '.jpg', '.jpeg', '.webp', '.gif']) {
-        if (await fileExists(`${folderPath}${fileBaseName}${ext}`)) {
-          hasImage = true;
-          break;
-        }
-      }
-      
-      const result = { hasJson: true, hasCsv, hasImage, baseName: fileBaseName };
+    console.log("[Drive] checkFolderContents using Google Drive for", { folderName });
+    const normalizedFolderName = folderName.replace(/\s+/g, ' ').trim();
+    const folder = normalizedFolderName.includes('/')
+      ? await resolveFolderByPath(normalizedFolderName)
+      : await resolveFolderByNameUnderRoot(normalizedFolderName);
+    if (!folder) {
+      const result = { hasJson: false, hasCsv: false, hasImage: false, baseName: null };
       folderContentsCache[cacheKey] = result;
       return result;
     }
-    
-    // If that doesn't work, try with the standard name that we've seen before
-    const standardBaseName = 'Brother814_Needle_Bar_Mechanism';
-    const standardPath = `${folderPath}${standardBaseName}.json`;
-    
-    if (await fileExists(standardPath)) {
-      console.log(`Found standard JSON file at ${standardPath}`);
-      
-      // Check for matching CSV and image files
-      let hasCsv = await fileExists(`${folderPath}${standardBaseName}.csv`);
-      let hasImage = false;
-      
-      // Check for images with different extensions
-      for (const ext of ['.png', '.jpg', '.jpeg', '.webp', '.gif']) {
-        if (await fileExists(`${folderPath}${standardBaseName}${ext}`)) {
-          hasImage = true;
-          break;
-        }
+    const folderBaseName = folderName.includes('/') ? folderName.split('/').pop()! : folderName;
+    const fileBaseName = folderBaseName.replace(/_/g, '');
+
+    // Check for JSON using same candidates as loadImageData
+    const candidateNames: string[] = [
+      fileBaseName,
+      `${fileBaseName}-coordinates`,
+      folderBaseName,
+      `${folderBaseName}-coordinates`,
+    ];
+    let json = await fetchJsonInFolderByCandidates(folder.id, candidateNames);
+    let detectedBase = json ? fileBaseName : null;
+
+    // Fallback: scan for any *.json in folder and use its base name
+    if (!json) {
+      const files = await listFilesInFolder(folder.id);
+      const anyJson = files.find(f => f.name.toLowerCase().endsWith('.json'));
+      if (anyJson) {
+        detectedBase = anyJson.name.replace(/\.json$/i, '').replace(/-coordinates$/i, '');
+        json = await fetchJsonInFolderByCandidates(folder.id, [detectedBase!, `${detectedBase}-coordinates`]);
       }
-      
-      const result = { hasJson: true, hasCsv, hasImage, baseName: standardBaseName };
-      folderContentsCache[cacheKey] = result;
-      return result;
     }
-    
-    console.log(`No valid files found in folder ${folderName}`);
-    const result = { hasJson: false, hasCsv: false, hasImage: false, baseName: null };
+
+    const hasJson = !!json;
+
+    // CSV
+    const csvText = detectedBase ? await fetchCsvRowsInFolder(folder.id, detectedBase) : '';
+    const hasCsv = !!csvText;
+
+    // Image
+    const imageUrl = detectedBase ? await findImageFileInFolder(folder.id, detectedBase) : null;
+    const hasImage = !!imageUrl;
+
+    const result = { hasJson, hasCsv, hasImage, baseName: detectedBase };
     folderContentsCache[cacheKey] = result;
     return result;
   } catch (err) {
@@ -380,24 +277,15 @@ export const checkFolderContents = async (folderName: string): Promise<{
  */
 export const getAvailableFolders = async (): Promise<string[]> => {
   try {
-    const basePath = getBasePath();
-    
-    // Check if there's a folders.json file that lists available folders
-    try {
-      const foldersResponse = await fetch(`${basePath}/folders.json`);
-      if (foldersResponse.ok) {
-        const foldersData = await foldersResponse.json();
-        if (Array.isArray(foldersData.folders)) {
-          console.log(`Found folders from folders.json:`, foldersData.folders);
-          return foldersData.folders;
-        }
-      }
-    } catch (err) {
-      console.warn("No folders.json found or error reading it:", err);
+    if (!isDriveEnabled()) {
+      console.warn("[Drive] is disabled or misconfigured. No local data fallback. Configure VITE_USE_GOOGLE_DRIVE and credentials.");
+      return [];
     }
-    
-    // Fallback to hardcoded folders if needed
-    return ['Brother_814_Needle_Bar_Mechanism'];
+    console.log("[Drive] getAvailableFolders using Google Drive");
+    const rootId = getRootFolderId();
+    if (!rootId) return [];
+    const all = await listAllSubfoldersRecursive(rootId);
+    return all;
   } catch (err) {
     console.error("Error getting available folders:", err);
     return [];

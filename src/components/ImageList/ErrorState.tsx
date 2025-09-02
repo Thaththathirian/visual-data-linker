@@ -45,23 +45,15 @@ export const ErrorState = ({ error, troubleshootingInfo, onRescan }: ErrorStateP
           <h3 className="font-medium mb-2">Data Folder Setup</h3>
           <p className="text-sm mb-2">To add diagrams to this application:</p>
           <ul className="list-disc pl-5 text-sm space-y-1 text-muted-foreground">
-            <li>Create a folder in <code className="bg-gray-100 px-1">public/data/</code> with your diagram name (e.g., <code className="bg-gray-100 px-1">public/data/Your_Diagram_Name/</code>)</li>
-            <li>Add the JSON, CSV and image files with matching names inside that folder</li>
+            <li>If using Google Drive (VITE_USE_GOOGLE_DRIVE=true): create a subfolder under your Drive root folder with your diagram name (e.g., <code className="bg-gray-100 px-1">Your_Diagram_Name/</code>)</li>
+            <li>Place JSON, CSV and image files with the same base name inside that subfolder</li>
             <li><strong>File naming is important:</strong> All files must have the same base name:</li>
             <ul className="list-circle pl-5 mt-1 space-y-1">
               <li><FileJson className="inline h-3 w-3 mr-1" /> Either name the files with the same name as the folder (e.g., <code>Your_Diagram_Name.json</code>) OR</li>
               <li><FileJson className="inline h-3 w-3 mr-1" /> Use the standard name <code>Brother814_Needle_Bar_Mechanism.json</code></li>
             </ul>
-            <li>Add your folder name to the <code>folders.json</code> file in the <code>public/data/</code> directory:</li>
+            <li>Ensure the Drive root folder ID is set in <code>VITE_DRIVE_ROOT_FOLDER_ID</code> and is shared as "Anyone with the link: Viewer"</li>
           </ul>
-          
-          <pre className="bg-gray-100 p-3 rounded-md text-xs mt-2 mb-2 overflow-x-auto">
-{`{
-  "folders": [
-    "Your_Diagram_Name"
-  ]
-}`}
-          </pre>
           
           <ul className="list-disc pl-5 text-sm space-y-1 text-muted-foreground">
             <li>For image files, we support .png, .jpg, .jpeg, .webp, and .gif formats</li>
@@ -72,10 +64,11 @@ export const ErrorState = ({ error, troubleshootingInfo, onRescan }: ErrorStateP
         <div className="border border-gray-200 rounded-md p-3 bg-gray-50">
           <h4 className="text-sm font-medium mb-2">Example Folder Structure</h4>
           <pre className="text-xs text-gray-600">
-            public/data/Your_Diagram_Name/<br/>
-            ├── Your_Diagram_Name.json<br/>
-            ├── Your_Diagram_Name.csv<br/>
-            └── Your_Diagram_Name.png
+            Google Drive Root/<br/>
+            └── Your_Diagram_Name/<br/>
+                ├── Your_Diagram_Name.json (or Your_Diagram_Name-coordinates.json)<br/>
+                ├── Your_Diagram_Name.csv<br/>
+                └── Your_Diagram_Name.png
           </pre>
         </div>
         

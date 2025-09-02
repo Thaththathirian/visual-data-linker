@@ -40,26 +40,17 @@ const ImageDetail: React.FC = () => {
       try {
         setLoading(true);
         
-        // Extract the base name from the folder path (last part)
-        const pathParts = currentFolderName.split('/');
-        const baseName = pathParts[pathParts.length - 1];
-        
-        setBaseName(baseName);
-        
-        // For file loading, we need to use the full path structure
-        // The files are in the nested directory structure
+        // Extract folder path and detect correct base name from folder contents
         const folderNameForFiles = currentFolderName;
+        const contents = await checkFolderContents(folderNameForFiles);
+        const detectedBase = contents.baseName || currentFolderName.split('/').pop()!;
+        setBaseName(detectedBase);
         
-        // Use Promise.all to execute these requests in parallel
+        // Load JSON, Image, CSV using detected base name
         const [imgData, imgPath, tableRows] = await Promise.all([
-          // Step 2: Load JSON data for image
-          loadImageData(folderNameForFiles, baseName),
-          
-          // Step 3: Find the actual image path
-          getImagePath(folderNameForFiles, baseName),
-          
-          // Step 4: Load CSV table data
-          parseCSVFile(folderNameForFiles, baseName)
+          loadImageData(folderNameForFiles, detectedBase),
+          getImagePath(folderNameForFiles, detectedBase),
+          parseCSVFile(folderNameForFiles, detectedBase)
         ]);
 
         // If we have image data, set it; otherwise show warning

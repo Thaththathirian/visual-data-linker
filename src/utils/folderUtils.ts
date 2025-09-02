@@ -20,10 +20,9 @@ const hasCoordinates = async (filePath: string): Promise<boolean> => {
   try {
     const response = await fetch(filePath);
     if (!response.ok) return false;
-    
     const data = await response.json();
     return data && Array.isArray(data.coordinates) && data.coordinates.length > 0;
-  } catch (err) {
+  } catch {
     return false;
   }
 };
@@ -33,7 +32,7 @@ const hasCoordinates = async (filePath: string): Promise<boolean> => {
  */
 export const folderHasWorkingCoordinates = async (folderPath: string): Promise<boolean> => {
   try {
-    const items = getDirectoryContents(folderPath);
+    const items = await getDirectoryContents(folderPath);
     const files = items.filter(i => i.type !== 'folder');
 
     // Build quick lookup sets by normalized base name
@@ -78,7 +77,7 @@ export const getFolderContents = async (path: string): Promise<(FolderItem | Fil
   
   try {
     // Use the new utility function instead of API call
-    const rawItems = getDirectoryContents(path);
+    const rawItems = await getDirectoryContents(path);
     const items: (FolderItem | FileItem)[] = [];
     
     for (const item of rawItems) {

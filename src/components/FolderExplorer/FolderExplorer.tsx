@@ -42,24 +42,30 @@ const FolderExplorer: React.FC<FolderExplorerProps> = ({
       
       // Determine which immediate child folders have working coordinates
       const folderItems = contents.filter(item => item.type === 'folder') as FolderItem[];
-      const results = await Promise.all(
-        folderItems.map(async f => {
-          const childPath = path ? `${path}/${f.name}` : f.name;
-          const has = await folderHasWorkingCoordinates(childPath);
-          return [childPath, has] as const;
-        })
-      );
-      const map: Record<string, boolean> = {};
-      for (const [p, has] of results) map[p] = has;
-      setHighlightedFolders(map);
+      // Defer highlighting checks; don't block main list rendering
+      (async () => {
+        const results = await Promise.all(
+          folderItems.map(async f => {
+            const childPath = path ? `${path}/${f.name}` : f.name;
+            const has = await folderHasWorkingCoordinates(childPath);
+            return [childPath, has] as const;
+          })
+        );
+        const map: Record<string, boolean> = {};
+        for (const [p, has] of results) map[p] = has;
+        setHighlightedFolders(map);
+      })();
       
-      // Check if this folder has coordinate data (JSON + CSV + PNG)
-      const hasJson = contents.some(item => item.type === 'json' && (item as FileItem).hasCoordinates);
-      const hasCsv = contents.some(item => item.type === 'csv');
-      const hasImage = contents.some(item => ['png', 'jpg', 'jpeg'].includes(item.type));
-      
-      if (hasJson && hasCsv && hasImage) {
-        // Navigate to the existing ImageDetail page with the full path
+      // Check if this folder has a complete set based on base name matching
+      const files = contents.filter(item => item.type !== 'folder') as FileItem[];
+      const toBase = (name: string) => name
+        .replace(/\.(json|csv|png|jpe?g|webp|gif)$/i, '')
+        .replace(/-coordinates$/i, '');
+      const jsonBases = new Set(files.filter(f => f.type === 'json').map(f => toBase(f.name)));
+      const csvBases = new Set(files.filter(f => f.type === 'csv').map(f => toBase(f.name)));
+      const imageBases = new Set(files.filter(f => ['png','jpg','jpeg','webp','gif'].includes(f.type)).map(f => toBase(f.name)));
+      const completeBase = Array.from(jsonBases).find(b => csvBases.has(b) && imageBases.has(b));
+      if (completeBase) {
         navigate(`/${encodeURIComponent(path)}`);
         return;
       }
