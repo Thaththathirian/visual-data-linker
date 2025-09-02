@@ -1,0 +1,19 @@
+{
+  "imageName": "10. Oil Lubricating System",
+  "coordinates": [
+    {
+      "id": "1",
+      "x": 150,
+      "y": 200,
+      "partNumber": "OIL-001",
+      "description": "Oil Pump"
+    },
+    {
+      "id": "2",
+      "x": 250,
+      "y": 250,
+      "partNumber": "OIL-002",
+      "description": "Lubrication Line"
+    }
+  ]
+}

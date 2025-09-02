@@ -1,0 +1,131 @@
+{
+  "imageName": "13. Special Parts for Paper Bag Machine",
+  "coordinates": [
+    {
+      "id": 1,
+      "x": 371,
+      "y": 597,
+      "number": "1",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 2,
+      "x": 364,
+      "y": 459,
+      "number": "2",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 3,
+      "x": 367,
+      "y": 365,
+      "number": "3",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 4,
+      "x": 382,
+      "y": 849,
+      "number": "4",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 5,
+      "x": 384,
+      "y": 915,
+      "number": "5",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 6,
+      "x": 299,
+      "y": 1105,
+      "number": "6",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 7,
+      "x": 320,
+      "y": 1437,
+      "number": "7",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 8,
+      "x": 314,
+      "y": 1606,
+      "number": "8",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 9,
+      "x": 1133,
+      "y": 565,
+      "number": "9",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 10,
+      "x": 932,
+      "y": 1022,
+      "number": "10",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 11,
+      "x": 1348,
+      "y": 966,
+      "number": "11",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 12,
+      "x": 1229,
+      "y": 1273,
+      "number": "12",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 13,
+      "x": 1395,
+      "y": 1369,
+      "number": "13",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 14,
+      "x": 1316,
+      "y": 1519,
+      "number": "14",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    }
+  ]
+}

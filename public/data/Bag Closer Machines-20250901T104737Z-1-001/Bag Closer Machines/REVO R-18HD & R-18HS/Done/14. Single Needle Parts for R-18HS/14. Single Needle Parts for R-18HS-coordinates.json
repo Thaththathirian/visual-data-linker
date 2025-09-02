@@ -1,0 +1,131 @@
+{
+  "imageName": "14. Single Needle Parts for R-18HS",
+  "coordinates": [
+    {
+      "id": 1,
+      "x": 380,
+      "y": 599,
+      "number": "1",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 2,
+      "x": 375,
+      "y": 459,
+      "number": "2",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 3,
+      "x": 380,
+      "y": 365,
+      "number": "3",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 4,
+      "x": 390,
+      "y": 847,
+      "number": "4",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 5,
+      "x": 392,
+      "y": 915,
+      "number": "5",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 6,
+      "x": 305,
+      "y": 1103,
+      "number": "6",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 7,
+      "x": 324,
+      "y": 1435,
+      "number": "7",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 8,
+      "x": 322,
+      "y": 1604,
+      "number": "8",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 9,
+      "x": 1145,
+      "y": 571,
+      "number": "9",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 10,
+      "x": 941,
+      "y": 1026,
+      "number": "10",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 11,
+      "x": 1358,
+      "y": 970,
+      "number": "11",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 12,
+      "x": 1235,
+      "y": 1275,
+      "number": "12",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 13,
+      "x": 1397,
+      "y": 1373,
+      "number": "13",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 14,
+      "x": 1320,
+      "y": 1523,
+      "number": "14",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    }
+  ]
+}

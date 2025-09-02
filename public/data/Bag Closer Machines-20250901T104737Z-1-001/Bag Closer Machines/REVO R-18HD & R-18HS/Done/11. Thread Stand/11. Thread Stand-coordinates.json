@@ -1,0 +1,266 @@
+{
+  "imageName": "11. Thread Stand",
+  "coordinates": [
+    {
+      "id": 1,
+      "x": 1004,
+      "y": 1339,
+      "number": "1",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 2,
+      "x": 1049,
+      "y": 1429,
+      "number": "2",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 3,
+      "x": 704,
+      "y": 1406,
+      "number": "3",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 4,
+      "x": 960,
+      "y": 1260,
+      "number": "4",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 5,
+      "x": 1107,
+      "y": 932,
+      "number": "5",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 6,
+      "x": 1113,
+      "y": 1132,
+      "number": "5",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 7,
+      "x": 1068,
+      "y": 821,
+      "number": "6",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 8,
+      "x": 1115,
+      "y": 1007,
+      "number": "6",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 9,
+      "x": 1113,
+      "y": 1058,
+      "number": "6",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 10,
+      "x": 1115,
+      "y": 1254,
+      "number": "6",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 11,
+      "x": 1179,
+      "y": 1246,
+      "number": "7",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 12,
+      "x": 653,
+      "y": 968,
+      "number": "7",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 13,
+      "x": 697,
+      "y": 1036,
+      "number": "8",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 14,
+      "x": 471,
+      "y": 1137,
+      "number": "8",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 15,
+      "x": 1384,
+      "y": 723,
+      "number": "9",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 16,
+      "x": 426,
+      "y": 1026,
+      "number": "9",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 17,
+      "x": 1181,
+      "y": 857,
+      "number": "10",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 18,
+      "x": 1324,
+      "y": 734,
+      "number": "10",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 19,
+      "x": 691,
+      "y": 1169,
+      "number": "10",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 20,
+      "x": 648,
+      "y": 832,
+      "number": "11",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 21,
+      "x": 787,
+      "y": 853,
+      "number": "12",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 22,
+      "x": 484,
+      "y": 508,
+      "number": "13",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 23,
+      "x": 1467,
+      "y": 921,
+      "number": "14",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 24,
+      "x": 1414,
+      "y": 1647,
+      "number": "15",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 25,
+      "x": 563,
+      "y": 1533,
+      "number": "16",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 26,
+      "x": 548,
+      "y": 1422,
+      "number": "17",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 27,
+      "x": 579,
+      "y": 1695,
+      "number": "18",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 28,
+      "x": 572,
+      "y": 1738,
+      "number": "19",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 29,
+      "x": 1015,
+      "y": 787,
+      "number": "20",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    }
+  ]
+}

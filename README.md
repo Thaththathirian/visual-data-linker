@@ -1,73 +1,91 @@
-# Welcome to your Lovable project
+# Visual Data Linker
 
-## Project info
+A dynamic folder explorer with interactive coordinate data visualization.
 
-**URL**: https://lovable.dev/projects/cf396699-ce21-4d94-acb0-8193db4d0c48
+## Features
 
-## How can I edit this code?
+### 🗂️ Dynamic Folder Explorer
+- **Breadcrumb Navigation**: Navigate through nested folders with responsive breadcrumb navigation
+- **No Static Configuration**: Dynamically reads folder structure without requiring `folders.json`
+- **Responsive Design**: Works seamlessly on desktop and mobile devices
+- **File Type Detection**: Automatically detects and categorizes JSON, CSV, and image files
 
-There are several ways of editing your application.
+### 🎯 Interactive Coordinate Data
+- **Smart Detection**: Automatically detects folders containing coordinate data (JSON + CSV + PNG)
+- **Interactive Images**: Click on coordinate points to view part details
+- **Data Tables**: View structured CSV data in organized tables
+- **File Management**: Browse and manage all file types with visual indicators
 
-**Use Lovable**
+### 📱 Responsive UI
+- **No Text Clipping**: All text is properly handled with truncation and tooltips
+- **Mobile-Friendly**: Optimized for touch devices and small screens
+- **Modern Design**: Clean, intuitive interface with smooth transitions
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/cf396699-ce21-4d94-acb0-8193db4d0c48) and start prompting.
+## How It Works
 
-Changes made via Lovable will be committed automatically to this repo.
+1. **Folder Navigation**: Click on folders to navigate deeper into the structure
+2. **Breadcrumb Navigation**: Use breadcrumbs to quickly jump to any parent folder
+3. **Coordinate Detection**: When a folder contains JSON, CSV, and PNG files, it automatically opens the coordinate viewer
+4. **Interactive Viewing**: Click on numbered points on images to see part details
+5. **Data Tables**: Switch between interactive image and data table views
 
-**Use your preferred IDE**
+## File Structure Support
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+The application supports the following file structure:
+```
+public/data/
+├── Bag Closer Machines-20250901T104737Z-1-001/
+│   ├── Bag Closer Machines/
+│   │   ├── Revo DA/
+│   │   │   ├── Bushing & Oil Parts/
+│   │   │   ├── Feed Driving and Thread Cutter/
+│   │   │   └── ...
+│   │   ├── Revo R-18HD/
+│   │   │   ├── 9.Pressure Foot Lifter Mechanism.json
+│   │   │   ├── 9.Pressure Foot Lifter Mechanism.csv
+│   │   │   ├── 9.Pressure Foot Lifter Mechanism.png
+│   │   │   └── ...
+│   │   └── ...
+│   └── ...
+└── ...
 ```
 
-**Edit a file directly in GitHub**
+## Coordinate Data Format
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+JSON files should contain coordinate data in this format:
+```json
+{
+  "imageName": "9. Pressure Foot Lifter Mechanism",
+  "coordinates": [
+    {
+      "id": "1",
+      "x": 120,
+      "y": 180,
+      "partNumber": "PRESS-001",
+      "description": "Pressure Foot"
+    }
+  ]
+}
+```
 
-**Use GitHub Codespaces**
+## Development
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+```bash
+# Install dependencies
+npm install
 
-## What technologies are used for this project?
+# Start development server
+npm run dev
 
-This project is built with:
+# Build for production
+npm run build
+```
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## Technologies Used
 
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/cf396699-ce21-4d94-acb0-8193db4d0c48) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+- **React 18** with TypeScript
+- **Vite** for fast development and building
+- **Tailwind CSS** for styling
+- **Lucide React** for icons
+- **Shadcn/ui** for UI components
+- **React Router** for navigation

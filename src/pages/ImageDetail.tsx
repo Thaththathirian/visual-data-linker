@@ -22,8 +22,8 @@ const ImageDetail: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [baseName, setBaseName] = useState<string | null>(null);
 
-  // Fall back to a default folder if none specified in URL
-  const currentFolderName = folderName || "Brother_814_Needle_Bar_Mechanism";
+  // Handle full path from FolderExplorer
+  const currentFolderName = folderName ? decodeURIComponent(folderName) : "Brother_814_Needle_Bar_Mechanism";
 
   const numberToPartNumberMap = useMemo(() => {
     const map: Record<string, string> = {};
@@ -40,36 +40,45 @@ const ImageDetail: React.FC = () => {
       try {
         setLoading(true);
         
-        // Step 1: Check folder contents to find files
-        const folderContents = await checkFolderContents(currentFolderName);
-        if (!folderContents.hasJson || !folderContents.baseName) {
-          throw new Error(`Required JSON file not found in folder: ${currentFolderName}`);
-        }
+        // Extract the base name from the folder path (last part)
+        const pathParts = currentFolderName.split('/');
+        const baseName = pathParts[pathParts.length - 1];
         
-        setBaseName(folderContents.baseName);
+        setBaseName(baseName);
+        
+        // For file loading, we need to use the full path structure
+        // The files are in the nested directory structure
+        const folderNameForFiles = currentFolderName;
         
         // Use Promise.all to execute these requests in parallel
         const [imgData, imgPath, tableRows] = await Promise.all([
           // Step 2: Load JSON data for image
-          loadImageData(currentFolderName, folderContents.baseName),
+          loadImageData(folderNameForFiles, baseName),
           
           // Step 3: Find the actual image path
-          getImagePath(currentFolderName, folderContents.baseName),
+          getImagePath(folderNameForFiles, baseName),
           
           // Step 4: Load CSV table data
-          parseCSVFile(currentFolderName, folderContents.baseName)
+          parseCSVFile(folderNameForFiles, baseName)
         ]);
 
-        if (!imgData) {
-          throw new Error(`Failed to load image data for: ${currentFolderName}`);
+        // If we have image data, set it; otherwise show warning
+        if (imgData) {
+          setImageData(imgData);
+        } else {
+          console.warn(`No image metadata found for: ${currentFolderName}`);
+          toast.warning("Interactive image features disabled - metadata not found");
+          // Create a minimal image data structure for fallback
+          setImageData({
+            imageName: baseName.replace(/_/g, ' '),
+            coordinates: []
+          });
         }
-        
-        setImageData(imgData);
         
         if (imgPath) {
           setImagePath(imgPath);
         } else {
-          console.warn(`Could not locate image for: ${currentFolderName}/${folderContents.baseName}`);
+          console.warn(`Could not locate image for: ${currentFolderName}/${baseName}`);
           toast.warning("Using placeholder image - actual image not found");
         }
 
@@ -108,7 +117,8 @@ const ImageDetail: React.FC = () => {
       toast.error("Part number not found for this item.");
       return;
     }
-    const url = `https://www.swastiksew.com/search?q=${encodeURIComponent(partNum)}`;
+    const SWASTIK_URL = import.meta.env.VITE_SWASTIK_URL;
+    const url = `${SWASTIK_URL}/search?q=${encodeURIComponent(partNum)}`;
     window.open(url, "_blank");
   };
 
@@ -138,12 +148,12 @@ const ImageDetail: React.FC = () => {
     );
   }
 
-  if (error || !imageData) {
+  if (error) {
     return (
       <div className="container mx-auto px-4 py-8 min-h-[60vh] flex items-center justify-center">
         <div className="text-center">
           <h2 className="text-2xl font-bold text-red-500 mb-4">Error</h2>
-          <p>{error || "Failed to load image data"}</p>
+          <p>{error}</p>
           <button
             onClick={() => navigate("/")}
             className="mt-4 px-4 py-2 bg-custom-blue text-white rounded hover:bg-custom-blue-light"
@@ -155,12 +165,24 @@ const ImageDetail: React.FC = () => {
     );
   }
 
-  const breadcrumbItems = [
-    {
-      label: imageData.imageName.replace(/-/g, " "),
-      path: `/${currentFolderName}`,
-    },
-  ];
+  // Create breadcrumb items from the full path
+  const pathParts = currentFolderName.split('/');
+  const breadcrumbItems = pathParts.map((part, index) => {
+    if (index === 0) {
+      // First item always goes to home
+      return {
+        label: part,
+        path: `/`,
+      };
+    } else {
+      // For other items, navigate to the folder explorer with the path up to that point
+      const path = pathParts.slice(0, index + 1).join('/');
+      return {
+        label: part,
+        path: `/folder/${encodeURIComponent(path)}`,
+      };
+    }
+  });
 
   return (
     <div className="container mx-auto px-4 py-8">

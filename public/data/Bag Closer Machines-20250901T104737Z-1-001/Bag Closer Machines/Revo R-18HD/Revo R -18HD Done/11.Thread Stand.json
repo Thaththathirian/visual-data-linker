@@ -1,0 +1,26 @@
+{
+  "imageName": "11. Thread Stand",
+  "coordinates": [
+    {
+      "id": "1",
+      "x": 100,
+      "y": 100,
+      "partNumber": "THREAD-001",
+      "description": "Thread Spool"
+    },
+    {
+      "id": "2",
+      "x": 200,
+      "y": 150,
+      "partNumber": "THREAD-002",
+      "description": "Thread Guide"
+    },
+    {
+      "id": "3",
+      "x": 300,
+      "y": 200,
+      "partNumber": "THREAD-003",
+      "description": "Tension Device"
+    }
+  ]
+}

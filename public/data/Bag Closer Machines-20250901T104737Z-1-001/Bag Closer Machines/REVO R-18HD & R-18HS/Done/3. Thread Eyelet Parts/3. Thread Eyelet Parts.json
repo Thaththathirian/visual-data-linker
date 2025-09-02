@@ -1,0 +1,104 @@
+{
+  "imageName": "tinywow_REVO R-18HD R-18HS_82001505_20",
+  "coordinates": [
+    {
+      "id": 1,
+      "x": 1252,
+      "y": 1589,
+      "number": "1",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 2,
+      "x": 1071,
+      "y": 1585,
+      "number": "2",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 3,
+      "x": 900,
+      "y": 1589,
+      "number": "3",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 4,
+      "x": 793,
+      "y": 1591,
+      "number": "4",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 5,
+      "x": 638,
+      "y": 1591,
+      "number": "5",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 6,
+      "x": 426,
+      "y": 1597,
+      "number": "6",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 7,
+      "x": 277,
+      "y": 1591,
+      "number": "7",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 8,
+      "x": 1339,
+      "y": 1587,
+      "number": "8",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 9,
+      "x": 1397,
+      "y": 1583,
+      "number": "9",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 10,
+      "x": 1169,
+      "y": 587,
+      "number": "10",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 11,
+      "x": 828,
+      "y": 1715,
+      "number": "11",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    }
+  ]
+}

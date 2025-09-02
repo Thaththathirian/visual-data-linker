@@ -401,6 +401,23 @@ const InteractiveImage: React.FC<InteractiveImageProps> = ({
             }}
           />
         ))}
+
+      {imageLoaded && imageData.coordinates.length === 0 && (
+        <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-90">
+          <div className="text-center p-4">
+            <div className="text-gray-400 text-4xl mb-4">📍</div>
+            <h3 className="text-lg font-semibold text-gray-600">
+              Interactive Features Disabled
+            </h3>
+            <p className="text-gray-500 mt-2">
+              No coordinate data available for this image
+            </p>
+            <p className="text-sm text-gray-400 mt-1">
+              The parts list below still works for navigation
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

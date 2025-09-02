@@ -1,0 +1,293 @@
+{
+  "imageName": "7. Looper Driving Mechanism",
+  "coordinates": [
+    {
+      "id": 1,
+      "x": 1197,
+      "y": 1531,
+      "number": "1",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 2,
+      "x": 1030,
+      "y": 1600,
+      "number": "2",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 3,
+      "x": 926,
+      "y": 1557,
+      "number": "4",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 4,
+      "x": 1376,
+      "y": 1580,
+      "number": "5",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 5,
+      "x": 904,
+      "y": 1414,
+      "number": "6",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 6,
+      "x": 1273,
+      "y": 1391,
+      "number": "7",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 7,
+      "x": 898,
+      "y": 1318,
+      "number": "8",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 8,
+      "x": 678,
+      "y": 1425,
+      "number": "9",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 9,
+      "x": 510,
+      "y": 1374,
+      "number": "10",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 10,
+      "x": 808,
+      "y": 1350,
+      "number": "10A",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 25
+    },
+    {
+      "id": 11,
+      "x": 412,
+      "y": 1241,
+      "number": "11",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 12,
+      "x": 409,
+      "y": 1529,
+      "number": "11",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 13,
+      "x": 205,
+      "y": 1427,
+      "number": "12",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 14,
+      "x": 207,
+      "y": 1374,
+      "number": "13",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 15,
+      "x": 546,
+      "y": 1286,
+      "number": "14",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 16,
+      "x": 680,
+      "y": 1246,
+      "number": "15",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 17,
+      "x": 676,
+      "y": 1376,
+      "number": "16",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 18,
+      "x": 1265,
+      "y": 1160,
+      "number": "17",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 19,
+      "x": 1414,
+      "y": 1117,
+      "number": "17A",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 25
+    },
+    {
+      "id": 20,
+      "x": 1271,
+      "y": 1000,
+      "number": "18",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 21,
+      "x": 1273,
+      "y": 956,
+      "number": "19",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 22,
+      "x": 919,
+      "y": 966,
+      "number": "20",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 23,
+      "x": 1094,
+      "y": 926,
+      "number": "21",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 24,
+      "x": 1258,
+      "y": 877,
+      "number": "22",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 25,
+      "x": 915,
+      "y": 872,
+      "number": "22",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 26,
+      "x": 1269,
+      "y": 761,
+      "number": "23",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 27,
+      "x": 915,
+      "y": 784,
+      "number": "24",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 28,
+      "x": 913,
+      "y": 742,
+      "number": "25",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 29,
+      "x": 1271,
+      "y": 633,
+      "number": "26",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 30,
+      "x": 1271,
+      "y": 702,
+      "number": "27",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 31,
+      "x": 953,
+      "y": 538,
+      "number": "28",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    },
+    {
+      "id": 32,
+      "x": 561,
+      "y": 1557,
+      "number": "29",
+      "description": "",
+      "shapeType": "circle",
+      "radius": 20
+    }
+  ]
+}

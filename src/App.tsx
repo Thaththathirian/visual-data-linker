@@ -19,9 +19,9 @@ const App = () => (
         <Layout>
           <Routes>
             <Route path="/" element={<Home />} />
+            <Route path="/folder/:folderPath" element={<Home />} />
             <Route path="/:folderName" element={<ImageDetail />} />
             <Route path="/:folderName/:partNumber" element={<ImageDetail />} />
-            <Route path="/api/:folderName/:partNumber" element={<ImageDetail />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Layout>

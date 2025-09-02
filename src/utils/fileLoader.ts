@@ -57,7 +57,10 @@ const getBasePath = (): string => {
  */
 export const getTablePath = (folderName: string, fileName: string) => {
   const basePath = getBasePath();
-  return `${basePath}/${folderName}/${fileName}.csv`;
+  // Split the folder path and encode each segment separately
+  const folderSegments = folderName.split('/').map(segment => encodeURIComponent(segment));
+  const encodedFolderPath = folderSegments.join('/');
+  return `${basePath}/${encodedFolderPath}/${encodeURIComponent(fileName)}.csv`;
 };
 
 /**
@@ -66,15 +69,15 @@ export const getTablePath = (folderName: string, fileName: string) => {
 export const getImagePath = async (folderName: string, fileName: string): Promise<string | null> => {
   // Try different common image extensions
   const extensions = ['.png', '.jpg', '.jpeg', '.webp', '.gif'];
-  const basePath = getBasePath();
   
   // Always try the standard file name first (matching JSON file name)
   for (const ext of extensions) {
-    const url = `${basePath}/${folderName}/${fileName}${ext}`;
+    const filePath = `${folderName}/${fileName}${ext}`;
+    const staticUrl = `/data/${filePath}`;
     try {
-      const response = await fetch(url, { method: 'HEAD' });
+      const response = await fetch(staticUrl, { method: 'HEAD' });
       if (response.ok) {
-        return url;
+        return staticUrl;
       }
     } catch (err) {
       // Continue trying other extensions
@@ -89,34 +92,46 @@ export const getImagePath = async (folderName: string, fileName: string): Promis
  */
 export const parseCSVFile = async (folderName: string, fileName: string): Promise<TableRow[]> => {
   try {
-    const basePath = getBasePath();
-    const filePath = `${basePath}/${folderName}/${fileName}.csv`;
+    // Use static file path instead of API endpoint
+    const filePath = `${folderName}/${fileName}.csv`;
+    const staticUrl = `/data/${filePath}`;
+    
+    console.log(`[CSV Loader] Attempting to load CSV from: ${staticUrl}`);
+    console.log(`[CSV Loader] Folder: ${folderName}, File: ${fileName}`);
     
     try {
       // Use cached fetch to avoid redundant requests
-      const response = await cachedFetch(filePath);
+      const response = await cachedFetch(staticUrl);
+      
+      console.log(`[CSV Loader] Response status: ${response.status} ${response.statusText}`);
       
       if (!response.ok) {
-        console.error(`Failed to load CSV: ${response.status} ${response.statusText}`);
+        console.error(`[CSV Loader] Failed to load CSV: ${response.status} ${response.statusText}`);
         return [];
       }
 
       const csvText = await response.text();
+      console.log(`[CSV Loader] CSV content length: ${csvText.length} characters`);
+      console.log(`[CSV Loader] CSV content preview: ${csvText.substring(0, 200)}...`);
       
       // Check if the response is HTML instead of CSV
       if (csvText.trim().startsWith('<!DOCTYPE') || csvText.trim().startsWith('<html')) {
-        console.error(`Received HTML instead of CSV for ${filePath}`);
+        console.error(`[CSV Loader] Received HTML instead of CSV for ${staticUrl}`);
         return [];
       }
       
+      console.log(`[CSV Loader] Parsing CSV content...`);
       const parsedData = parseCSV(csvText);
+      console.log(`[CSV Loader] Parsed ${parsedData.length} rows from CSV`);
+      console.log(`[CSV Loader] First row sample:`, parsedData[0]);
+      
       return parsedData;
     } catch (err) {
-      console.error("Error fetching CSV file:", err);
+      console.error(`[CSV Loader] Error fetching CSV file:`, err);
       return [];
     }
   } catch (err) {
-    console.error("Error parsing CSV file:", err);
+    console.error(`[CSV Loader] Unexpected error in parseCSVFile:`, err);
     return [];
   }
 };
@@ -185,17 +200,86 @@ export const loadImageData = async (folderName: string, fileName: string): Promi
       return jsonDataCache[cacheKey];
     }
     
-    const basePath = getBasePath();
-    const jsonPath = `${basePath}/${folderName}/${fileName}.json`;
+    // Use static file path instead of API endpoint
+    const filePath = `${folderName}/${fileName}.json`;
+    const staticUrl = `/data/${filePath}`;
     
-    console.log(`Loading JSON data from: ${jsonPath}`);
-    let jsonData = await safeParseJSON(jsonPath);
+    console.log(`Loading JSON data from: ${staticUrl}`);
+    let jsonData = await safeParseJSON(staticUrl);
+    
+    // If primary file fails, try alternative naming patterns
+    if (!jsonData) {
+      console.log(`Primary JSON file failed, trying alternative patterns...`);
+      
+      // Try with -coordinates suffix (actual naming pattern used)
+      const coordinatesFileName = `${fileName}-coordinates`;
+      const coordinatesFilePath = `${folderName}/${coordinatesFileName}.json`;
+      const coordinatesUrl = `/data/${coordinatesFilePath}`;
+      
+      console.log(`Trying coordinates JSON path: ${coordinatesUrl}`);
+      jsonData = await safeParseJSON(coordinatesUrl);
+      
+      // If still no success, try with underscores removed
+      if (!jsonData) {
+        const altFileName = fileName.replace(/_/g, '');
+        const altFilePath = `${folderName}/${altFileName}.json`;
+        const altUrl = `/data/${altFilePath}`;
+        
+        console.log(`Trying alternative JSON path: ${altUrl}`);
+        jsonData = await safeParseJSON(altUrl);
+        
+        // Try with -coordinates suffix for the underscore-removed version too
+        if (!jsonData) {
+          const altCoordinatesFileName = `${altFileName}-coordinates`;
+          const altCoordinatesFilePath = `${folderName}/${altCoordinatesFileName}.json`;
+          const altCoordinatesUrl = `/data/${altCoordinatesFilePath}`;
+          
+          console.log(`Trying alt coordinates JSON path: ${altCoordinatesUrl}`);
+          jsonData = await safeParseJSON(altCoordinatesUrl);
+        }
+      }
+      
+      // If still no success, try with the folder name as base
+      if (!jsonData) {
+        const folderBaseName = folderName.includes('/') ? 
+          folderName.split('/').pop()! : 
+          folderName;
+        const folderFileName = folderBaseName.replace(/_/g, '');
+        const folderFilePath = `${folderName}/${folderFileName}.json`;
+        const folderUrl = `/data/${folderFilePath}`;
+        
+        console.log(`Trying folder-based JSON path: ${folderUrl}`);
+        jsonData = await safeParseJSON(folderUrl);
+        
+        // Try with -coordinates suffix for the folder-based version too
+        if (!jsonData) {
+          const folderCoordinatesFileName = `${folderFileName}-coordinates`;
+          const folderCoordinatesFilePath = `${folderName}/${folderCoordinatesFileName}.json`;
+          const folderCoordinatesUrl = `/data/${folderCoordinatesFilePath}`;
+          
+          console.log(`Trying folder coordinates JSON path: ${folderCoordinatesUrl}`);
+          jsonData = await safeParseJSON(folderCoordinatesUrl);
+        }
+      }
+    }
     
     if (jsonData && typeof jsonData === 'object' && 
         typeof jsonData.imageName === 'string' && 
         Array.isArray(jsonData.coordinates)) {
       jsonDataCache[cacheKey] = jsonData;
       return jsonData;
+    }
+    
+    // Provide more detailed error information
+    if (!jsonData) {
+      console.error(`All JSON file attempts failed for folder: ${folderName}`);
+      console.error(`Tried paths: ${staticUrl}, ${fileName}-coordinates.json, ${fileName.replace(/_/g, '')}.json, ${fileName.replace(/_/g, '')}-coordinates.json, and folder-based naming with coordinates`);
+    } else if (typeof jsonData !== 'object') {
+      console.error(`JSON data is not an object: ${typeof jsonData}`);
+    } else if (typeof jsonData.imageName !== 'string') {
+      console.error(`JSON missing or invalid imageName: ${typeof jsonData.imageName}`);
+    } else if (!Array.isArray(jsonData.coordinates)) {
+      console.error(`JSON missing or invalid coordinates: ${typeof jsonData.coordinates}`);
     }
     
     console.error(`No valid JSON data found for folder ${folderName}`);

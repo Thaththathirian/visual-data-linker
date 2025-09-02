@@ -1,0 +1,19 @@
+{
+  "imageName": "9. Pressure Foot Lifter Mechanism",
+  "coordinates": [
+    {
+      "id": "1",
+      "x": 120,
+      "y": 180,
+      "partNumber": "PRESS-001",
+      "description": "Pressure Foot"
+    },
+    {
+      "id": "2",
+      "x": 220,
+      "y": 220,
+      "partNumber": "PRESS-002", 
+      "description": "Lifter Arm"
+    }
+  ]
+}

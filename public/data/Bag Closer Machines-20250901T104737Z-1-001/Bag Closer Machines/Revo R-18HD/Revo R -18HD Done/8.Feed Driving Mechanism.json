@@ -1,0 +1,26 @@
+{
+  "imageName": "8. Feed Driving Mechanism",
+  "coordinates": [
+    {
+      "id": "1",
+      "x": 100,
+      "y": 150,
+      "partNumber": "FEED-001",
+      "description": "Feed Drive Gear"
+    },
+    {
+      "id": "2", 
+      "x": 200,
+      "y": 200,
+      "partNumber": "FEED-002",
+      "description": "Drive Shaft"
+    },
+    {
+      "id": "3",
+      "x": 300,
+      "y": 250,
+      "partNumber": "FEED-003", 
+      "description": "Feed Roller"
+    }
+  ]
+}
