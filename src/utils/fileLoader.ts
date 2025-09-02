@@ -49,7 +49,10 @@ const folderContentsCache: Record<string, any> = {};
  * Gets the appropriate base path for data files - same path for both dev and prod
  */
 const getBasePath = (): string => {
-  return '/data';
+  // Respect Vite base path so assets work under any subpath
+  // Vite guarantees BASE_URL ends with a trailing slash
+  const baseUrl = import.meta.env.BASE_URL || '/';
+  return `${baseUrl}data`;
 };
 
 /**
@@ -71,9 +74,10 @@ export const getImagePath = async (folderName: string, fileName: string): Promis
   const extensions = ['.png', '.jpg', '.jpeg', '.webp', '.gif'];
   
   // Always try the standard file name first (matching JSON file name)
+  const basePath = getBasePath();
   for (const ext of extensions) {
     const filePath = `${folderName}/${fileName}${ext}`;
-    const staticUrl = `/data/${filePath}`;
+    const staticUrl = `${basePath}/${filePath}`;
     try {
       const response = await fetch(staticUrl, { method: 'HEAD' });
       if (response.ok) {
@@ -94,7 +98,7 @@ export const parseCSVFile = async (folderName: string, fileName: string): Promis
   try {
     // Use static file path instead of API endpoint
     const filePath = `${folderName}/${fileName}.csv`;
-    const staticUrl = `/data/${filePath}`;
+    const staticUrl = `${getBasePath()}/${filePath}`;
     
     console.log(`[CSV Loader] Attempting to load CSV from: ${staticUrl}`);
     console.log(`[CSV Loader] Folder: ${folderName}, File: ${fileName}`);
@@ -202,7 +206,7 @@ export const loadImageData = async (folderName: string, fileName: string): Promi
     
     // Use static file path instead of API endpoint
     const filePath = `${folderName}/${fileName}.json`;
-    const staticUrl = `/data/${filePath}`;
+    const staticUrl = `${getBasePath()}/${filePath}`;
     
     console.log(`Loading JSON data from: ${staticUrl}`);
     let jsonData = await safeParseJSON(staticUrl);
@@ -214,7 +218,7 @@ export const loadImageData = async (folderName: string, fileName: string): Promi
       // Try with -coordinates suffix (actual naming pattern used)
       const coordinatesFileName = `${fileName}-coordinates`;
       const coordinatesFilePath = `${folderName}/${coordinatesFileName}.json`;
-      const coordinatesUrl = `/data/${coordinatesFilePath}`;
+      const coordinatesUrl = `${getBasePath()}/${coordinatesFilePath}`;
       
       console.log(`Trying coordinates JSON path: ${coordinatesUrl}`);
       jsonData = await safeParseJSON(coordinatesUrl);
@@ -223,7 +227,7 @@ export const loadImageData = async (folderName: string, fileName: string): Promi
       if (!jsonData) {
         const altFileName = fileName.replace(/_/g, '');
         const altFilePath = `${folderName}/${altFileName}.json`;
-        const altUrl = `/data/${altFilePath}`;
+        const altUrl = `${getBasePath()}/${altFilePath}`;
         
         console.log(`Trying alternative JSON path: ${altUrl}`);
         jsonData = await safeParseJSON(altUrl);
@@ -232,7 +236,7 @@ export const loadImageData = async (folderName: string, fileName: string): Promi
         if (!jsonData) {
           const altCoordinatesFileName = `${altFileName}-coordinates`;
           const altCoordinatesFilePath = `${folderName}/${altCoordinatesFileName}.json`;
-          const altCoordinatesUrl = `/data/${altCoordinatesFilePath}`;
+          const altCoordinatesUrl = `${getBasePath()}/${altCoordinatesFilePath}`;
           
           console.log(`Trying alt coordinates JSON path: ${altCoordinatesUrl}`);
           jsonData = await safeParseJSON(altCoordinatesUrl);
@@ -246,7 +250,7 @@ export const loadImageData = async (folderName: string, fileName: string): Promi
           folderName;
         const folderFileName = folderBaseName.replace(/_/g, '');
         const folderFilePath = `${folderName}/${folderFileName}.json`;
-        const folderUrl = `/data/${folderFilePath}`;
+        const folderUrl = `${getBasePath()}/${folderFilePath}`;
         
         console.log(`Trying folder-based JSON path: ${folderUrl}`);
         jsonData = await safeParseJSON(folderUrl);
@@ -255,7 +259,7 @@ export const loadImageData = async (folderName: string, fileName: string): Promi
         if (!jsonData) {
           const folderCoordinatesFileName = `${folderFileName}-coordinates`;
           const folderCoordinatesFilePath = `${folderName}/${folderCoordinatesFileName}.json`;
-          const folderCoordinatesUrl = `/data/${folderCoordinatesFilePath}`;
+          const folderCoordinatesUrl = `${getBasePath()}/${folderCoordinatesFilePath}`;
           
           console.log(`Trying folder coordinates JSON path: ${folderCoordinatesUrl}`);
           jsonData = await safeParseJSON(folderCoordinatesUrl);
