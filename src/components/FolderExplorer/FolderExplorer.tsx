@@ -187,12 +187,12 @@ const FolderExplorer: React.FC<FolderExplorerProps> = ({
             .map((item) => (
               <Card 
                 key={item.name} 
-                className={`hover:shadow-lg transition-shadow cursor-pointer border-2 hover:border-blue-300 ${highlightedFolders[currentPath ? `${currentPath}/${item.name}` : item.name] ? 'border-blue-300 bg-blue-50' : 'border-blue-100'}`}
+                className={`hover:shadow-lg transition-shadow cursor-pointer border-2 hover:border-blue-300 ${highlightedFolders[currentPath ? `${currentPath}/${item.name}` : item.name] ? 'border-indigo-400 bg-indigo-50' : 'border-blue-100'}`}
                 onClick={() => handleFolderClick(item as FolderItem)}
               >
                 <CardContent className="p-4">
                   <div className="flex items-center space-x-3">
-                    <FolderIcon className={`h-8 w-8 ${highlightedFolders[currentPath ? `${currentPath}/${item.name}` : item.name] ? 'text-blue-700' : 'text-blue-600'}`} />
+                    <FolderIcon className={`h-8 w-8 ${highlightedFolders[currentPath ? `${currentPath}/${item.name}` : item.name] ? 'text-indigo-600' : 'text-blue-600'}`} />
                     <div className="flex-1 min-w-0">
                       <h3 className="font-medium text-sm truncate">{item.name}</h3>
                       <p className="text-xs text-gray-500">
