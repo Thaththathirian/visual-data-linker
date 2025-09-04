@@ -1,19 +1,8 @@
 
 import { TableRow, ImageData } from "@/types";
-import { parseCSV } from "@/utils/csvParser";
 import { toast } from "sonner";
-import {
-  isDriveEnabled,
-  getRootFolderId,
-  resolveFolderByNameUnderRoot,
-  resolveFolderByPath,
-  fetchJsonInFolderByCandidates,
-  fetchCsvRowsInFolder,
-  findImageFileInFolder,
-  listSubfolders,
-  listAllSubfoldersRecursive,
-  listFilesInFolder,
-} from "@/utils/googleDrive";
+
+// Remove static Google Drive imports; we'll import on demand inside functions
 
 // Create a simple cache to avoid repeated network requests
 const cache: Record<string, any> = {};
@@ -61,8 +50,6 @@ const folderContentsCache: Record<string, any> = {};
  * Gets the appropriate base path for data files - same path for both dev and prod
  */
 const getBasePath = (): string => {
-  // Respect Vite base path so assets work under any subpath
-  // Vite guarantees BASE_URL ends with a trailing slash
   const baseUrl = import.meta.env.BASE_URL || '/';
   return `${baseUrl}data`;
 };
@@ -72,7 +59,6 @@ const getBasePath = (): string => {
  */
 export const getTablePath = (folderName: string, fileName: string) => {
   const basePath = getBasePath();
-  // Split the folder path and encode each segment separately
   const folderSegments = folderName.split('/').map(segment => encodeURIComponent(segment));
   const encodedFolderPath = folderSegments.join('/');
   return `${basePath}/${encodedFolderPath}/${encodeURIComponent(fileName)}.csv`;
@@ -83,6 +69,7 @@ export const getTablePath = (folderName: string, fileName: string) => {
  */
 export const getImagePath = async (folderName: string, fileName: string): Promise<string | null> => {
   console.log("[Drive] getImagePath using Google Drive for", { folderName, fileName });
+  const { resolveFolderByNameUnderRoot, resolveFolderByPath, findImageFileInFolder } = await import('@/utils/googleDrive');
   const normalizedFolderName = folderName.replace(/\s+/g, ' ').trim();
   const folder = normalizedFolderName.includes('/')
     ? await resolveFolderByPath(normalizedFolderName)
@@ -98,6 +85,8 @@ export const getImagePath = async (folderName: string, fileName: string): Promis
 export const parseCSVFile = async (folderName: string, fileName: string): Promise<TableRow[]> => {
   try {
     console.log("[Drive] parseCSVFile using Google Drive for", { folderName, fileName });
+    const { resolveFolderByNameUnderRoot, resolveFolderByPath, fetchCsvRowsInFolder } = await import('@/utils/googleDrive');
+    const { parseCSV } = await import('@/utils/csvParser');
     const normalizedFolderName = folderName.replace(/\s+/g, ' ').trim();
     const folder = normalizedFolderName.includes('/')
       ? await resolveFolderByPath(normalizedFolderName)
@@ -105,7 +94,7 @@ export const parseCSVFile = async (folderName: string, fileName: string): Promis
     if (!folder) return [];
     const csvText = await fetchCsvRowsInFolder(folder.id, fileName);
     if (!csvText) return [];
-    return parseCSV(csvText);
+    return await parseCSV(csvText);
   } catch (err) {
     console.error(`[CSV Loader] Unexpected error in parseCSVFile:`, err);
     return [];
@@ -168,6 +157,7 @@ const safeParseJSON = async (url: string): Promise<any> => {
  */
 export const loadImageData = async (folderName: string, fileName: string): Promise<ImageData | null> => {
   try {
+    const { resolveFolderByNameUnderRoot, resolveFolderByPath, fetchJsonInFolderByCandidates, listFilesInFolder, findImageFileInFolder } = await import('@/utils/googleDrive');
     // Create a cache key for this specific JSON file
     const cacheKey = `jsonData:${folderName}/${fileName}`;
     
@@ -214,6 +204,8 @@ export const checkFolderContents = async (folderName: string): Promise<{
   hasImage: boolean;
   baseName: string | null;
 }> => {
+  const { resolveFolderByNameUnderRoot, resolveFolderByPath, listFilesInFolder, findImageFileInFolder } = await import('@/utils/googleDrive');
+  const { fetchCsvRowsInFolder, getRootFolderId, listAllSubfoldersRecursive } = await import('@/utils/googleDrive');
   const cacheKey = `folderContents:${folderName}`;
   if (folderContentsCache[cacheKey]) {
     return folderContentsCache[cacheKey];
@@ -240,7 +232,7 @@ export const checkFolderContents = async (folderName: string): Promise<{
       folderBaseName,
       `${folderBaseName}-coordinates`,
     ];
-    let json = await fetchJsonInFolderByCandidates(folder.id, candidateNames);
+    let json = await (await import('@/utils/googleDrive')).fetchJsonInFolderByCandidates(folder.id, candidateNames);
     let detectedBase = json ? fileBaseName : null;
 
     // Fallback: scan for any *.json in folder and use its base name
@@ -249,7 +241,7 @@ export const checkFolderContents = async (folderName: string): Promise<{
       const anyJson = files.find(f => f.name.toLowerCase().endsWith('.json'));
       if (anyJson) {
         detectedBase = anyJson.name.replace(/\.json$/i, '').replace(/-coordinates$/i, '');
-        json = await fetchJsonInFolderByCandidates(folder.id, [detectedBase!, `${detectedBase}-coordinates`]);
+        json = await (await import('@/utils/googleDrive')).fetchJsonInFolderByCandidates(folder.id, [detectedBase!, `${detectedBase}-coordinates`]);
       }
     }
 
@@ -277,6 +269,7 @@ export const checkFolderContents = async (folderName: string): Promise<{
  */
 export const getAvailableFolders = async (): Promise<string[]> => {
   try {
+    const { isDriveEnabled, getRootFolderId, listAllSubfoldersRecursive } = await import('@/utils/googleDrive');
     if (!isDriveEnabled()) {
       console.warn("[Drive] is disabled or misconfigured. No local data fallback. Configure VITE_USE_GOOGLE_DRIVE and credentials.");
       return [];

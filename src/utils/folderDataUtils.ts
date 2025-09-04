@@ -1,5 +1,4 @@
 import { getAvailableFolders } from '@/utils/fileLoader';
-import { getRootFolderId, resolveFolderByPath, resolveFolderByNameUnderRoot, listSubfolders, listFilesInFolder } from '@/utils/googleDrive';
 
 export interface FolderItem {
   type: 'folder' | string;
@@ -20,19 +19,18 @@ export interface DirectoryContents {
 
 // Get folder contents by path (replaces /api/directory)
 export async function getDirectoryContents(folderPath: string): Promise<DirectoryContents[]> {
-  // Top level: list immediate subfolders under root
   if (!folderPath) {
+    const { getRootFolderId, listSubfolders } = await import('@/utils/googleDrive');
     const rootId = getRootFolderId();
     if (!rootId) return [];
     const subs = await listSubfolders(rootId);
     return subs.map(s => ({ type: 'folder', name: s.name, path: s.name, itemCount: undefined }));
   }
-  // Resolve Drive folder for the given path
+  const { resolveFolderByPath, resolveFolderByNameUnderRoot, listSubfolders, listFilesInFolder } = await import('@/utils/googleDrive');
   const driveFolder = folderPath.includes('/')
     ? await resolveFolderByPath(folderPath)
     : await resolveFolderByNameUnderRoot(folderPath);
   if (!driveFolder) return [];
-  // Subfolders
   const subfolders = await listSubfolders(driveFolder.id);
   const folderEntries: DirectoryContents[] = subfolders.map(sf => ({
     type: 'folder',
@@ -40,7 +38,6 @@ export async function getDirectoryContents(folderPath: string): Promise<Director
     path: `${folderPath}/${sf.name}`.replace(/\/+/g, '/'),
     itemCount: undefined,
   }));
-  // Files
   const files = await listFilesInFolder(driveFolder.id);
   const fileEntries: DirectoryContents[] = files
     .filter(f => f.mimeType !== 'application/vnd.google-apps.folder')
@@ -55,15 +52,12 @@ export async function getDirectoryContents(folderPath: string): Promise<Director
 
 // Get file content by path (replaces /api/file)
 export function getFileContent(filePath: string): string | null {
-  // For now, we'll return null since we're not storing file contents in the JSON
-  // You can extend this to read actual files if needed
   return null;
 }
 
 // Get the complete folder structure
 export async function getFolderStructure(): Promise<FolderItem[]> {
   const all = await getAvailableFolders();
-  // Flattened structure returned as simple folder items
   return all.map(p => ({ type: 'folder', name: p.split('/').pop() || p, path: p }));
 }
 
