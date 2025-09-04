@@ -58,13 +58,17 @@ const FolderExplorer: React.FC<FolderExplorerProps> = ({
       
       // Check if this folder has a complete set based on base name matching
       const files = contents.filter(item => item.type !== 'folder') as FileItem[];
+      
       const toBase = (name: string) => name
         .replace(/\.(json|csv|png|jpe?g|webp|gif)$/i, '')
         .replace(/-coordinates$/i, '');
+      
       const jsonBases = new Set(files.filter(f => f.type === 'json').map(f => toBase(f.name)));
       const csvBases = new Set(files.filter(f => f.type === 'csv').map(f => toBase(f.name)));
       const imageBases = new Set(files.filter(f => ['png','jpg','jpeg','webp','gif'].includes(f.type)).map(f => toBase(f.name)));
+      
       const completeBase = Array.from(jsonBases).find(b => csvBases.has(b) && imageBases.has(b));
+      
       if (completeBase) {
         navigate(`/${encodeURIComponent(path)}`);
         return;
