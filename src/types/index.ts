@@ -20,6 +20,17 @@ export interface TableRow {
   partNumber: string;
 }
 
+export interface ProductItem {
+  brand: string;
+  model: string;
+  category: string;
+  type: string;
+  product_path: string;
+  product_name: string;
+  product_description: string;
+  relative_products: string;
+}
+
 export interface SearchResult {
   type: 'image' | 'part';
   name: string;

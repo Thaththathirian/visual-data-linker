@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { CategorySidebar } from '@/components/Sidebar';
 import { ProductGrid } from '@/components/ProductGrid';
+import { ProductFilter } from '@/components/Filter';
 import { readIndexFromDrive, groupByCategory, getItemsBySubcategory, buildCategoryTree } from '@/utils/indexReader';
 import { ChevronRightIcon, HomeIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -16,6 +17,7 @@ const Home: React.FC = () => {
   const [selectedSubcategory, setSelectedSubcategory] = useState<string>('');
   const [selectedPath, setSelectedPath] = useState<string[]>([]);
   const [breadcrumbs, setBreadcrumbs] = useState<string[]>([]);
+  const [filteredItems, setFilteredItems] = useState<any[]>([]);
 
 
   // Fetch index data from Google Drive
@@ -25,8 +27,14 @@ const Home: React.FC = () => {
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
-  const categories = indexItems ? groupByCategory(indexItems) : [];
-  const categoryTree = indexItems ? buildCategoryTree(indexItems) : undefined;
+  const categories = React.useMemo(() => 
+    indexItems ? groupByCategory(indexItems) : [], 
+    [indexItems]
+  );
+  const categoryTree = React.useMemo(() => 
+    indexItems ? buildCategoryTree(indexItems) : undefined, 
+    [indexItems]
+  );
   
   // Use only index.csv items - memoized to prevent recreation
   const allItems = React.useMemo(() => [...(indexItems || [])], [indexItems]);
@@ -43,7 +51,7 @@ const Home: React.FC = () => {
               .split('>')
               .map((s: string) => s.trim())
               .filter(Boolean)
-          : [item.category, item.subcategory].filter(Boolean);
+          : [item.category, item.type || item.subcategory].filter(Boolean);
         if (targetLevels.length === 1) {
           // Category clicked: include everything under that category (with or without subcategory)
           return levels[0] === targetLevels[0];
@@ -60,7 +68,7 @@ const Home: React.FC = () => {
     }
   };
 
-  const filteredItems = getItemsForSelection();
+  const categoryFilteredItems = getItemsForSelection();
 
 
 
@@ -102,15 +110,20 @@ const Home: React.FC = () => {
       // Find the item that matches this path
       const source = allItems || [];
       const matchingItem = source.find(item => {
-        const itemPath = item.coordinates_path || item.data_path;
+        const itemPath = item.product_path || item.coordinates_path || item.data_path;
         if (!itemPath) return false;
+        // For new structure, product_path is the folder name directly
+        if (item.product_path) {
+          return item.product_path === pathParam;
+        }
+        // For legacy structure, extract folder path
         const folderPath = itemPath.split('/').slice(0, -1).join('/');
         return folderPath === pathParam;
       });
       
       if (matchingItem) {
         if (matchingItem.category !== selectedCategory) setSelectedCategory(matchingItem.category);
-        if ((matchingItem.subcategory || '') !== selectedSubcategory) setSelectedSubcategory(matchingItem.subcategory);
+        if ((matchingItem.type || matchingItem.subcategory || '') !== selectedSubcategory) setSelectedSubcategory(matchingItem.type || matchingItem.subcategory || '');
       }
     }
   }, [searchParams.toString()]);
@@ -134,23 +147,23 @@ const Home: React.FC = () => {
     });
   }, [selectedPath, selectedCategory, selectedSubcategory]);
 
-  const handleCategorySelect = (category: string) => {
+  const handleCategorySelect = React.useCallback((category: string) => {
     if (category !== selectedCategory) setSelectedCategory(category);
     if (selectedSubcategory !== '') setSelectedSubcategory('');
     if (selectedPath.length !== 0) setSelectedPath([]);
     const qs = new URLSearchParams({ category }).toString();
     if (qs !== searchParams.toString()) navigate(`/?${qs}`);
-  };
+  }, [selectedCategory, selectedSubcategory, selectedPath, searchParams, navigate]);
 
-  const handleSubcategorySelect = (category: string, subcategory: string) => {
+  const handleSubcategorySelect = React.useCallback((category: string, subcategory: string) => {
     if (category !== selectedCategory) setSelectedCategory(category);
     if (subcategory !== selectedSubcategory) setSelectedSubcategory(subcategory);
     if (selectedPath.length !== 0) setSelectedPath([]);
     const qs = new URLSearchParams({ category, subcategory }).toString();
     if (qs !== searchParams.toString()) navigate(`/?${qs}`);
-  };
+  }, [selectedCategory, selectedSubcategory, selectedPath, searchParams, navigate]);
 
-  const handleSelectPath = (path: string[]) => {
+  const handleSelectPath = React.useCallback((path: string[]) => {
     if (JSON.stringify(path) !== JSON.stringify(selectedPath)) setSelectedPath(path);
     // Also update legacy selections for breadcrumb display
     const nextCat = path[0] || '';
@@ -166,33 +179,29 @@ const Home: React.FC = () => {
       const qs = new URLSearchParams({ category: path[0], subcategory: path[1], catpath: path.join('>') }).toString();
       if (qs !== searchParams.toString()) navigate(`/?${qs}`);
     }
-  };
+  }, [selectedPath, selectedCategory, selectedSubcategory, searchParams, navigate]);
 
-  const handleItemClick = (item: any) => {
-    // Navigate directly to the coordinate view using the coordinates_path
-    const coordinatesPath = item.coordinates_path;
+  const handleItemClick = React.useCallback((item: any) => {
+    // Navigate directly to the coordinate view using the product_path
+    const productPath = item.product_path;
     
-    if (!coordinatesPath) {
-      console.error('No coordinates_path found for item:', item);
+    if (!productPath) {
+      console.error('No product_path found for item:', item);
       toast.error('No coordinate data available for this item');
       return;
     }
     
-    // Extract the folder path from the coordinates_path (remove the filename)
-    const pathParts = coordinatesPath.split('/');
-    const folderPath = pathParts.slice(0, -1).join('/');
+    console.log('Navigating to coordinate view for folder:', productPath);
+    console.log('Using product_path:', productPath);
     
-    console.log('Navigating to coordinate view for folder:', folderPath);
-    console.log('Using coordinates_path:', coordinatesPath);
-    
-    // Navigate to the ImageDetail page using the folder path
+    // Navigate to the ImageDetail page using the product path
     const query = new URLSearchParams({
       category: item.category || '',
-      subcategory: item.subcategory || '',
-      name: item.file_name || ''
+      subcategory: item.type || item.subcategory || '',
+      name: item.product_name || item.file_name || ''
     }).toString();
-    navigate(`/${encodeURIComponent(folderPath)}?${query}`);
-  };
+    navigate(`/${encodeURIComponent(productPath)}?${query}`);
+  }, [navigate]);
 
   const handleBreadcrumbClick = (index: number) => {
     const crumbs = selectedPath && selectedPath.length > 0
@@ -323,6 +332,12 @@ const Home: React.FC = () => {
         <div className="p-6">
           {selectedCategory ? (
             <div>
+              {/* Product Filter */}
+              <ProductFilter 
+                items={categoryFilteredItems} 
+                onFilterChange={setFilteredItems} 
+              />
+              
               {/* Show the actual items/products, not just category info */}
               {filteredItems.length > 0 ? (
                 <ProductGrid items={filteredItems} onItemClick={handleItemClick} />

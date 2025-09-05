@@ -88,6 +88,60 @@ export const resolveFolderByPath = async (path: string): Promise<DriveFile | nul
   return currentFolder;
 };
 
+/**
+ * Find folder by exact name anywhere in the Google Drive structure
+ * This searches recursively through all folders to find an exact name match
+ */
+export const findFolderByExactName = async (folderName: string, rootFolderId?: string): Promise<DriveFile | null> => {
+  const searchRootId = rootFolderId || DRIVE_ROOT_FOLDER_ID;
+  if (!searchRootId) return null;
+  
+  console.log(`[Drive] Searching for folder with exact name: "${folderName}"`);
+  
+  // First try direct search in root folder
+  const directMatch = await findChildFolderByName(searchRootId, folderName);
+  if (directMatch) {
+    console.log(`[Drive] Found folder directly in root: ${directMatch.name}`);
+    return directMatch;
+  }
+  
+  // If not found, search recursively
+  const found = await searchFolderRecursively(searchRootId, folderName);
+  if (found) {
+    console.log(`[Drive] Found folder recursively: ${found.name}`);
+    return found;
+  }
+  
+  console.warn(`[Drive] Folder not found: "${folderName}"`);
+  return null;
+};
+
+/**
+ * Recursively search for a folder by exact name
+ */
+const searchFolderRecursively = async (parentFolderId: string, targetName: string): Promise<DriveFile | null> => {
+  try {
+    const subfolders = await listSubfolders(parentFolderId);
+    
+    for (const folder of subfolders) {
+      // Check if this folder matches exactly
+      if (folder.name === targetName) {
+        return folder;
+      }
+      
+      // Recursively search in this folder
+      const found = await searchFolderRecursively(folder.id, targetName);
+      if (found) {
+        return found;
+      }
+    }
+  } catch (error) {
+    console.warn(`[Drive] Error searching in folder ${parentFolderId}:`, error);
+  }
+  
+  return null;
+};
+
 export const listAllSubfoldersRecursive = async (parentFolderId: string, parentPath: string = ''): Promise<string[]> => {
   const result: string[] = [];
   const children = await listSubfolders(parentFolderId);

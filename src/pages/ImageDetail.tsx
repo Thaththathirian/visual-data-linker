@@ -9,6 +9,7 @@ import { useQuery } from "@tanstack/react-query";
 import { readIndexFromDrive, IndexItem } from "@/utils/indexReader";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { RelatedParts } from "@/components/RelatedParts";
 
 // Lazy load components to improve initial page load
 const InteractiveImage = lazy(() => import("@/components/Interactive/InteractiveImage"));
@@ -44,19 +45,19 @@ const ImageDetail: React.FC = () => {
       try {
         setLoading(true);
         
-        // For Google Drive paths from index.csv, extract the base name from the path
-        const folderNameForFiles = currentFolderName;
-        const detectedBase = currentFolderName.split('/').pop()!;
+        // For Google Drive paths from index.csv, use the relative product name directly
+        const relativeProductForFiles = currentFolderName;
+        const detectedBase = currentFolderName;
         setBaseName(detectedBase);
         
-        console.log('Loading data for Google Drive folder:', folderNameForFiles);
+        console.log('Loading data for Google Drive folder:', relativeProductForFiles);
         console.log('Detected base name:', detectedBase);
         
-        // Load JSON, Image, CSV using the Google Drive paths
+        // Load JSON, Image, CSV using the Google Drive paths with automatic file detection
         const [imgData, imgPath, tableRows] = await Promise.all([
-          loadImageData(folderNameForFiles, detectedBase),
-          getImagePath(folderNameForFiles, detectedBase),
-          parseCSVFile(folderNameForFiles, detectedBase)
+          loadImageData(relativeProductForFiles, detectedBase),
+          getImagePath(relativeProductForFiles, detectedBase),
+          parseCSVFile(relativeProductForFiles, detectedBase)
         ]);
 
         // If we have image data, set it; otherwise show warning
@@ -124,6 +125,13 @@ const ImageDetail: React.FC = () => {
   const handleCircleClick = handleShapeOrRowClick;
   const handleRowClick = handleShapeOrRowClick;
 
+  const handleRelatedPartClick = (item: IndexItem) => {
+    if (item.product_path) {
+      // Navigate to the related product's folder (using product_path as folder name)
+      navigate(`/${encodeURIComponent(item.product_path)}`);
+    }
+  };
+
   // Scroll to top when component mounts (when navigating to new item)
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -181,11 +189,32 @@ const ImageDetail: React.FC = () => {
     );
   }
 
-  // Prefer category/subcategory/name from query params for breadcrumbs
+  // Get current product info for breadcrumbs
+  const currentProduct = indexItems?.find((it: IndexItem) => {
+    // Try multiple matching strategies
+    // For new structure, match by product_path (which is the folder name)
+    if (it.product_path && decodeURIComponent(currentFolderName) === it.product_path) {
+      return true;
+    }
+    
+    // For legacy structure, try coordinates_path
+    if (it.coordinates_path && decodeURIComponent(currentFolderName).includes(it.coordinates_path.split('/').slice(0,-1).join('/'))) {
+      return true;
+    }
+    
+    // Also try matching by asset_id if available
+    if (it.asset_id && currentFolderName.includes(it.asset_id)) {
+      return true;
+    }
+    
+    return false;
+  });
+
+  // Prefer category/subcategory/name from query params, fallback to current product data
   const searchParams = new URLSearchParams(window.location.search);
-  const qCategory = searchParams.get('category');
-  const qSubcategory = searchParams.get('subcategory');
-  const qName = searchParams.get('name');
+  const qCategory = searchParams.get('category') || currentProduct?.category;
+  const qSubcategory = searchParams.get('subcategory') || currentProduct?.type;
+  const qName = searchParams.get('name') || currentProduct?.product_name;
 
   // Breadcrumb component already renders Home; only pass category/subcategory/name
   const breadcrumbItems = [
@@ -200,35 +229,16 @@ const ImageDetail: React.FC = () => {
       <div className="mb-4">
         <Breadcrumb items={breadcrumbItems} />
       </div>
-      {(() => {
-        // Find current item from indexItems to get file_name and description
-        const current = indexItems?.find((it: IndexItem) => {
-          // Try multiple matching strategies
-          if (it.coordinates_path && decodeURIComponent(currentFolderName).includes(it.coordinates_path.split('/').slice(0,-1).join('/'))) {
-            return true;
-          }
-          
-          // Also try matching by asset_id if available
-          if (it.asset_id && currentFolderName.includes(it.asset_id)) {
-            return true;
-          }
-          
-          return false;
-        });
-
-        return (
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold mb-2 text-gray-900">
-              {current?.file_name || imageData.imageName.replace(/-/g, " ")}
-            </h1>
-            {current?.description && (
-              <p className="text-md text-gray-600 leading-relaxed">
-                {current.description}
-              </p>
-            )}
-          </div>
-        );
-      })()}
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold mb-2 text-gray-900">
+          {currentProduct?.product_name || currentProduct?.file_name || imageData.imageName.replace(/-/g, " ")}
+        </h1>
+        {currentProduct?.product_description && (
+          <p className="text-md text-gray-600 leading-relaxed">
+            {currentProduct.product_description}
+          </p>
+        )}
+      </div>
       <div className="flex flex-col lg:flex-row gap-6">
         <div className="w-full lg:w-2/3 bg-white p-4 rounded-lg shadow">
           <Suspense fallback={<div className="w-full h-[580px] flex items-center justify-center">Loading image viewer...</div>}>
@@ -279,106 +289,14 @@ const ImageDetail: React.FC = () => {
         </div>
       </div>
       
-      {/* Related Content - now below the parts list */}
-      {indexItems && imageData && (
-        <div className="mt-8 bg-white p-6 rounded-lg shadow">
-          <h3 className="text-xl font-semibold mb-4">Related Content</h3>
-          {(() => {
-            // Find current item by matching coordinates_path in query
-            const current = indexItems.find((it: IndexItem) => {
-              // Try multiple matching strategies
-              if (it.coordinates_path && decodeURIComponent(currentFolderName).includes(it.coordinates_path.split('/').slice(0,-1).join('/'))) {
-                return true;
-              }
-              
-              // Also try matching by asset_id if available
-              if (it.asset_id && currentFolderName.includes(it.asset_id)) {
-                return true;
-              }
-              
-              return false;
-            });
-            
-            const relatedIds = current?.related_ids || [];
-            
-            const related = relatedIds
-              .map((rid: string) => {
-                // Look for items where asset_id matches the related ID
-                const found = indexItems.find((it: IndexItem) => it.asset_id === rid);
-                if (found) {
-                  console.log('Found related item:', {
-                    asset_id: found.asset_id,
-                    file_name: found.file_name,
-                    thumbnail_path: found.thumbnail_path,
-                    image_path: found.image_path
-                  });
-                }
-                return found;
-              })
-              .filter(Boolean) as IndexItem[];
-
-            if (!related || related.length === 0) {
-              return <p className="text-sm text-gray-500">No related items found.</p>;
-            }
-
-            return (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {related.map((item) => (
-                  <div key={`${item.category}-${item.subcategory}-${item.file_name}`} className="flex flex-col p-4 border rounded-lg hover:border-blue-300 hover:shadow-md cursor-pointer transition-all"
-                    onClick={() => {
-                      // Navigate to the related item's detail page
-                      if (item.coordinates_path) {
-                        const pathParts = item.coordinates_path.split('/');
-                        const folderPath = pathParts.slice(0, -1).join('/');
-                        const q = new URLSearchParams({ category: item.category || '', subcategory: item.subcategory || '', name: item.file_name || '' }).toString();
-                        navigate(`/${encodeURIComponent(folderPath)}?${q}`);
-                        // Scroll to top when navigating to new page
-                        window.scrollTo(0, 0);
-                      }
-                    }}
-                  >
-                    <img 
-                      src={item.thumbnail_path || item.image_path || '/placeholder.svg'} 
-                      className="w-full h-32 object-cover rounded mb-3" 
-                      onError={(e) => { 
-                        const img = e.target as HTMLImageElement;
-                        console.log('Image load error for:', item.file_name, {
-                          thumbnail_path: item.thumbnail_path,
-                          image_path: item.image_path,
-                          currentSrc: img.src
-                        });
-                        // Prevent infinite error loops by checking if we've already tried this source
-                        if (img.dataset.fallbackAttempted === 'true') {
-                          // Already tried fallback, use placeholder
-                          img.src = '/placeholder.svg';
-                        } else if (item.image_path && img.src !== item.image_path) {
-                          // Try image_path as fallback
-                          img.dataset.fallbackAttempted = 'true';
-                          img.src = item.image_path;
-                        } else {
-                          // Use placeholder
-                          img.src = '/placeholder.svg';
-                        }
-                      }} 
-                      onLoad={() => {
-                        console.log('Image loaded successfully for:', item.file_name, {
-                          thumbnail_path: item.thumbnail_path,
-                          image_path: item.image_path
-                        });
-                      }}
-                    />
-                    <div className="flex-1">
-                      <div className="text-sm font-medium text-gray-900 mb-1">{item.file_name}</div>
-                      <div className="text-xs text-gray-500 mb-2">{item.category}{item.subcategory ? ` / ${item.subcategory}` : ''}</div>
-                      {item.description && (
-                        <div className="text-xs text-gray-600 line-clamp-2">{item.description}</div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            );
-          })()}
+      {/* Related Parts - now below the parts list */}
+      {indexItems && imageData && currentProduct && (
+        <div className="mt-8">
+          <RelatedParts
+            currentItem={currentProduct}
+            allItems={indexItems}
+            onPartClick={handleRelatedPartClick}
+          />
         </div>
       )}
     </div>

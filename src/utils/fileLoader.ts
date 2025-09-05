@@ -66,35 +66,90 @@ export const getTablePath = (folderName: string, fileName: string) => {
 
 /**
  * Gets the appropriate image path with fallback for different extensions
+ * Now supports automatic file detection in Google Drive folders with exact name matching
  */
-export const getImagePath = async (folderName: string, fileName: string): Promise<string | null> => {
-  console.log("[Drive] getImagePath using Google Drive for", { folderName, fileName });
-  const { resolveFolderByNameUnderRoot, resolveFolderByPath, findImageFileInFolder } = await import('@/utils/googleDrive');
-  const normalizedFolderName = folderName.replace(/\s+/g, ' ').trim();
-  const folder = normalizedFolderName.includes('/')
-    ? await resolveFolderByPath(normalizedFolderName)
-    : await resolveFolderByNameUnderRoot(normalizedFolderName);
-  if (!folder) return null;
-  const url = await findImageFileInFolder(folder.id, fileName);
-  return url;
+export const getImagePath = async (relativeProduct: string, fileName?: string): Promise<string | null> => {
+  console.log("[Drive] getImagePath using Google Drive for", { relativeProduct, fileName });
+  const { findFolderByExactName, findImageFileInFolder, listFilesInFolder } = await import('@/utils/googleDrive');
+  const normalizedProductName = relativeProduct.replace(/\s+/g, ' ').trim();
+  
+  // Use exact folder name matching to find the folder anywhere in Google Drive
+  const folder = await findFolderByExactName(normalizedProductName);
+  if (!folder) {
+    console.warn(`[Drive] Folder not found: "${normalizedProductName}"`);
+    return null;
+  }
+  
+  // If fileName is provided, try to find that specific file
+  if (fileName) {
+    const url = await findImageFileInFolder(folder.id, fileName);
+    if (url) return url;
+  }
+  
+  // Auto-detect image files in the folder
+  const files = await listFilesInFolder(folder.id);
+  const imageFiles = files.filter(file => 
+    /\.(png|jpg|jpeg|webp|gif)$/i.test(file.name)
+  );
+  
+  if (imageFiles.length > 0) {
+    // Prefer thumbnail.png, then any other image
+    const thumbnail = imageFiles.find(f => f.name.toLowerCase() === 'thumbnail.png');
+    if (thumbnail) {
+      const { getDriveDownloadUrl } = await import('@/utils/googleDrive');
+      return getDriveDownloadUrl(thumbnail.id);
+    }
+    
+    // Use the first available image
+    const { getDriveDownloadUrl } = await import('@/utils/googleDrive');
+    return getDriveDownloadUrl(imageFiles[0].id);
+  }
+  
+  return null;
 };
 
 /**
  * Parse CSV file directly using the same filename as the JSON
+ * Now supports automatic CSV file detection in Google Drive folders with exact name matching
  */
-export const parseCSVFile = async (folderName: string, fileName: string): Promise<TableRow[]> => {
+export const parseCSVFile = async (relativeProduct: string, fileName?: string): Promise<TableRow[]> => {
   try {
-    console.log("[Drive] parseCSVFile using Google Drive for", { folderName, fileName });
-    const { resolveFolderByNameUnderRoot, resolveFolderByPath, fetchCsvRowsInFolder } = await import('@/utils/googleDrive');
+    console.log("[Drive] parseCSVFile using Google Drive for", { relativeProduct, fileName });
+    const { findFolderByExactName, fetchCsvRowsInFolder, listFilesInFolder } = await import('@/utils/googleDrive');
     const { parseCSV } = await import('@/utils/csvParser');
-    const normalizedFolderName = folderName.replace(/\s+/g, ' ').trim();
-    const folder = normalizedFolderName.includes('/')
-      ? await resolveFolderByPath(normalizedFolderName)
-      : await resolveFolderByNameUnderRoot(normalizedFolderName);
-    if (!folder) return [];
-    const csvText = await fetchCsvRowsInFolder(folder.id, fileName);
-    if (!csvText) return [];
-    return await parseCSV(csvText);
+    const normalizedProductName = relativeProduct.replace(/\s+/g, ' ').trim();
+    
+    // Use exact folder name matching to find the folder anywhere in Google Drive
+    const folder = await findFolderByExactName(normalizedProductName);
+    if (!folder) {
+      console.warn(`[Drive] Folder not found: "${normalizedProductName}"`);
+      return [];
+    }
+    
+    // If fileName is provided, try to fetch that specific CSV
+    if (fileName) {
+      const csvText = await fetchCsvRowsInFolder(folder.id, fileName);
+      if (csvText) return await parseCSV(csvText);
+    }
+    
+    // Auto-detect CSV files in the folder
+    const files = await listFilesInFolder(folder.id);
+    const csvFiles = files.filter(file => 
+      /\.csv$/i.test(file.name)
+    );
+    
+    if (csvFiles.length > 0) {
+      // Prefer data.csv, then any other CSV file
+      const dataCsv = csvFiles.find(f => f.name.toLowerCase() === 'data.csv');
+      const targetFile = dataCsv || csvFiles[0];
+      
+      // Extract base name without extension for fetchCsvRowsInFolder
+      const baseName = targetFile.name.replace(/\.csv$/i, '');
+      const csvText = await fetchCsvRowsInFolder(folder.id, baseName);
+      if (csvText) return await parseCSV(csvText);
+    }
+    
+    return [];
   } catch (err) {
     console.error(`[CSV Loader] Unexpected error in parseCSVFile:`, err);
     return [];
@@ -154,40 +209,69 @@ const safeParseJSON = async (url: string): Promise<any> => {
 
 /**
  * Load image JSON data using consistent file naming
+ * Now supports automatic JSON file detection in Google Drive folders with exact name matching
  */
-export const loadImageData = async (folderName: string, fileName: string): Promise<ImageData | null> => {
+export const loadImageData = async (relativeProduct: string, fileName?: string): Promise<ImageData | null> => {
   try {
-    const { resolveFolderByNameUnderRoot, resolveFolderByPath, fetchJsonInFolderByCandidates, listFilesInFolder, findImageFileInFolder } = await import('@/utils/googleDrive');
+    const { findFolderByExactName, fetchJsonInFolderByCandidates, listFilesInFolder } = await import('@/utils/googleDrive');
     // Create a cache key for this specific JSON file
-    const cacheKey = `jsonData:${folderName}/${fileName}`;
+    const cacheKey = `jsonData:${relativeProduct}/${fileName || 'auto'}`;
     
     // Check if we have this JSON data cached
     if (jsonDataCache[cacheKey]) {
       return jsonDataCache[cacheKey];
     }
     
-    console.log("[Drive] loadImageData using Google Drive for", { folderName, fileName });
-    const normalizedFolderName = folderName.replace(/\s+/g, ' ').trim();
-    const folder = normalizedFolderName.includes('/')
-      ? await resolveFolderByPath(normalizedFolderName)
-      : await resolveFolderByNameUnderRoot(normalizedFolderName);
-    if (!folder) return null;
-    const candidateNames: string[] = [
-      fileName,
-      `${fileName}-coordinates`,
-      fileName.replace(/_/g, ''),
-      `${fileName.replace(/_/g, '')}-coordinates`,
-    ];
-    // Also try folder-based name
-    const folderBaseName = folderName.includes('/') ? folderName.split('/').pop()! : folderName;
-    const folderFileBase = folderBaseName.replace(/_/g, '');
-    candidateNames.push(folderFileBase, `${folderFileBase}-coordinates`);
-
-    const jsonData = await fetchJsonInFolderByCandidates(folder.id, candidateNames);
-    if (jsonData && typeof jsonData === 'object' && typeof jsonData.imageName === 'string' && Array.isArray(jsonData.coordinates)) {
-      jsonDataCache[cacheKey] = jsonData;
-      return jsonData;
+    console.log("[Drive] loadImageData using Google Drive for", { relativeProduct, fileName });
+    const normalizedProductName = relativeProduct.replace(/\s+/g, ' ').trim();
+    
+    // Use exact folder name matching to find the folder anywhere in Google Drive
+    const folder = await findFolderByExactName(normalizedProductName);
+    if (!folder) {
+      console.warn(`[Drive] Folder not found: "${normalizedProductName}"`);
+      return null;
     }
+    
+    // If fileName is provided, try specific candidates first
+    if (fileName) {
+      const candidateNames: string[] = [
+        fileName,
+        `${fileName}-coordinates`,
+        fileName.replace(/_/g, ''),
+        `${fileName.replace(/_/g, '')}-coordinates`,
+      ];
+      // Also try folder-based name
+      const folderBaseName = relativeProduct.includes('/') ? relativeProduct.split('/').pop()! : relativeProduct;
+      const folderFileBase = folderBaseName.replace(/_/g, '');
+      candidateNames.push(folderFileBase, `${folderFileBase}-coordinates`);
+
+      const jsonData = await fetchJsonInFolderByCandidates(folder.id, candidateNames);
+      if (jsonData && typeof jsonData === 'object' && typeof jsonData.imageName === 'string' && Array.isArray(jsonData.coordinates)) {
+        jsonDataCache[cacheKey] = jsonData;
+        return jsonData;
+      }
+    }
+    
+    // Auto-detect JSON files in the folder
+    const files = await listFilesInFolder(folder.id);
+    const jsonFiles = files.filter(file => 
+      /\.json$/i.test(file.name)
+    );
+    
+    if (jsonFiles.length > 0) {
+      // Prefer coordinates.json, then any other JSON file
+      const coordinatesJson = jsonFiles.find(f => f.name.toLowerCase() === 'coordinates.json');
+      const targetFile = coordinatesJson || jsonFiles[0];
+      
+      // Extract base name without extension for fetchJsonInFolderByCandidates
+      const baseName = targetFile.name.replace(/\.json$/i, '');
+      const jsonData = await fetchJsonInFolderByCandidates(folder.id, [baseName]);
+      if (jsonData && typeof jsonData === 'object' && typeof jsonData.imageName === 'string' && Array.isArray(jsonData.coordinates)) {
+        jsonDataCache[cacheKey] = jsonData;
+        return jsonData;
+      }
+    }
+    
     return null;
   } catch (err) {
     console.error(`Error processing image data:`, err);
@@ -197,32 +281,34 @@ export const loadImageData = async (folderName: string, fileName: string): Promi
 
 /**
  * Check folder contents to determine valid file names
+ * Now supports exact folder name matching anywhere in Google Drive
  */
-export const checkFolderContents = async (folderName: string): Promise<{
+export const checkFolderContents = async (relativeProduct: string): Promise<{
   hasJson: boolean;
   hasCsv: boolean;
   hasImage: boolean;
   baseName: string | null;
 }> => {
-  const { resolveFolderByNameUnderRoot, resolveFolderByPath, listFilesInFolder, findImageFileInFolder } = await import('@/utils/googleDrive');
-  const { fetchCsvRowsInFolder, getRootFolderId, listAllSubfoldersRecursive } = await import('@/utils/googleDrive');
-  const cacheKey = `folderContents:${folderName}`;
+  const { findFolderByExactName, listFilesInFolder, findImageFileInFolder } = await import('@/utils/googleDrive');
+  const { fetchCsvRowsInFolder } = await import('@/utils/googleDrive');
+  const cacheKey = `folderContents:${relativeProduct}`;
   if (folderContentsCache[cacheKey]) {
     return folderContentsCache[cacheKey];
   }
   
   try {
-    console.log("[Drive] checkFolderContents using Google Drive for", { folderName });
-    const normalizedFolderName = folderName.replace(/\s+/g, ' ').trim();
-    const folder = normalizedFolderName.includes('/')
-      ? await resolveFolderByPath(normalizedFolderName)
-      : await resolveFolderByNameUnderRoot(normalizedFolderName);
+    console.log("[Drive] checkFolderContents using Google Drive for", { relativeProduct });
+    const normalizedProductName = relativeProduct.replace(/\s+/g, ' ').trim();
+    
+    // Use exact folder name matching to find the folder anywhere in Google Drive
+    const folder = await findFolderByExactName(normalizedProductName);
     if (!folder) {
+      console.warn(`[Drive] Folder not found: "${normalizedProductName}"`);
       const result = { hasJson: false, hasCsv: false, hasImage: false, baseName: null };
       folderContentsCache[cacheKey] = result;
       return result;
     }
-    const folderBaseName = folderName.includes('/') ? folderName.split('/').pop()! : folderName;
+    const folderBaseName = relativeProduct.includes('/') ? relativeProduct.split('/').pop()! : relativeProduct;
     const fileBaseName = folderBaseName.replace(/_/g, '');
 
     // Check for JSON using same candidates as loadImageData
@@ -259,7 +345,7 @@ export const checkFolderContents = async (folderName: string): Promise<{
     folderContentsCache[cacheKey] = result;
     return result;
   } catch (err) {
-    console.error(`Error checking folder contents for ${folderName}:`, err);
+    console.error(`Error checking folder contents for ${relativeProduct}:`, err);
     return { hasJson: false, hasCsv: false, hasImage: false, baseName: null };
   }
 };
@@ -282,6 +368,134 @@ export const getAvailableFolders = async (): Promise<string[]> => {
   } catch (err) {
     console.error("Error getting available folders:", err);
     return [];
+  }
+};
+
+/**
+ * Get all files (PNG, CSV, JSON) from a folder by exact name
+ * This function finds the folder anywhere in Google Drive and returns all relevant files
+ */
+export const getAllFilesFromFolder = async (relativeProduct: string): Promise<{
+  folder: any;
+  images: any[];
+  csvFiles: any[];
+  jsonFiles: any[];
+  allFiles: any[];
+}> => {
+  try {
+    console.log("[Drive] Getting all files from folder:", relativeProduct);
+    const { findFolderByExactName, listFilesInFolder, getDriveDownloadUrl } = await import('@/utils/googleDrive');
+    
+    // Find the folder by exact name anywhere in Google Drive
+    const folder = await findFolderByExactName(relativeProduct);
+    if (!folder) {
+      console.warn(`[Drive] Folder not found: "${relativeProduct}"`);
+      return {
+        folder: null,
+        images: [],
+        csvFiles: [],
+        jsonFiles: [],
+        allFiles: []
+      };
+    }
+    
+    // Get all files in the folder
+    const allFiles = await listFilesInFolder(folder.id);
+    
+    // Categorize files by type
+    const images = allFiles.filter(file => 
+      /\.(png|jpg|jpeg|webp|gif)$/i.test(file.name)
+    ).map(file => ({
+      ...file,
+      downloadUrl: getDriveDownloadUrl(file.id),
+      type: 'image'
+    }));
+    
+    const csvFiles = allFiles.filter(file => 
+      /\.csv$/i.test(file.name)
+    ).map(file => ({
+      ...file,
+      downloadUrl: getDriveDownloadUrl(file.id),
+      type: 'csv'
+    }));
+    
+    const jsonFiles = allFiles.filter(file => 
+      /\.json$/i.test(file.name)
+    ).map(file => ({
+      ...file,
+      downloadUrl: getDriveDownloadUrl(file.id),
+      type: 'json'
+    }));
+    
+    console.log(`[Drive] Found in folder "${relativeProduct}":`, {
+      totalFiles: allFiles.length,
+      images: images.length,
+      csvFiles: csvFiles.length,
+      jsonFiles: jsonFiles.length
+    });
+    
+    return {
+      folder,
+      images,
+      csvFiles,
+      jsonFiles,
+      allFiles: allFiles.map(file => ({
+        ...file,
+        downloadUrl: getDriveDownloadUrl(file.id),
+        type: /\.(png|jpg|jpeg|webp|gif)$/i.test(file.name) ? 'image' :
+              /\.csv$/i.test(file.name) ? 'csv' :
+              /\.json$/i.test(file.name) ? 'json' : 'other'
+      }))
+    };
+  } catch (error) {
+    console.error(`[Drive] Error getting files from folder "${relativeProduct}":`, error);
+    return {
+      folder: null,
+      images: [],
+      csvFiles: [],
+      jsonFiles: [],
+      allFiles: []
+    };
+  }
+};
+
+/**
+ * Get product thumbnail image URL from Google Drive
+ * This function finds the folder by product_path and returns the best available image
+ */
+export const getProductThumbnail = async (productPath: string): Promise<string | null> => {
+  try {
+    console.log("[Drive] Getting product thumbnail for:", productPath);
+    const { findFolderByExactName, listFilesInFolder, getDriveDownloadUrl } = await import('@/utils/googleDrive');
+    
+    // Find the folder by exact name anywhere in Google Drive
+    const folder = await findFolderByExactName(productPath);
+    if (!folder) {
+      console.warn(`[Drive] Folder not found for thumbnail: "${productPath}"`);
+      return null;
+    }
+    
+    // Get all files in the folder
+    const files = await listFilesInFolder(folder.id);
+    const imageFiles = files.filter(file => 
+      /\.(png|jpg|jpeg|webp|gif)$/i.test(file.name)
+    );
+    
+    if (imageFiles.length > 0) {
+      // Prefer thumbnail.png, then any other image
+      const thumbnail = imageFiles.find(f => f.name.toLowerCase() === 'thumbnail.png');
+      if (thumbnail) {
+        return getDriveDownloadUrl(thumbnail.id);
+      }
+      
+      // Use the first available image
+      return getDriveDownloadUrl(imageFiles[0].id);
+    }
+    
+    return null;
+  } catch (error) {
+    console.error(`[Drive] Error getting thumbnail for "${productPath}":`, error);
+    return null;
   }
 };
 

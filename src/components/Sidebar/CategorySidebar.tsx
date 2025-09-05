@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { ChevronDownIcon, ChevronRightIcon } from 'lucide-react';
 import { CategoryGroup, CategoryNode } from '@/utils/indexReader';
 
@@ -23,17 +23,10 @@ const CategorySidebar: React.FC<CategorySidebarProps> = ({
   onSubcategorySelect,
   onSelectPath
 }) => {
-  console.log('CategorySidebar render:', {
-    selectedPath,
-    selectedCategory,
-    selectedSubcategory,
-    hasTree: !!tree,
-    hasCategories: !!categories
-  });
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
 
-  // Auto-expand categories based on current selection
-  useEffect(() => {
+  // Memoize the expanded categories calculation to prevent infinite loops
+  const autoExpandedCategories = useMemo(() => {
     const newExpanded = new Set<string>();
     
     if (tree && selectedPath && selectedPath.length > 0) {
@@ -47,29 +40,38 @@ const CategorySidebar: React.FC<CategorySidebarProps> = ({
       newExpanded.add(selectedCategory);
     }
     
-    console.log('CategorySidebar: Auto-expanding categories:', {
-      selectedPath,
-      selectedCategory,
-      selectedSubcategory,
-      newExpanded: Array.from(newExpanded)
-    });
-    
-    setExpandedCategories(newExpanded);
+    return newExpanded;
   }, [tree, categories, selectedPath, selectedCategory]);
 
-  const toggleCategory = (categoryName: string) => {
-    const newExpanded = new Set(expandedCategories);
-    if (newExpanded.has(categoryName)) {
-      newExpanded.delete(categoryName);
-    } else {
-      newExpanded.add(categoryName);
-    }
-    setExpandedCategories(newExpanded);
-  };
+  // Auto-expand categories based on current selection
+  useEffect(() => {
+    setExpandedCategories(autoExpandedCategories);
+  }, [autoExpandedCategories]);
 
-  const isExpanded = (categoryName: string) => expandedCategories.has(categoryName);
+  const toggleCategory = useCallback((categoryName: string) => {
+    setExpandedCategories(prev => {
+      const newExpanded = new Set(prev);
+      if (newExpanded.has(categoryName)) {
+        newExpanded.delete(categoryName);
+      } else {
+        newExpanded.add(categoryName);
+      }
+      return newExpanded;
+    });
+  }, []);
 
-  const renderNode = (node: CategoryNode, path: string[] = []) => {
+  const isExpanded = useCallback((categoryName: string) => expandedCategories.has(categoryName), [expandedCategories]);
+
+  const handleNodeClick = useCallback((key: string, childPath: string[]) => {
+    setExpandedCategories(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+    if (onSelectPath) onSelectPath(childPath);
+  }, [onSelectPath]);
+
+  const renderNode = useCallback((node: CategoryNode, path: string[] = []) => {
     const children = Array.from(node.children.values());
     return (
       <div className="space-y-1">
@@ -81,12 +83,7 @@ const CategorySidebar: React.FC<CategorySidebarProps> = ({
           return (
             <div key={key} className="space-y-1">
               <button
-                onClick={() => {
-                  const next = new Set(expandedCategories);
-                  if (next.has(key)) next.delete(key); else next.add(key);
-                  setExpandedCategories(next);
-                  if (onSelectPath) onSelectPath(childPath);
-                }}
+                onClick={() => handleNodeClick(key, childPath)}
                 className={`w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-md transition-colors ${
                   isSelected
                     ? 'bg-blue-50 text-blue-700 border border-blue-200'
@@ -108,7 +105,7 @@ const CategorySidebar: React.FC<CategorySidebarProps> = ({
         })}
       </div>
     );
-  };
+  }, [expandedCategories, selectedPath, handleNodeClick]);
 
   return (
     <div className="w-64 bg-white border-r border-gray-200 p-4 space-y-2">
