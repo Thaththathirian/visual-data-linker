@@ -41,15 +41,16 @@ export const parseIntelliPartsCSV = async (csvContent: string): Promise<IntelliP
     });
 
     // Create IntelliPartsItem with proper field mapping
+    // Handle different column name variations
     const item: IntelliPartsItem = {
-      category: data.category || '',
-      sub_category: data.sub_category || '',
-      machine_name: data.machine_name || '',
-      sparepartspage_name: data.sparepartspage_name || '',
-      sparepartspage_path: data.sparepartspage_path || '',
-      related_machines: data.related_machines || '',
-      other_pages: data.other_pages || '',
-      brand: data.brand || ''
+      category: data.category || data.Category || '',
+      sub_category: data['Sub-Category'] || data.sub_category || data.Sub_Category || '',
+      machine_name: data.MachineName || data.machine_name || data.Machine_Name || '',
+      sparepartspage_name: data.sparepartspage_nam || data.sparepartspage_name || data.SparePartsPage_Name || '',
+      sparepartspage_path: data.sparepartspage_path || data.SparePartsPage_Path || '',
+      related_machines: data.related_machines || data.Related_Machines || '',
+      other_pages: data.Other_Pages || data.other_pages || data.OtherPages || '',
+      brand: data.Brand || data.brand || ''
     };
 
     console.log(`[IntelliParts CSV Parser] Created item ${index + 1}:`, item);
@@ -57,6 +58,17 @@ export const parseIntelliPartsCSV = async (csvContent: string): Promise<IntelliP
   });
 
   console.log(`[IntelliParts CSV Parser] Total processed items: ${processedRows.length}`);
+  
+  // Debug: Check if we have categories and subcategories
+  const categories = [...new Set(processedRows.map(item => item.category))];
+  const subcategories = [...new Set(processedRows.map(item => item.sub_category).filter(Boolean))];
+  const machines = [...new Set(processedRows.map(item => item.machine_name).filter(Boolean))];
+  
+  console.log(`[IntelliParts CSV Parser] Found categories:`, categories);
+  console.log(`[IntelliParts CSV Parser] Found subcategories:`, subcategories);
+  console.log(`[IntelliParts CSV Parser] Found machines:`, machines);
+  console.log(`[IntelliParts CSV Parser] Sample items:`, processedRows.slice(0, 3));
+  
   return processedRows;
 };
 

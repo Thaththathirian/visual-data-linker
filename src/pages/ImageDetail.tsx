@@ -168,6 +168,21 @@ const ImageDetail: React.FC = () => {
     return items;
   }, [intelliPartsItems, otherPages]);
 
+  // Get products from the same category as the current product (for dropdown navigation)
+  const contextProducts = useMemo(() => {
+    if (!intelliPartsItems || !currentIntelliPartsItem) return [];
+    
+    // Get products from the same category as current product
+    const contextItems = intelliPartsItems.filter(item => 
+      item.category === currentIntelliPartsItem.category
+    );
+    
+    // Sort by sparepartspage_name for consistent ordering
+    return contextItems.sort((a, b) => 
+      a.sparepartspage_name.localeCompare(b.sparepartspage_name)
+    );
+  }, [intelliPartsItems, currentIntelliPartsItem]);
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -315,8 +330,17 @@ const ImageDetail: React.FC = () => {
       console.log(`[Cache] Preloading data for related item: ${item.sparepartspage_path}`);
     }
     
-    // Navigate to the related item's folder (using sparepartspage_path as folder name)
-    navigate(`/${encodeURIComponent(item.sparepartspage_path)}`);
+    // Navigate to the related item's folder with the same breadcrumb context
+    // Use the current product's category, subcategory, and machine for the breadcrumb
+    const query = new URLSearchParams({
+      category: currentIntelliPartsItem?.category || item.category || '',
+      subcategory: currentIntelliPartsItem?.sub_category || item.sub_category || '',
+      machine: currentIntelliPartsItem?.machine_name || item.machine_name || '',
+      name: item.sparepartspage_name || '',
+      brand: item.brand || ''
+    }).toString();
+    
+    navigate(`/${encodeURIComponent(item.sparepartspage_path)}?${query}`);
   };
 
   const handleRelatedMachineClick = (item: IntelliPartsItem) => {
@@ -419,7 +443,12 @@ const ImageDetail: React.FC = () => {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-4">
-        <Breadcrumb items={breadcrumbItems} />
+        <Breadcrumb 
+          items={breadcrumbItems} 
+          products={contextProducts}
+          currentProductPath={currentFolderName}
+          onProductSelect={handleIntelliPartsItemClick}
+        />
       </div>
       <div className="mb-6">
         <h1 className="text-2xl font-bold mb-2 text-gray-900">
