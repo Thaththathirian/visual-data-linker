@@ -1,4 +1,4 @@
-import dataCache from "./dataCache";
+import dataCache from "@/utils/dataCache";
 
 export interface IndexItem {
   id: string;
