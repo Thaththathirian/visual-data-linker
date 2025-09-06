@@ -1,5 +1,6 @@
 import { IntelliPartsItem } from "@/types";
 import { parseIntelliPartsCSV } from "./csvParser";
+import dataCache from "./dataCache";
 
 export interface IntelliPartsCategoryGroup {
   name: string;
@@ -15,6 +16,12 @@ export interface IntelliPartsCategoryNode {
 }
 
 export const readIntelliPartsFromLocal = async (): Promise<IntelliPartsItem[]> => {
+  // Check cache first
+  if (dataCache.hasIntelliPartsData()) {
+    console.log('[Cache] Using cached IntelliParts data');
+    return dataCache.getIntelliPartsData()!;
+  }
+
   try {
     // Read the local CSV file from public/IntelliParts/index.csv
     const response = await fetch('/IntelliParts/index.csv');
@@ -29,6 +36,10 @@ export const readIntelliPartsFromLocal = async (): Promise<IntelliPartsItem[]> =
 
     const items = await parseIntelliPartsCSV(csvContent);
     console.log('Loaded IntelliParts items:', items.length);
+    
+    // Cache the data
+    dataCache.setIntelliPartsData(items);
+    
     return items;
   } catch (error) {
     console.error('Error reading IntelliParts data:', error);
@@ -114,6 +125,15 @@ export const getMachineThumbnailPath = (machineName: string): string => {
  * Searches for image files with the machine name in Google Drive
  */
 export const getMachineThumbnailFromDrive = async (machineName: string): Promise<string | null> => {
+  const cacheKey = `driveMachineThumbnail:${machineName}`;
+  
+  // Check cache first
+  const cachedUrl = dataCache.getImageUrl(cacheKey);
+  if (cachedUrl) {
+    console.log(`[Cache] Using cached machine thumbnail for ${machineName}`);
+    return cachedUrl;
+  }
+
   try {
     const { isDriveEnabled, findFolderByExactName, listFilesInFolder, getDriveDownloadUrl } = await import('@/utils/googleDrive');
     
@@ -148,6 +168,7 @@ export const getMachineThumbnailFromDrive = async (machineName: string): Promise
       if (matchingFile) {
         const downloadUrl = getDriveDownloadUrl(matchingFile.id);
         console.log(`[Drive] Found machine image: ${matchingFile.name}`);
+        dataCache.setImageUrl(cacheKey, downloadUrl);
         return downloadUrl;
       }
     }
@@ -168,6 +189,7 @@ export const getMachineThumbnailFromDrive = async (machineName: string): Promise
         const imageFile = imageFiles[0];
         const downloadUrl = getDriveDownloadUrl(imageFile.id);
         console.log(`[Drive] Found machine image in folder: ${imageFile.name}`);
+        dataCache.setImageUrl(cacheKey, downloadUrl);
         return downloadUrl;
       }
     }

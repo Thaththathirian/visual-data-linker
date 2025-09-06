@@ -3,6 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { IntelliPartsItem } from '@/types';
 import { getMachineThumbnailPath, getProductImagePath, getMachineThumbnailFromDrive } from '@/utils/intelliPartsReader';
+import dataCache from '@/utils/dataCache';
 
 interface ProductGridProps {
   items: IntelliPartsItem[];
@@ -23,10 +24,22 @@ const ProductCard: React.FC<ProductCardProps> = ({ item, onItemClick }) => {
       try {
         setIsLoading(true);
         
+        // Create cache key for this thumbnail
+        const cacheKey = `thumbnail:${item.machine_name}:${item.sparepartspage_path}`;
+        
+        // Check cache first
+        const cachedUrl = dataCache.getImageUrl(cacheKey);
+        if (cachedUrl) {
+          setImageUrl(cachedUrl);
+          setIsLoading(false);
+          return;
+        }
+        
         // First, try to get machine thumbnail from Google Drive
         const driveMachineImage = await getMachineThumbnailFromDrive(item.machine_name);
         if (driveMachineImage) {
           setImageUrl(driveMachineImage);
+          dataCache.setImageUrl(cacheKey, driveMachineImage);
           setIsLoading(false);
           return;
         }
@@ -39,18 +52,23 @@ const ProductCard: React.FC<ProductCardProps> = ({ item, onItemClick }) => {
         const response = await fetch(machineThumbnailPath);
         if (response.ok) {
           setImageUrl(machineThumbnailPath);
+          dataCache.setImageUrl(cacheKey, machineThumbnailPath);
         } else {
           // Fallback to product image
           const productResponse = await fetch(productImagePath);
           if (productResponse.ok) {
             setImageUrl(productImagePath);
+            dataCache.setImageUrl(cacheKey, productImagePath);
           } else {
             setImageUrl('/placeholder.svg');
+            dataCache.setImageUrl(cacheKey, '/placeholder.svg');
           }
         }
       } catch (error) {
         console.error('Error loading product thumbnail:', error);
         setImageUrl('/placeholder.svg');
+        const cacheKey = `thumbnail:${item.machine_name}:${item.sparepartspage_path}`;
+        dataCache.setImageUrl(cacheKey, '/placeholder.svg');
       } finally {
         setIsLoading(false);
       }

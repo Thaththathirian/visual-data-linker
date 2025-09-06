@@ -17,6 +17,7 @@ import {
 } from "@/utils/intelliPartsReader";
 import { IntelliPartsItem } from "@/types";
 import { ProductGrid } from "@/components/ProductGrid";
+import dataCache from "@/utils/dataCache";
 
 // Lazy load components to improve initial page load
 const InteractiveImage = lazy(() => import("@/components/Interactive/InteractiveImage"));
@@ -32,23 +33,39 @@ const MachineImage: React.FC<{ machineName: string }> = ({ machineName }) => {
       try {
         setIsLoading(true);
         
+        // Create cache key for this machine thumbnail
+        const cacheKey = `machineThumbnail:${machineName}`;
+        
+        // Check cache first
+        const cachedUrl = dataCache.getImageUrl(cacheKey);
+        if (cachedUrl) {
+          setImageUrl(cachedUrl);
+          setIsLoading(false);
+          return;
+        }
+        
         // First, try to get machine thumbnail from Google Drive
         const driveMachineImage = await getMachineThumbnailFromDrive(machineName);
         if (driveMachineImage) {
           setImageUrl(driveMachineImage);
+          dataCache.setImageUrl(cacheKey, driveMachineImage);
         } else {
           // Fallback to local machine thumbnail
           const machineThumbnailPath = `/IntelliParts/Machine Images/${machineName}.png`;
           const response = await fetch(machineThumbnailPath);
           if (response.ok) {
             setImageUrl(machineThumbnailPath);
+            dataCache.setImageUrl(cacheKey, machineThumbnailPath);
           } else {
             setImageUrl('/placeholder.svg');
+            dataCache.setImageUrl(cacheKey, '/placeholder.svg');
           }
         }
       } catch (error) {
         console.error('Error loading machine image:', error);
         setImageUrl('/placeholder.svg');
+        const cacheKey = `machineThumbnail:${machineName}`;
+        dataCache.setImageUrl(cacheKey, '/placeholder.svg');
       } finally {
         setIsLoading(false);
       }
@@ -156,6 +173,48 @@ const ImageDetail: React.FC = () => {
       try {
         setLoading(true);
         
+        // First check global product cache (persists across navigation)
+        const cachedProductData = dataCache.getProductData(currentFolderName);
+        if (cachedProductData) {
+          console.log(`[Cache] Using cached product data for ${currentFolderName}`);
+          setImageData(cachedProductData.imageData);
+          setTableData(cachedProductData.tableData);
+          setImagePath(cachedProductData.imagePath);
+          setBaseName(cachedProductData.baseName);
+          
+          // If a specific part number is provided in the URL, highlight it
+          if (partNumber) {
+            const matchingRow = cachedProductData.tableData.find(row => row.partNumber === partNumber);
+            if (matchingRow) {
+              setHighlightedNumber(matchingRow.number);
+            }
+          }
+          
+          setLoading(false);
+          return;
+        }
+        
+        // Fallback to page cache (for backward compatibility)
+        const cachedPageData = dataCache.getPageData(currentFolderName);
+        if (cachedPageData) {
+          console.log(`[Cache] Using cached page data for ${currentFolderName}`);
+          setImageData(cachedPageData.imageData);
+          setTableData(cachedPageData.tableData);
+          setImagePath(cachedPageData.imagePath);
+          setBaseName(cachedPageData.baseName);
+          
+          // If a specific part number is provided in the URL, highlight it
+          if (partNumber) {
+            const matchingRow = cachedPageData.tableData.find(row => row.partNumber === partNumber);
+            if (matchingRow) {
+              setHighlightedNumber(matchingRow.number);
+            }
+          }
+          
+          setLoading(false);
+          return;
+        }
+        
         // For Google Drive paths from index.csv, use the relative product name directly
         const relativeProductForFiles = currentFolderName;
         const detectedBase = currentFolderName;
@@ -179,7 +238,7 @@ const ImageDetail: React.FC = () => {
           toast.warning("Interactive image features disabled - metadata not found");
           // Create a minimal image data structure for fallback
           setImageData({
-            imageName: baseName.replace(/_/g, ' '),
+            imageName: detectedBase.replace(/_/g, ' '),
             coordinates: []
           });
         }
@@ -187,11 +246,24 @@ const ImageDetail: React.FC = () => {
         if (imgPath) {
           setImagePath(imgPath);
         } else {
-          console.warn(`Could not locate image for: ${currentFolderName}/${baseName}`);
+          console.warn(`Could not locate image for: ${currentFolderName}/${detectedBase}`);
           toast.warning("Using placeholder image - actual image not found");
         }
 
         setTableData(tableRows);
+        
+        // Cache the data in both global product cache and page cache
+        const pageData = {
+          imageData: imgData,
+          tableData: tableRows,
+          imagePath: imgPath || '/placeholder.svg',
+          baseName: detectedBase
+        };
+        
+        // Store in global product cache (persists across navigation)
+        dataCache.setProductData(currentFolderName, pageData);
+        // Also store in page cache for backward compatibility
+        dataCache.setPageData(currentFolderName, pageData);
         
         // If a specific part number is provided in the URL, highlight it
         if (partNumber) {
@@ -238,6 +310,11 @@ const ImageDetail: React.FC = () => {
 
 
   const handleIntelliPartsItemClick = (item: IntelliPartsItem) => {
+    // Preload product data if not already cached
+    if (!dataCache.hasProductData(item.sparepartspage_path)) {
+      console.log(`[Cache] Preloading data for related item: ${item.sparepartspage_path}`);
+    }
+    
     // Navigate to the related item's folder (using sparepartspage_path as folder name)
     navigate(`/${encodeURIComponent(item.sparepartspage_path)}`);
   };
@@ -434,10 +511,12 @@ const ImageDetail: React.FC = () => {
       {otherPageItems.length > 0 && (
         <div className="mt-8">
           <h2 className="text-2xl font-bold mb-4 text-gray-900">Related Parts</h2>
-          <ProductGrid 
-            items={otherPageItems} 
-            onItemClick={handleIntelliPartsItemClick} 
-          />
+          <div>
+            <ProductGrid 
+              items={otherPageItems} 
+              onItemClick={handleIntelliPartsItemClick} 
+            />
+          </div>
         </div>
       )}
 

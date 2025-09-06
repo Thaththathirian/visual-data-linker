@@ -1,13 +1,9 @@
 
 import { TableRow, ImageData } from "@/types";
 import { toast } from "sonner";
+import dataCache from "./dataCache";
 
 // Remove static Google Drive imports; we'll import on demand inside functions
-
-// Create a simple cache to avoid repeated network requests
-const cache: Record<string, any> = {};
-const CACHE_TIMEOUT = 60 * 1000; // 1 minute cache
-const cacheTimestamps: Record<string, number> = {};
 
 /**
  * Cached fetch to avoid redundant network requests
@@ -16,10 +12,10 @@ const cachedFetch = async (url: string, options = {}): Promise<Response> => {
   const cacheKey = `fetch:${url}`;
   
   // Check if we have a cached response that's still valid
-  if (cache[cacheKey] && cacheTimestamps[cacheKey] && 
-      Date.now() - cacheTimestamps[cacheKey] < CACHE_TIMEOUT) {
+  if (dataCache.has(cacheKey)) {
     console.log(`Using cached response for ${url}`);
-    return cache[cacheKey].clone(); // Return a clone to avoid consuming the body
+    const cachedResponse = dataCache.get<Response>(cacheKey);
+    return cachedResponse!.clone(); // Return a clone to avoid consuming the body
   }
   
   // Make the actual fetch request
@@ -30,8 +26,7 @@ const cachedFetch = async (url: string, options = {}): Promise<Response> => {
     if (response.ok) {
       // Clone the response so we can use it multiple times
       const responseClone = response.clone();
-      cache[cacheKey] = responseClone;
-      cacheTimestamps[cacheKey] = Date.now();
+      dataCache.set(cacheKey, responseClone);
     }
     
     return response;
@@ -40,11 +35,6 @@ const cachedFetch = async (url: string, options = {}): Promise<Response> => {
     throw err;
   }
 };
-
-// Cache for parsed JSON data
-const jsonDataCache: Record<string, any> = {};
-const folderExistsCache: Record<string, boolean> = {};
-const folderContentsCache: Record<string, any> = {};
 
 /**
  * Gets the appropriate base path for data files - same path for both dev and prod
@@ -69,6 +59,15 @@ export const getTablePath = (folderName: string, fileName: string) => {
  * Now supports automatic file detection in Google Drive folders with exact name matching
  */
 export const getImagePath = async (relativeProduct: string, fileName?: string): Promise<string | null> => {
+  const cacheKey = `imagePath:${relativeProduct}:${fileName || 'auto'}`;
+  
+  // Check cache first
+  const cachedUrl = dataCache.getImageUrl(cacheKey);
+  if (cachedUrl) {
+    console.log(`[Cache] Using cached image path for ${relativeProduct}`);
+    return cachedUrl;
+  }
+
   console.log("[Drive] getImagePath using Google Drive for", { relativeProduct, fileName });
   const { findFolderByExactName, findImageFileInFolder, listFilesInFolder } = await import('@/utils/googleDrive');
   const normalizedProductName = relativeProduct.replace(/\s+/g, ' ').trim();
@@ -83,7 +82,10 @@ export const getImagePath = async (relativeProduct: string, fileName?: string): 
   // If fileName is provided, try to find that specific file
   if (fileName) {
     const url = await findImageFileInFolder(folder.id, fileName);
-    if (url) return url;
+    if (url) {
+      dataCache.setImageUrl(cacheKey, url);
+      return url;
+    }
   }
   
   // Auto-detect image files in the folder
@@ -97,12 +99,16 @@ export const getImagePath = async (relativeProduct: string, fileName?: string): 
     const thumbnail = imageFiles.find(f => f.name.toLowerCase() === 'thumbnail.png');
     if (thumbnail) {
       const { getDriveDownloadUrl } = await import('@/utils/googleDrive');
-      return getDriveDownloadUrl(thumbnail.id);
+      const url = getDriveDownloadUrl(thumbnail.id);
+      dataCache.setImageUrl(cacheKey, url);
+      return url;
     }
     
     // Use the first available image
     const { getDriveDownloadUrl } = await import('@/utils/googleDrive');
-    return getDriveDownloadUrl(imageFiles[0].id);
+    const url = getDriveDownloadUrl(imageFiles[0].id);
+    dataCache.setImageUrl(cacheKey, url);
+    return url;
   }
   
   return null;
@@ -113,6 +119,15 @@ export const getImagePath = async (relativeProduct: string, fileName?: string): 
  * Now supports automatic CSV file detection in Google Drive folders with exact name matching
  */
 export const parseCSVFile = async (relativeProduct: string, fileName?: string): Promise<TableRow[]> => {
+  const cacheKey = `csvData:${relativeProduct}:${fileName || 'auto'}`;
+  
+  // Check cache first
+  const cachedData = dataCache.getCsvData(cacheKey);
+  if (cachedData) {
+    console.log(`[Cache] Using cached CSV data for ${relativeProduct}`);
+    return cachedData;
+  }
+
   try {
     console.log("[Drive] parseCSVFile using Google Drive for", { relativeProduct, fileName });
     const { findFolderByExactName, fetchCsvRowsInFolder, listFilesInFolder } = await import('@/utils/googleDrive');
@@ -129,7 +144,11 @@ export const parseCSVFile = async (relativeProduct: string, fileName?: string): 
     // If fileName is provided, try to fetch that specific CSV
     if (fileName) {
       const csvText = await fetchCsvRowsInFolder(folder.id, fileName);
-      if (csvText) return await parseCSV(csvText);
+      if (csvText) {
+        const parsedData = await parseCSV(csvText);
+        dataCache.setCsvData(cacheKey, parsedData);
+        return parsedData;
+      }
     }
     
     // Auto-detect CSV files in the folder
@@ -146,7 +165,11 @@ export const parseCSVFile = async (relativeProduct: string, fileName?: string): 
       // Extract base name without extension for fetchCsvRowsInFolder
       const baseName = targetFile.name.replace(/\.csv$/i, '');
       const csvText = await fetchCsvRowsInFolder(folder.id, baseName);
-      if (csvText) return await parseCSV(csvText);
+      if (csvText) {
+        const parsedData = await parseCSV(csvText);
+        dataCache.setCsvData(cacheKey, parsedData);
+        return parsedData;
+      }
     }
     
     return [];
@@ -212,15 +235,17 @@ const safeParseJSON = async (url: string): Promise<any> => {
  * Now supports automatic JSON file detection in Google Drive folders with exact name matching
  */
 export const loadImageData = async (relativeProduct: string, fileName?: string): Promise<ImageData | null> => {
+  const cacheKey = `jsonData:${relativeProduct}:${fileName || 'auto'}`;
+  
+  // Check cache first
+  const cachedData = dataCache.getJsonData(cacheKey);
+  if (cachedData) {
+    console.log(`[Cache] Using cached JSON data for ${relativeProduct}`);
+    return cachedData;
+  }
+
   try {
     const { findFolderByExactName, fetchJsonInFolderByCandidates, listFilesInFolder } = await import('@/utils/googleDrive');
-    // Create a cache key for this specific JSON file
-    const cacheKey = `jsonData:${relativeProduct}/${fileName || 'auto'}`;
-    
-    // Check if we have this JSON data cached
-    if (jsonDataCache[cacheKey]) {
-      return jsonDataCache[cacheKey];
-    }
     
     console.log("[Drive] loadImageData using Google Drive for", { relativeProduct, fileName });
     const normalizedProductName = relativeProduct.replace(/\s+/g, ' ').trim();
@@ -247,7 +272,7 @@ export const loadImageData = async (relativeProduct: string, fileName?: string):
 
       const jsonData = await fetchJsonInFolderByCandidates(folder.id, candidateNames);
       if (jsonData && typeof jsonData === 'object' && typeof jsonData.imageName === 'string' && Array.isArray(jsonData.coordinates)) {
-        jsonDataCache[cacheKey] = jsonData;
+        dataCache.setJsonData(cacheKey, jsonData);
         return jsonData;
       }
     }
@@ -267,7 +292,7 @@ export const loadImageData = async (relativeProduct: string, fileName?: string):
       const baseName = targetFile.name.replace(/\.json$/i, '');
       const jsonData = await fetchJsonInFolderByCandidates(folder.id, [baseName]);
       if (jsonData && typeof jsonData === 'object' && typeof jsonData.imageName === 'string' && Array.isArray(jsonData.coordinates)) {
-        jsonDataCache[cacheKey] = jsonData;
+        dataCache.setJsonData(cacheKey, jsonData);
         return jsonData;
       }
     }
@@ -289,12 +314,22 @@ export const checkFolderContents = async (relativeProduct: string): Promise<{
   hasImage: boolean;
   baseName: string | null;
 }> => {
+  const cacheKey = `folderContents:${relativeProduct}`;
+  
+  // Check cache first
+  const cachedData = dataCache.get<{
+    hasJson: boolean;
+    hasCsv: boolean;
+    hasImage: boolean;
+    baseName: string | null;
+  }>(cacheKey);
+  if (cachedData) {
+    console.log(`[Cache] Using cached folder contents for ${relativeProduct}`);
+    return cachedData;
+  }
+
   const { findFolderByExactName, listFilesInFolder, findImageFileInFolder } = await import('@/utils/googleDrive');
   const { fetchCsvRowsInFolder } = await import('@/utils/googleDrive');
-  const cacheKey = `folderContents:${relativeProduct}`;
-  if (folderContentsCache[cacheKey]) {
-    return folderContentsCache[cacheKey];
-  }
   
   try {
     console.log("[Drive] checkFolderContents using Google Drive for", { relativeProduct });
@@ -304,9 +339,9 @@ export const checkFolderContents = async (relativeProduct: string): Promise<{
     const folder = await findFolderByExactName(normalizedProductName);
     if (!folder) {
       console.warn(`[Drive] Folder not found: "${normalizedProductName}"`);
-      const result = { hasJson: false, hasCsv: false, hasImage: false, baseName: null };
-      folderContentsCache[cacheKey] = result;
-      return result;
+    const result = { hasJson: false, hasCsv: false, hasImage: false, baseName: null };
+    dataCache.set(cacheKey, result);
+    return result;
     }
     const folderBaseName = relativeProduct.includes('/') ? relativeProduct.split('/').pop()! : relativeProduct;
     const fileBaseName = folderBaseName.replace(/_/g, '');
@@ -342,7 +377,7 @@ export const checkFolderContents = async (relativeProduct: string): Promise<{
     const hasImage = !!imageUrl;
 
     const result = { hasJson, hasCsv, hasImage, baseName: detectedBase };
-    folderContentsCache[cacheKey] = result;
+    dataCache.set(cacheKey, result);
     return result;
   } catch (err) {
     console.error(`Error checking folder contents for ${relativeProduct}:`, err);
@@ -464,6 +499,15 @@ export const getAllFilesFromFolder = async (relativeProduct: string): Promise<{
  * This function finds the folder by product_path and returns the best available image
  */
 export const getProductThumbnail = async (productPath: string): Promise<string | null> => {
+  const cacheKey = `productThumbnail:${productPath}`;
+  
+  // Check cache first
+  const cachedUrl = dataCache.getImageUrl(cacheKey);
+  if (cachedUrl) {
+    console.log(`[Cache] Using cached product thumbnail for ${productPath}`);
+    return cachedUrl;
+  }
+
   try {
     console.log("[Drive] Getting product thumbnail for:", productPath);
     const { findFolderByExactName, listFilesInFolder, getDriveDownloadUrl } = await import('@/utils/googleDrive');
@@ -485,11 +529,15 @@ export const getProductThumbnail = async (productPath: string): Promise<string |
       // Prefer thumbnail.png, then any other image
       const thumbnail = imageFiles.find(f => f.name.toLowerCase() === 'thumbnail.png');
       if (thumbnail) {
-        return getDriveDownloadUrl(thumbnail.id);
+        const url = getDriveDownloadUrl(thumbnail.id);
+        dataCache.setImageUrl(cacheKey, url);
+        return url;
       }
       
       // Use the first available image
-      return getDriveDownloadUrl(imageFiles[0].id);
+      const url = getDriveDownloadUrl(imageFiles[0].id);
+      dataCache.setImageUrl(cacheKey, url);
+      return url;
     }
     
     return null;
@@ -503,9 +551,5 @@ export const getProductThumbnail = async (productPath: string): Promise<string |
  * Clear all caches to force fresh data
  */
 export const clearCache = () => {
-  Object.keys(cache).forEach(key => delete cache[key]);
-  Object.keys(cacheTimestamps).forEach(key => delete cacheTimestamps[key]);
-  Object.keys(jsonDataCache).forEach(key => delete jsonDataCache[key]);
-  Object.keys(folderExistsCache).forEach(key => delete folderExistsCache[key]);
-  Object.keys(folderContentsCache).forEach(key => delete folderContentsCache[key]);
+  dataCache.clearAll();
 };

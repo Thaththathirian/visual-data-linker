@@ -17,6 +17,7 @@ import { ChevronRightIcon, HomeIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { IntelliPartsItem } from '@/types';
+import dataCache from '@/utils/dataCache';
 
 const Home: React.FC = () => {
   const navigate = useNavigate();
@@ -33,7 +34,7 @@ const Home: React.FC = () => {
   const { data: intelliPartsItems, isLoading, error } = useQuery({
     queryKey: ['intelliPartsData'],
     queryFn: readIntelliPartsFromLocal,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 30 * 60 * 1000, // 30 minutes - longer since we have our own cache
   });
 
   const categories = React.useMemo(() => 
@@ -228,6 +229,12 @@ const Home: React.FC = () => {
     
     console.log('Navigating to coordinate view for folder:', productPath);
     console.log('Using sparepartspage_path:', productPath);
+    
+    // Preload product data if not already cached
+    if (!dataCache.hasProductData(productPath)) {
+      console.log(`[Cache] Preloading data for ${productPath}`);
+      // The ImageDetail page will handle the actual loading
+    }
     
     // Navigate to the ImageDetail page using the product path
     const query = new URLSearchParams({

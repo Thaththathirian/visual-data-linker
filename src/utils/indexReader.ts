@@ -1,3 +1,5 @@
+import dataCache from "./dataCache";
+
 export interface IndexItem {
   id: string;
   brand: string;
@@ -34,6 +36,12 @@ export interface CategoryNode {
 }
 
 export const readIndexFromDrive = async (): Promise<IndexItem[]> => {
+  // Check cache first
+  if (dataCache.hasIndexData()) {
+    console.log('[Cache] Using cached index data');
+    return dataCache.getIndexData()!;
+  }
+
   const rootFolderId = import.meta.env.VITE_DRIVE_ROOT_FOLDER_ID;
   if (!rootFolderId) {
     throw new Error('VITE_DRIVE_ROOT_FOLDER_ID environment variable is required. Please set it in your .env file.');
@@ -128,6 +136,10 @@ export const readIndexFromDrive = async (): Promise<IndexItem[]> => {
       coordinates: item.coordinates_path,
       data: item.data_path
     })));
+    
+    // Cache the data
+    dataCache.setIndexData(items);
+    
     return items;
   } else {
     // Legacy CSV structure - try to parse as before
@@ -234,6 +246,9 @@ export const readIndexFromDrive = async (): Promise<IndexItem[]> => {
       });
     }
 
+    // Cache the data
+    dataCache.setIndexData(items);
+    
     return items;
   }
 };
