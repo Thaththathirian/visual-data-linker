@@ -4,82 +4,107 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { CategorySidebar } from '@/components/Sidebar';
 import { ProductGrid } from '@/components/ProductGrid';
-import { ProductFilter } from '@/components/Filter';
-import { readIndexFromDrive, groupByCategory, getItemsBySubcategory, buildCategoryTree } from '@/utils/indexReader';
+import { ProductFilter, BrandFilter } from '@/components/Filter';
+import { 
+  readIntelliPartsFromLocal, 
+  groupIntelliPartsByCategory, 
+  getIntelliPartsBySubcategory, 
+  buildIntelliPartsCategoryTree,
+  getIntelliPartsByMachine,
+  getIntelliPartsByCategory
+} from '@/utils/intelliPartsReader';
 import { ChevronRightIcon, HomeIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import { IntelliPartsItem } from '@/types';
 
 const Home: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [selectedSubcategory, setSelectedSubcategory] = useState<string>('');
+  const [selectedMachine, setSelectedMachine] = useState<string>('');
   const [selectedPath, setSelectedPath] = useState<string[]>([]);
   const [breadcrumbs, setBreadcrumbs] = useState<string[]>([]);
-  const [filteredItems, setFilteredItems] = useState<any[]>([]);
+  const [filteredItems, setFilteredItems] = useState<IntelliPartsItem[]>([]);
+  const [selectedBrand, setSelectedBrand] = useState<string>('');
 
-
-  // Fetch index data from Google Drive
-  const { data: indexItems, isLoading, error } = useQuery({
-    queryKey: ['indexData'],
-    queryFn: readIndexFromDrive,
+  // Fetch IntelliParts data from local folder
+  const { data: intelliPartsItems, isLoading, error } = useQuery({
+    queryKey: ['intelliPartsData'],
+    queryFn: readIntelliPartsFromLocal,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
   const categories = React.useMemo(() => 
-    indexItems ? groupByCategory(indexItems) : [], 
-    [indexItems]
+    intelliPartsItems ? groupIntelliPartsByCategory(intelliPartsItems) : [], 
+    [intelliPartsItems]
   );
   const categoryTree = React.useMemo(() => 
-    indexItems ? buildCategoryTree(indexItems) : undefined, 
-    [indexItems]
+    intelliPartsItems ? buildIntelliPartsCategoryTree(intelliPartsItems) : undefined, 
+    [intelliPartsItems]
   );
   
-  // Use only index.csv items - memoized to prevent recreation
-  const allItems = React.useMemo(() => [...(indexItems || [])], [indexItems]);
+  // Use only IntelliParts items - memoized to prevent recreation
+  const allItems = React.useMemo(() => [...(intelliPartsItems || [])], [intelliPartsItems]);
   
-  // Get items for the selected category/subcategory
+  // Get items for the selected category/subcategory/machine
   const getItemsForSelection = () => {
     if (!selectedCategory) return [];
     
     if (selectedPath && selectedPath.length > 0) {
       const targetLevels = selectedPath;
-      return allItems.filter((item: any) => {
-        const levels = item.category_path
-          ? String(item.category_path)
-              .split('>')
-              .map((s: string) => s.trim())
-              .filter(Boolean)
-          : [item.category, item.type || item.subcategory].filter(Boolean);
+      return allItems.filter((item: IntelliPartsItem) => {
+        const levels = [item.category, item.sub_category, item.machine_name].filter(Boolean);
         if (targetLevels.length === 1) {
-          // Category clicked: include everything under that category (with or without subcategory)
+          // Category clicked: include everything under that category
           return levels[0] === targetLevels[0];
+        } else if (targetLevels.length === 2) {
+          // Subcategory clicked: include everything under that subcategory
+          return levels[0] === targetLevels[0] && levels[1] === targetLevels[1];
+        } else if (targetLevels.length === 3) {
+          // Machine clicked: show only items from that machine
+          return levels[0] === targetLevels[0] && levels[1] === targetLevels[1] && levels[2] === targetLevels[2];
         }
-        // For deeper nodes, require exact match
-        return levels.join('>') === targetLevels.join('>');
+        return false;
       });
+    } else if (selectedMachine) {
+      // If machine is selected, show items from that machine
+      return getIntelliPartsByMachine(allItems, selectedMachine);
     } else if (selectedSubcategory) {
       // If subcategory is selected, show items from that subcategory
-      return getItemsBySubcategory(allItems, selectedCategory, selectedSubcategory);
+      return getIntelliPartsBySubcategory(allItems, selectedCategory, selectedSubcategory);
     } else {
-      // If only category is selected, show ALL items from that category (all subcategories)
-      return allItems.filter(item => item.category === selectedCategory);
+      // If only category is selected, show ALL items from that category
+      return getIntelliPartsByCategory(allItems, selectedCategory);
     }
   };
 
   const categoryFilteredItems = getItemsForSelection();
+  
+  // Apply brand filter to category filtered items
+  const brandFilteredItems = React.useMemo(() => {
+    if (!selectedBrand) return categoryFilteredItems;
+    return categoryFilteredItems.filter(item => item.brand === selectedBrand);
+  }, [categoryFilteredItems, selectedBrand]);
 
 
 
-  // Handle URL query parameters for navigation (path or category/subcategory or hierarchical catpath)
+  // Handle URL query parameters for navigation
   useEffect(() => {
     const pathParam = searchParams.get('path');
     const qCategory = searchParams.get('category');
     const qSubcategory = searchParams.get('subcategory');
+    const qMachine = searchParams.get('machine');
     const catPath = searchParams.get('catpath');
+    const qBrand = searchParams.get('brand');
     
-    console.log('Home: URL params changed:', { pathParam, qCategory, qSubcategory, catPath });
+    console.log('Home: URL params changed:', { pathParam, qCategory, qSubcategory, qMachine, catPath, qBrand });
+
+    // Set brand filter
+    if (qBrand && qBrand !== selectedBrand) {
+      setSelectedBrand(qBrand);
+    }
 
     // Highest priority: explicit hierarchical category path
     if (catPath) {
@@ -95,13 +120,17 @@ const Home: React.FC = () => {
       if ((parts[1] || '') !== selectedSubcategory) {
         setSelectedSubcategory(parts[1] || '');
       }
+      if ((parts[2] || '') !== selectedMachine) {
+        setSelectedMachine(parts[2] || '');
+      }
       return;
     }
 
     if (qCategory) {
       if (qCategory !== selectedCategory) setSelectedCategory(qCategory);
       if ((qSubcategory || '') !== selectedSubcategory) setSelectedSubcategory(qSubcategory || '');
-      const nextPath = qSubcategory ? [qCategory, qSubcategory] : [qCategory];
+      if ((qMachine || '') !== selectedMachine) setSelectedMachine(qMachine || '');
+      const nextPath = [qCategory, qSubcategory, qMachine].filter(Boolean);
       if (JSON.stringify(nextPath) !== JSON.stringify(selectedPath)) setSelectedPath(nextPath);
       return;
     }
@@ -110,20 +139,13 @@ const Home: React.FC = () => {
       // Find the item that matches this path
       const source = allItems || [];
       const matchingItem = source.find(item => {
-        const itemPath = item.product_path || item.coordinates_path || item.data_path;
-        if (!itemPath) return false;
-        // For new structure, product_path is the folder name directly
-        if (item.product_path) {
-          return item.product_path === pathParam;
-        }
-        // For legacy structure, extract folder path
-        const folderPath = itemPath.split('/').slice(0, -1).join('/');
-        return folderPath === pathParam;
+        return item.sparepartspage_path === pathParam;
       });
       
       if (matchingItem) {
         if (matchingItem.category !== selectedCategory) setSelectedCategory(matchingItem.category);
-        if ((matchingItem.type || matchingItem.subcategory || '') !== selectedSubcategory) setSelectedSubcategory(matchingItem.type || matchingItem.subcategory || '');
+        if (matchingItem.sub_category !== selectedSubcategory) setSelectedSubcategory(matchingItem.sub_category);
+        if (matchingItem.machine_name !== selectedMachine) setSelectedMachine(matchingItem.machine_name);
       }
     }
   }, [searchParams.toString()]);
@@ -136,6 +158,7 @@ const Home: React.FC = () => {
     } else if (selectedCategory) {
       newBreadcrumbs = [selectedCategory];
       if (selectedSubcategory) newBreadcrumbs.push(selectedSubcategory);
+      if (selectedMachine) newBreadcrumbs.push(selectedMachine);
     }
     setBreadcrumbs(newBreadcrumbs);
     
@@ -143,25 +166,37 @@ const Home: React.FC = () => {
       selectedPath,
       selectedCategory,
       selectedSubcategory,
+      selectedMachine,
       newBreadcrumbs
     });
-  }, [selectedPath, selectedCategory, selectedSubcategory]);
+  }, [selectedPath, selectedCategory, selectedSubcategory, selectedMachine]);
 
   const handleCategorySelect = React.useCallback((category: string) => {
     if (category !== selectedCategory) setSelectedCategory(category);
     if (selectedSubcategory !== '') setSelectedSubcategory('');
+    if (selectedMachine !== '') setSelectedMachine('');
     if (selectedPath.length !== 0) setSelectedPath([]);
     const qs = new URLSearchParams({ category }).toString();
     if (qs !== searchParams.toString()) navigate(`/?${qs}`);
-  }, [selectedCategory, selectedSubcategory, selectedPath, searchParams, navigate]);
+  }, [selectedCategory, selectedSubcategory, selectedMachine, selectedPath, searchParams, navigate]);
 
   const handleSubcategorySelect = React.useCallback((category: string, subcategory: string) => {
     if (category !== selectedCategory) setSelectedCategory(category);
     if (subcategory !== selectedSubcategory) setSelectedSubcategory(subcategory);
+    if (selectedMachine !== '') setSelectedMachine('');
     if (selectedPath.length !== 0) setSelectedPath([]);
     const qs = new URLSearchParams({ category, subcategory }).toString();
     if (qs !== searchParams.toString()) navigate(`/?${qs}`);
-  }, [selectedCategory, selectedSubcategory, selectedPath, searchParams, navigate]);
+  }, [selectedCategory, selectedSubcategory, selectedMachine, selectedPath, searchParams, navigate]);
+
+  const handleMachineSelect = React.useCallback((category: string, subcategory: string, machine: string) => {
+    if (category !== selectedCategory) setSelectedCategory(category);
+    if (subcategory !== selectedSubcategory) setSelectedSubcategory(subcategory);
+    if (machine !== selectedMachine) setSelectedMachine(machine);
+    if (selectedPath.length !== 0) setSelectedPath([]);
+    const qs = new URLSearchParams({ category, subcategory, machine }).toString();
+    if (qs !== searchParams.toString()) navigate(`/?${qs}`);
+  }, [selectedCategory, selectedSubcategory, selectedMachine, selectedPath, searchParams, navigate]);
 
   const handleSelectPath = React.useCallback((path: string[]) => {
     if (JSON.stringify(path) !== JSON.stringify(selectedPath)) setSelectedPath(path);
@@ -181,24 +216,26 @@ const Home: React.FC = () => {
     }
   }, [selectedPath, selectedCategory, selectedSubcategory, searchParams, navigate]);
 
-  const handleItemClick = React.useCallback((item: any) => {
-    // Navigate directly to the coordinate view using the product_path
-    const productPath = item.product_path;
+  const handleItemClick = React.useCallback((item: IntelliPartsItem) => {
+    // Navigate directly to the coordinate view using the sparepartspage_path
+    const productPath = item.sparepartspage_path;
     
     if (!productPath) {
-      console.error('No product_path found for item:', item);
+      console.error('No sparepartspage_path found for item:', item);
       toast.error('No coordinate data available for this item');
       return;
     }
     
     console.log('Navigating to coordinate view for folder:', productPath);
-    console.log('Using product_path:', productPath);
+    console.log('Using sparepartspage_path:', productPath);
     
     // Navigate to the ImageDetail page using the product path
     const query = new URLSearchParams({
       category: item.category || '',
-      subcategory: item.type || item.subcategory || '',
-      name: item.product_name || item.file_name || ''
+      subcategory: item.sub_category || '',
+      machine: item.machine_name || '',
+      name: item.sparepartspage_name || '',
+      brand: item.brand || ''
     }).toString();
     navigate(`/${encodeURIComponent(productPath)}?${query}`);
   }, [navigate]);
@@ -206,31 +243,52 @@ const Home: React.FC = () => {
   const handleBreadcrumbClick = (index: number) => {
     const crumbs = selectedPath && selectedPath.length > 0
       ? selectedPath
-      : [selectedCategory, selectedSubcategory].filter(Boolean) as string[];
+      : [selectedCategory, selectedSubcategory, selectedMachine].filter(Boolean) as string[];
 
     const newPath = crumbs.slice(0, index + 1);
 
     if (JSON.stringify(newPath) !== JSON.stringify(selectedPath)) setSelectedPath(newPath);
     const nextCat = newPath[0] || '';
     const nextSub = newPath[1] || '';
+    const nextMachine = newPath[2] || '';
     if (nextCat !== selectedCategory) setSelectedCategory(nextCat);
     if (nextSub !== selectedSubcategory) setSelectedSubcategory(nextSub);
+    if (nextMachine !== selectedMachine) setSelectedMachine(nextMachine);
 
     if (newPath.length === 0) {
       if (searchParams.toString() !== '') navigate('/');
     } else if (newPath.length === 1) {
       const qs = new URLSearchParams({ category: newPath[0], catpath: newPath.join('>') }).toString();
       if (qs !== searchParams.toString()) navigate(`/?${qs}`);
-    } else {
+    } else if (newPath.length === 2) {
       const qs = new URLSearchParams({ category: newPath[0], subcategory: newPath[1], catpath: newPath.join('>') }).toString();
+      if (qs !== searchParams.toString()) navigate(`/?${qs}`);
+    } else {
+      const qs = new URLSearchParams({ category: newPath[0], subcategory: newPath[1], machine: newPath[2], catpath: newPath.join('>') }).toString();
       if (qs !== searchParams.toString()) navigate(`/?${qs}`);
     }
   };
 
+  const handleBrandSelect = React.useCallback((brand: string) => {
+    setSelectedBrand(brand);
+    const currentParams = new URLSearchParams(searchParams);
+    if (brand) {
+      currentParams.set('brand', brand);
+    } else {
+      currentParams.delete('brand');
+    }
+    const newQuery = currentParams.toString();
+    if (newQuery !== searchParams.toString()) {
+      navigate(`/?${newQuery}`);
+    }
+  }, [searchParams, navigate]);
+
   const handleHomeClick = () => {
     if (selectedCategory !== '') setSelectedCategory('');
     if (selectedSubcategory !== '') setSelectedSubcategory('');
+    if (selectedMachine !== '') setSelectedMachine('');
     if (selectedPath.length !== 0) setSelectedPath([]);
+    if (selectedBrand !== '') setSelectedBrand('');
     // Clear any query params and navigate to true Home
     if (searchParams.toString() !== '') navigate('/');
   };
@@ -271,8 +329,10 @@ const Home: React.FC = () => {
         selectedPath={selectedPath}
         selectedCategory={selectedCategory}
         selectedSubcategory={selectedSubcategory}
+        selectedMachine={selectedMachine}
         onCategorySelect={handleCategorySelect}
         onSubcategorySelect={handleSubcategorySelect}
+        onMachineSelect={handleMachineSelect}
         onSelectPath={handleSelectPath}
       />
 
@@ -317,12 +377,12 @@ const Home: React.FC = () => {
                 {(() => {
                   const displayLabel = selectedPath && selectedPath.length > 0
                     ? selectedPath[selectedPath.length - 1]
-                    : (selectedSubcategory || selectedCategory);
+                    : (selectedMachine || selectedSubcategory || selectedCategory);
+                  const brandLabel = selectedBrand ? ` (${selectedBrand} brand)` : '';
                   return filteredItems.length > 0
-                    ? `Showing ${filteredItems.length} results for ${displayLabel}`
-                    : `No results found for ${displayLabel}`;
+                    ? `Showing ${filteredItems.length} results for ${displayLabel}${brandLabel}`
+                    : `No results found for ${displayLabel}${brandLabel}`;
                 })()}
-
               </p>
             </div>
           )}
@@ -332,9 +392,16 @@ const Home: React.FC = () => {
         <div className="p-6">
           {selectedCategory ? (
             <div>
+              {/* Brand Filter */}
+              <BrandFilter 
+                items={categoryFilteredItems} 
+                selectedBrand={selectedBrand}
+                onBrandSelect={handleBrandSelect}
+              />
+              
               {/* Product Filter */}
               <ProductFilter 
-                items={categoryFilteredItems} 
+                items={brandFilteredItems} 
                 onFilterChange={setFilteredItems} 
               />
               
@@ -344,7 +411,8 @@ const Home: React.FC = () => {
               ) : (
                 <div className="text-center py-12">
                   <h2 className="text-xl font-semibold text-gray-900 mb-4">
-                    No items found for {selectedSubcategory || selectedCategory}
+                    No items found for {selectedMachine || selectedSubcategory || selectedCategory}
+                    {selectedBrand && ` (${selectedBrand} brand)`}
                   </h2>
                   <p className="text-gray-600">
                     This category doesn't have any items yet.

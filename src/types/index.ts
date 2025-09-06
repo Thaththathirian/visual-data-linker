@@ -31,6 +31,17 @@ export interface ProductItem {
   relative_products: string;
 }
 
+export interface IntelliPartsItem {
+  category: string;
+  sub_category: string;
+  machine_name: string;
+  sparepartspage_name: string;
+  sparepartspage_path: string;
+  related_machines: string;
+  other_pages: string;
+  brand: string;
+}
+
 export interface SearchResult {
   type: 'image' | 'part';
   name: string;

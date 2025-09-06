@@ -1,4 +1,64 @@
-import { TableRow } from "@/types";
+import { TableRow, IntelliPartsItem } from "@/types";
+
+export const parseIntelliPartsCSV = async (csvContent: string): Promise<IntelliPartsItem[]> => {
+  console.log(`[IntelliParts CSV Parser] Starting to parse CSV with ${csvContent.length} characters`);
+
+  const Papa = await import('papaparse');
+
+  const lines = csvContent.trim().split('\n');
+  console.log(`[IntelliParts CSV Parser] Found ${lines.length} lines`);
+
+  if (lines.length === 0) return [];
+
+  // Parse the header line using Papa Parse to handle quotes properly
+  const parsedHeader = Papa.parse(lines[0]);
+  const headers = parsedHeader.data[0] as string[];
+  console.log(`[IntelliParts CSV Parser] Headers found:`, headers);
+
+  const dataRows = lines.slice(1)
+    .map(line => line.trim())
+    .filter(line => line.length > 0); // Skip empty lines
+
+  console.log(`[IntelliParts CSV Parser] Data rows after filtering: ${dataRows.length}`);
+
+  const processedRows = dataRows.map((line, index) => {
+    console.log(`[IntelliParts CSV Parser] Processing line ${index + 1}: ${line}`);
+
+    // Parse the CSV line properly handling quotes
+    const parsedLine = Papa.parse(line);
+    const values = parsedLine.data[0] as string[];
+    console.log(`[IntelliParts CSV Parser] Parsed values for line ${index + 1}:`, values);
+
+    const data: Record<string, any> = {};
+
+    // Map values to columns
+    headers.forEach((header, idx) => {
+      if (idx < values.length) {
+        data[header] = values[idx] || '';
+      } else {
+        data[header] = '';
+      }
+    });
+
+    // Create IntelliPartsItem with proper field mapping
+    const item: IntelliPartsItem = {
+      category: data.category || '',
+      sub_category: data.sub_category || '',
+      machine_name: data.machine_name || '',
+      sparepartspage_name: data.sparepartspage_name || '',
+      sparepartspage_path: data.sparepartspage_path || '',
+      related_machines: data.related_machines || '',
+      other_pages: data.other_pages || '',
+      brand: data.brand || ''
+    };
+
+    console.log(`[IntelliParts CSV Parser] Created item ${index + 1}:`, item);
+    return item;
+  });
+
+  console.log(`[IntelliParts CSV Parser] Total processed items: ${processedRows.length}`);
+  return processedRows;
+};
 
 export const parseCSV = async (csvContent: string): Promise<TableRow[]> => {
   console.log(`[CSV Parser] Starting to parse CSV with ${csvContent.length} characters`);
@@ -33,7 +93,25 @@ export const parseCSV = async (csvContent: string): Promise<TableRow[]> => {
   );
   const nameIndex = headers.findIndex(h => h.toLowerCase() === 'name');
 
-  console.log(`[CSV Parser] Column indexes - Number: ${numberIndex}, PartNo: ${partNoIndex}, Desc: ${descIndex}, Qty: ${qtyIndex}, Name: ${nameIndex}`);
+  // If no headers found, assume standard order: number, part_number, description, quantity
+  const hasHeaders = headers.length > 0 && headers.some(h => h.trim() !== '');
+  let finalNumberIndex = numberIndex;
+  let finalPartNoIndex = partNoIndex;
+  let finalDescIndex = descIndex;
+  let finalQtyIndex = qtyIndex;
+  let finalNameIndex = nameIndex;
+
+  if (!hasHeaders || (numberIndex === -1 && partNoIndex === -1 && descIndex === -1)) {
+    console.log(`[CSV Parser] No recognizable headers found, assuming standard order: number, part_number, description, quantity`);
+    // Assume standard order: number, part_number, description, quantity
+    finalNumberIndex = 0;
+    finalPartNoIndex = 1;
+    finalDescIndex = 2;
+    finalQtyIndex = 3;
+    finalNameIndex = -1;
+  }
+
+  console.log(`[CSV Parser] Column indexes - Number: ${finalNumberIndex}, PartNo: ${finalPartNoIndex}, Desc: ${finalDescIndex}, Qty: ${finalQtyIndex}, Name: ${finalNameIndex}`);
 
   const dataRows = lines.slice(1)
     .map(line => line.trim())
@@ -62,16 +140,16 @@ export const parseCSV = async (csvContent: string): Promise<TableRow[]> => {
 
     // Create TableRow with appropriate field mapping
     // For 'name' field, prioritize Qty/Quantity if available, otherwise use Name
-    const qtyValue = qtyIndex >= 0 && qtyIndex < values.length ? values[qtyIndex] : data.Qty || data.qty || data.Quantity || data.quantity || '';
-    const nameValue = nameIndex >= 0 && nameIndex < values.length ? values[nameIndex] : '';
+    const qtyValue = finalQtyIndex >= 0 && finalQtyIndex < values.length ? values[finalQtyIndex] : data.Qty || data.qty || data.Quantity || data.quantity || '';
+    const nameValue = finalNameIndex >= 0 && finalNameIndex < values.length ? values[finalNameIndex] : '';
 
     // Create the base TableRow with required fields
     const row: TableRow & Record<string, any> = {
       id: index + 1,
-      number: numberIndex >= 0 && numberIndex < values.length ? values[numberIndex] : data.Number || data.number || '',
+      number: finalNumberIndex >= 0 && finalNumberIndex < values.length ? values[finalNumberIndex] : data.Number || data.number || '',
       name: qtyValue || nameValue, // Use qty as the name for display purposes, fall back to actual name if no qty
-      description: descIndex >= 0 && descIndex < values.length ? values[descIndex] : data.Description || data.description || '',
-      partNumber: partNoIndex >= 0 && partNoIndex < values.length ? values[partNoIndex] : data['Part No.'] || data['part no.'] || data['part no'] || data['Part No'] || '',
+      description: finalDescIndex >= 0 && finalDescIndex < values.length ? values[finalDescIndex] : data.Description || data.description || '',
+      partNumber: finalPartNoIndex >= 0 && finalPartNoIndex < values.length ? values[finalPartNoIndex] : data['Part No.'] || data['part no.'] || data['part no'] || data['Part No'] || '',
     };
 
     console.log(`[CSV Parser] Created row ${index + 1}:`, row);

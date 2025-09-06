@@ -1,15 +1,17 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { ChevronDownIcon, ChevronRightIcon } from 'lucide-react';
-import { CategoryGroup, CategoryNode } from '@/utils/indexReader';
+import { IntelliPartsCategoryGroup, IntelliPartsCategoryNode } from '@/utils/intelliPartsReader';
 
 interface CategorySidebarProps {
-  categories?: CategoryGroup[]; // legacy two-level mode
-  tree?: CategoryNode; // new hierarchical mode
+  categories?: IntelliPartsCategoryGroup[]; // IntelliParts category mode
+  tree?: IntelliPartsCategoryNode; // new hierarchical mode
   selectedPath?: string[];
   selectedCategory?: string;
   selectedSubcategory?: string;
+  selectedMachine?: string;
   onCategorySelect?: (category: string) => void;
   onSubcategorySelect?: (category: string, subcategory: string) => void;
+  onMachineSelect?: (category: string, subcategory: string, machine: string) => void;
   onSelectPath?: (path: string[]) => void;
 }
 
@@ -19,8 +21,10 @@ const CategorySidebar: React.FC<CategorySidebarProps> = ({
   selectedPath,
   selectedCategory,
   selectedSubcategory,
+  selectedMachine,
   onCategorySelect,
   onSubcategorySelect,
+  onMachineSelect,
   onSelectPath
 }) => {
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
@@ -71,7 +75,7 @@ const CategorySidebar: React.FC<CategorySidebarProps> = ({
     if (onSelectPath) onSelectPath(childPath);
   }, [onSelectPath]);
 
-  const renderNode = useCallback((node: CategoryNode, path: string[] = []) => {
+  const renderNode = useCallback((node: IntelliPartsCategoryNode, path: string[] = []) => {
     const children = Array.from(node.children.values());
     return (
       <div className="space-y-1">
@@ -92,14 +96,18 @@ const CategorySidebar: React.FC<CategorySidebarProps> = ({
               >
                 <span className="truncate">{child.name}</span>
                 {child.children.size > 0 ? (
-                  isOpen ? <ChevronDownIcon className="h-4 w-4 flex-shrink-0" /> : <ChevronRightIcon className="h-4 w-4 flex-shrink-0" />
+                  <div className="transition-transform duration-200 ease-in-out">
+                    {isOpen ? <ChevronDownIcon className="h-4 w-4 flex-shrink-0" /> : <ChevronRightIcon className="h-4 w-4 flex-shrink-0" />}
+                  </div>
                 ) : null}
               </button>
-              {isOpen && child.children.size > 0 && (
-                <div className="ml-4">
+              <div className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                isOpen && child.children.size > 0 ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+              }`}>
+                <div className="ml-4 pt-1">
                   {renderNode(child, childPath)}
                 </div>
-              )}
+              </div>
             </div>
           );
         })}
@@ -125,31 +133,65 @@ const CategorySidebar: React.FC<CategorySidebarProps> = ({
             }`}
           >
             <span className="truncate">{category.name}</span>
-            {isExpanded(category.name) ? (
-              <ChevronDownIcon className="h-4 w-4 flex-shrink-0" />
-            ) : (
-              <ChevronRightIcon className="h-4 w-4 flex-shrink-0" />
-            )}
+            <div className="transition-transform duration-200 ease-in-out">
+              {isExpanded(category.name) ? (
+                <ChevronDownIcon className="h-4 w-4 flex-shrink-0" />
+              ) : (
+                <ChevronRightIcon className="h-4 w-4 flex-shrink-0" />
+              )}
+            </div>
           </button>
 
-          {/* Subcategories */}
-          {isExpanded(category.name) && (
-            <div className="ml-4 space-y-1">
+          {/* Subcategories and Machines */}
+          <div className={`overflow-hidden transition-all duration-300 ease-in-out ${
+            isExpanded(category.name) ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+          }`}>
+            <div className="ml-4 space-y-1 pt-1">
               {category.subcategories.map((subcategory) => (
-                <button
-                  key={subcategory}
-                  onClick={() => onSubcategorySelect && onSubcategorySelect(category.name, subcategory)}
-                  className={`w-full text-left px-3 py-2 text-xs rounded-md transition-colors ${
-                    selectedCategory === category.name && selectedSubcategory === subcategory
-                      ? 'bg-blue-100 text-blue-800 font-medium'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-800'
-                  }`}
-                >
-                  {subcategory}
-                </button>
+                <div key={subcategory} className="space-y-1">
+                  <button
+                    onClick={() => onSubcategorySelect && onSubcategorySelect(category.name, subcategory)}
+                    className={`w-full text-left px-3 py-2 text-xs rounded-md transition-colors duration-200 ${
+                      selectedCategory === category.name && selectedSubcategory === subcategory
+                        ? 'bg-blue-100 text-blue-800 font-medium'
+                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-800'
+                    }`}
+                  >
+                    {subcategory}
+                  </button>
+                  
+                  {/* Show machines for this subcategory */}
+                  <div className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                    selectedCategory === category.name && selectedSubcategory === subcategory 
+                      ? 'max-h-64 opacity-100' 
+                      : 'max-h-0 opacity-0'
+                  }`}>
+                    <div className="ml-4 space-y-1 pt-1">
+                      {category.machines
+                        .filter(machine => 
+                          category.items.some(item => 
+                            item.sub_category === subcategory && item.machine_name === machine
+                          )
+                        )
+                        .map((machine) => (
+                        <button
+                          key={machine}
+                          onClick={() => onMachineSelect && onMachineSelect(category.name, subcategory, machine)}
+                          className={`w-full text-left px-3 py-1 text-xs rounded-md transition-colors duration-200 ${
+                            selectedCategory === category.name && selectedSubcategory === subcategory && selectedMachine === machine
+                              ? 'bg-green-100 text-green-800 font-medium'
+                              : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'
+                          }`}
+                        >
+                          {machine}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               ))}
             </div>
-          )}
+          </div>
         </div>
       ))
       ) : null}

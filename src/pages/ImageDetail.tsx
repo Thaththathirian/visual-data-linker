@@ -9,11 +9,75 @@ import { useQuery } from "@tanstack/react-query";
 import { readIndexFromDrive, IndexItem } from "@/utils/indexReader";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { RelatedParts } from "@/components/RelatedParts";
+import { 
+  readIntelliPartsFromLocal, 
+  parseRelatedMachines, 
+  parseOtherPages,
+  getMachineThumbnailFromDrive 
+} from "@/utils/intelliPartsReader";
+import { IntelliPartsItem } from "@/types";
+import { ProductGrid } from "@/components/ProductGrid";
 
 // Lazy load components to improve initial page load
 const InteractiveImage = lazy(() => import("@/components/Interactive/InteractiveImage"));
 const DataTable = lazy(() => import("@/components/Table/DataTable"));
+
+// Machine Image Component for Related Machines
+const MachineImage: React.FC<{ machineName: string }> = ({ machineName }) => {
+  const [imageUrl, setImageUrl] = useState<string>('/placeholder.svg');
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const loadMachineImage = async () => {
+      try {
+        setIsLoading(true);
+        
+        // First, try to get machine thumbnail from Google Drive
+        const driveMachineImage = await getMachineThumbnailFromDrive(machineName);
+        if (driveMachineImage) {
+          setImageUrl(driveMachineImage);
+        } else {
+          // Fallback to local machine thumbnail
+          const machineThumbnailPath = `/IntelliParts/Machine Images/${machineName}.png`;
+          const response = await fetch(machineThumbnailPath);
+          if (response.ok) {
+            setImageUrl(machineThumbnailPath);
+          } else {
+            setImageUrl('/placeholder.svg');
+          }
+        }
+      } catch (error) {
+        console.error('Error loading machine image:', error);
+        setImageUrl('/placeholder.svg');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadMachineImage();
+  }, [machineName]);
+
+  if (isLoading) {
+    return (
+      <div className="w-full h-full bg-gray-200 animate-pulse rounded-lg flex items-center justify-center">
+        <div className="w-6 h-6 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={imageUrl}
+      alt={machineName}
+      className="w-full h-full object-cover rounded-lg"
+      onError={(e) => {
+        const target = e.target as HTMLImageElement;
+        target.src = '/placeholder.svg';
+      }}
+    />
+  );
+};
+
 
 const ImageDetail: React.FC = () => {
   const { folderName, partNumber } = useParams<{ folderName: string; partNumber: string }>();
@@ -26,6 +90,11 @@ const ImageDetail: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [baseName, setBaseName] = useState<string | null>(null);
   const { data: indexItems } = useQuery({ queryKey: ['indexData'], queryFn: readIndexFromDrive, staleTime: 5 * 60 * 1000 });
+  const { data: intelliPartsItems } = useQuery({ 
+    queryKey: ['intelliPartsData'], 
+    queryFn: readIntelliPartsFromLocal, 
+    staleTime: 5 * 60 * 1000 
+  });
 
   // Handle full path from AmazonHome navigation (Google Drive paths from index.csv)
   const currentFolderName = folderName ? decodeURIComponent(folderName) : "";
@@ -39,6 +108,48 @@ const ImageDetail: React.FC = () => {
     });
     return map;
   }, [tableData]);
+
+  // Get current IntelliParts item for related machines and other pages
+  const currentIntelliPartsItem = useMemo(() => {
+    if (!intelliPartsItems || !currentFolderName) return null;
+    
+    // Try to find the IntelliParts item that matches the current folder
+    // Match by sparepartspage_path (which should correspond to the folder name)
+    const item = intelliPartsItems.find(item => 
+      item.sparepartspage_path === currentFolderName ||
+      item.sparepartspage_path === decodeURIComponent(currentFolderName)
+    );
+    
+    
+    return item;
+  }, [intelliPartsItems, currentFolderName]);
+
+  // Get related machines and other pages
+  const relatedMachines = useMemo(() => {
+    if (!currentIntelliPartsItem?.related_machines) return [];
+    return parseRelatedMachines(currentIntelliPartsItem.related_machines);
+  }, [currentIntelliPartsItem]);
+
+  const otherPages = useMemo(() => {
+    if (!currentIntelliPartsItem?.other_pages) return [];
+    return parseOtherPages(currentIntelliPartsItem.other_pages);
+  }, [currentIntelliPartsItem]);
+
+
+  // Get other page items
+  const otherPageItems = useMemo(() => {
+    if (!intelliPartsItems || otherPages.length === 0) return [];
+    
+    const items = otherPages.map(pagePath => {
+      // Find the item with this sparepartspage_path
+      const pageItem = intelliPartsItems.find(item => 
+        item.sparepartspage_path === pagePath
+      );
+      return pageItem;
+    }).filter(Boolean);
+    
+    return items;
+  }, [intelliPartsItems, otherPages]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -125,11 +236,15 @@ const ImageDetail: React.FC = () => {
   const handleCircleClick = handleShapeOrRowClick;
   const handleRowClick = handleShapeOrRowClick;
 
-  const handleRelatedPartClick = (item: IndexItem) => {
-    if (item.product_path) {
-      // Navigate to the related product's folder (using product_path as folder name)
-      navigate(`/${encodeURIComponent(item.product_path)}`);
-    }
+
+  const handleIntelliPartsItemClick = (item: IntelliPartsItem) => {
+    // Navigate to the related item's folder (using sparepartspage_path as folder name)
+    navigate(`/${encodeURIComponent(item.sparepartspage_path)}`);
+  };
+
+  const handleRelatedMachineClick = (item: IntelliPartsItem) => {
+    // For related machines, navigate to the home page with machine filter
+    navigate(`/?machine=${encodeURIComponent(item.machine_name)}`);
   };
 
   // Scroll to top when component mounts (when navigating to new item)
@@ -231,7 +346,7 @@ const ImageDetail: React.FC = () => {
       </div>
       <div className="mb-6">
         <h1 className="text-2xl font-bold mb-2 text-gray-900">
-          {currentProduct?.product_name || currentProduct?.file_name || imageData.imageName.replace(/-/g, " ")}
+          {currentIntelliPartsItem?.sparepartspage_name || currentProduct?.product_name || currentProduct?.file_name || imageData.imageName.replace(/-/g, " ")}
         </h1>
         {currentProduct?.product_description && (
           <p className="text-md text-gray-600 leading-relaxed">
@@ -289,16 +404,43 @@ const ImageDetail: React.FC = () => {
         </div>
       </div>
       
-      {/* Related Parts - now below the parts list */}
-      {indexItems && imageData && currentProduct && (
+      {/* Related Machines Section - Machine Cards */}
+      {relatedMachines.length > 0 && (
         <div className="mt-8">
-          <RelatedParts
-            currentItem={currentProduct}
-            allItems={indexItems}
-            onPartClick={handleRelatedPartClick}
+          <h2 className="text-2xl font-bold mb-4 text-gray-900">Related Machines</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {relatedMachines.map((machineName) => (
+              <div
+                key={machineName}
+                onClick={() => handleRelatedMachineClick({ machine_name: machineName } as IntelliPartsItem)}
+                className="bg-white p-4 rounded-lg shadow border border-gray-200 hover:border-blue-300 hover:shadow-md transition-all cursor-pointer"
+              >
+                <div className="aspect-[3/2] mb-3 bg-gray-100 rounded-md overflow-hidden">
+                  <MachineImage machineName={machineName} />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">{machineName}</h3>
+                <div className="flex items-center space-x-2">
+                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                    {currentIntelliPartsItem?.category || 'Industrial Equipment'}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Related Parts Section - Using ProductGrid */}
+      {otherPageItems.length > 0 && (
+        <div className="mt-8">
+          <h2 className="text-2xl font-bold mb-4 text-gray-900">Related Parts</h2>
+          <ProductGrid 
+            items={otherPageItems} 
+            onItemClick={handleIntelliPartsItemClick} 
           />
         </div>
       )}
+
     </div>
   );
 };
