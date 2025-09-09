@@ -79,7 +79,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ item, onItemClick }) => {
 
   return (
     <Card
-      key={`${item.brand}-${item.machine_name}-${item.sparepartspage_name}`}
+      key={`${item.brand}-${item.machine_name}-${item.sparepartspage_name}-${item.sparepartspage_path}`}
       className="hover:shadow-lg transition-all duration-200 cursor-pointer border border-gray-200 hover:border-blue-300 group"
       onClick={() => onItemClick(item)}
     >
@@ -149,7 +149,7 @@ const ProductGrid: React.FC<ProductGridProps> = ({ items, onItemClick }) => {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
       {items.map((item) => (
-        <ProductCard key={`${item.brand}-${item.machine_name}-${item.sparepartspage_name}`} item={item} onItemClick={onItemClick} />
+        <ProductCard key={`${item.brand}-${item.machine_name}-${item.sparepartspage_name}-${item.sparepartspage_path}`} item={item} onItemClick={onItemClick} />
       ))}
     </div>
   );

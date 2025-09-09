@@ -66,7 +66,7 @@ const RelatedPartCard: React.FC<RelatedPartCardProps> = ({ part, onPartClick, is
 
   return (
     <Card 
-      key={`${part.brand}-${part.machine_name}-${part.sparepartspage_name}`}
+      key={`${part.brand}-${part.machine_name}-${part.sparepartspage_name}-${part.sparepartspage_path}`}
       className="hover:shadow-lg transition-all duration-200 cursor-pointer border border-gray-200 hover:border-blue-300 group"
       onClick={() => onPartClick(part)}
     >
@@ -185,7 +185,7 @@ export const RelatedParts: React.FC<RelatedPartsProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
               {relatedMachines.map((machine) => (
                 <RelatedPartCard 
-                  key={`machine-${machine.machine_name}`} 
+                  key={`machine-${machine.machine_name}-${machine.sparepartspage_path}`} 
                   part={machine} 
                   onPartClick={onPartClick}
                   isMachine={true}
