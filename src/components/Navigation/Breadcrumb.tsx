@@ -2,7 +2,7 @@
 import React from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ChevronRight, Home } from "lucide-react";
-import ProductDropdown from "./ProductDropdown";
+import ProductScroller from "./ProductScroller";
 import { IntelliPartsItem } from "@/types";
 
 interface BreadcrumbItem {
@@ -21,7 +21,7 @@ const Breadcrumb: React.FC<BreadcrumbProps> = ({
   items, 
   products, 
   currentProductPath, 
-  onProductSelect 
+  onProductSelect
 }) => {
   const navigate = useNavigate();
   
@@ -31,9 +31,12 @@ const Breadcrumb: React.FC<BreadcrumbProps> = ({
     navigate("/");
   };
 
+  const hasScroller = !!(products && products.length > 0 && currentProductPath && onProductSelect);
+
   return (
-    <nav className="flex" aria-label="Breadcrumb">
-      <ol className="inline-flex items-center space-x-1 md:space-x-3">
+    <nav className={`flex ${hasScroller ? "justify-between" : ""} items-start mt-2`} aria-label="Breadcrumb">
+      <div className="flex-1 min-w-0">
+        <ol className="inline-flex items-start space-x-1 md:space-x-3 flex-wrap gap-y-1 md:gap-y-2">
         <li className="inline-flex items-center">
           <Link
             to="/"
@@ -46,24 +49,13 @@ const Breadcrumb: React.FC<BreadcrumbProps> = ({
         </li>
         {items.map((item, index) => (
           <li key={index}>
-            <div className="flex items-center">
+            <div className="flex items-start">
               <ChevronRight className="w-5 h-5 text-gray-400" />
               {index === items.length - 1 ? (
-                <div className="flex items-center space-x-2">
+                <div className="flex items-start space-x-2">
                   <span className="ml-1 text-sm font-medium text-gray-500 md:ml-2">
                     {item.label}
                   </span>
-                  {/* Show product dropdown only on the last breadcrumb item and if we have products */}
-                  {products && products.length > 0 && currentProductPath && onProductSelect && (
-                    <>
-                      <ChevronRight className="w-4 h-4 text-gray-400" />
-                      <ProductDropdown
-                        products={products}
-                        currentProductPath={currentProductPath}
-                        onProductSelect={onProductSelect}
-                      />
-                    </>
-                  )}
                 </div>
               ) : (
                 <Link
@@ -76,7 +68,17 @@ const Breadcrumb: React.FC<BreadcrumbProps> = ({
             </div>
           </li>
         ))}
-      </ol>
+        </ol>
+      </div>
+      {hasScroller && (
+        <div className="ml-4 w-[220px] sm:w-[320px] md:w-[420px] lg:w-1/3 xl:w-1/3 2xl:w-1/3 min-w-[220px]">
+          <ProductScroller
+            products={products!}
+            currentProductPath={currentProductPath!}
+            onProductSelect={onProductSelect!}
+          />
+        </div>
+      )}
     </nav>
   );
 };

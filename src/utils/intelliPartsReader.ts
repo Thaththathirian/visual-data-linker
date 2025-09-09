@@ -327,6 +327,50 @@ export const getProductImagePath = (productPath: string): string => {
   return `/IntelliParts/Products/${productPath}/image.png`;
 };
 
+/**
+ * Resolve a consistent thumbnail for an IntelliParts item, shared across UI components.
+ * Order of preference:
+ * 1) Google Drive machine thumbnail
+ * 2) Local machine thumbnail (Machine Images/<machine>.png)
+ * 3) Product image (/IntelliParts/Products/<product_path>/image.png)
+ * Falls back to /placeholder.svg
+ */
+export const resolveItemThumbnail = async (item: IntelliPartsItem): Promise<string> => {
+  const cacheKey = `thumbnail:${item.machine_name}:${item.sparepartspage_path}`;
+  const cached = dataCache.getImageUrl(cacheKey);
+  if (cached) return cached;
+
+  try {
+    // 1) Drive machine thumbnail
+    const driveUrl = await getMachineThumbnailFromDrive(item.machine_name);
+    if (driveUrl) {
+      dataCache.setImageUrl(cacheKey, driveUrl);
+      return driveUrl;
+    }
+
+    // 2) Local machine thumb
+    const localMachine = getMachineThumbnailPath(item.machine_name);
+    const machineResp = await fetch(localMachine);
+    if (machineResp.ok) {
+      dataCache.setImageUrl(cacheKey, localMachine);
+      return localMachine;
+    }
+
+    // 3) Product image
+    const productImage = getProductImagePath(item.sparepartspage_path);
+    const productResp = await fetch(productImage);
+    if (productResp.ok) {
+      dataCache.setImageUrl(cacheKey, productImage);
+      return productImage;
+    }
+  } catch {
+    // ignore and fall through to placeholder
+  }
+
+  dataCache.setImageUrl(cacheKey, '/placeholder.svg');
+  return '/placeholder.svg';
+};
+
 export const parseRelatedMachines = (relatedMachinesStr: string): string[] => {
   if (!relatedMachinesStr) return [];
   

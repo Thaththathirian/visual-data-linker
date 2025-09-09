@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { IntelliPartsItem } from '@/types';
-import { getMachineThumbnailPath, getProductImagePath, getMachineThumbnailFromDrive } from '@/utils/intelliPartsReader';
+import { resolveItemThumbnail } from '@/utils/intelliPartsReader';
 import dataCache from '@/utils/dataCache';
 
 interface ProductGridProps {
@@ -24,46 +24,8 @@ const ProductCard: React.FC<ProductCardProps> = ({ item, onItemClick }) => {
       try {
         setIsLoading(true);
         
-        // Create cache key for this thumbnail
-        const cacheKey = `thumbnail:${item.machine_name}:${item.sparepartspage_path}`;
-        
-        // Check cache first
-        const cachedUrl = dataCache.getImageUrl(cacheKey);
-        if (cachedUrl) {
-          setImageUrl(cachedUrl);
-          setIsLoading(false);
-          return;
-        }
-        
-        // First, try to get machine thumbnail from Google Drive
-        const driveMachineImage = await getMachineThumbnailFromDrive(item.machine_name);
-        if (driveMachineImage) {
-          setImageUrl(driveMachineImage);
-          dataCache.setImageUrl(cacheKey, driveMachineImage);
-          setIsLoading(false);
-          return;
-        }
-        
-        // Fallback to local machine thumbnail
-        const machineThumbnailPath = getMachineThumbnailPath(item.machine_name);
-        const productImagePath = getProductImagePath(item.sparepartspage_path);
-        
-        // Try machine thumbnail first
-        const response = await fetch(machineThumbnailPath);
-        if (response.ok) {
-          setImageUrl(machineThumbnailPath);
-          dataCache.setImageUrl(cacheKey, machineThumbnailPath);
-        } else {
-          // Fallback to product image
-          const productResponse = await fetch(productImagePath);
-          if (productResponse.ok) {
-            setImageUrl(productImagePath);
-            dataCache.setImageUrl(cacheKey, productImagePath);
-          } else {
-            setImageUrl('/placeholder.svg');
-            dataCache.setImageUrl(cacheKey, '/placeholder.svg');
-          }
-        }
+        const url = await resolveItemThumbnail(item);
+        setImageUrl(url);
       } catch (error) {
         console.error('Error loading product thumbnail:', error);
         setImageUrl('/placeholder.svg');

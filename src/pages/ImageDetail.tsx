@@ -168,17 +168,42 @@ const ImageDetail: React.FC = () => {
     return items;
   }, [intelliPartsItems, otherPages]);
 
-  // Get products from the same category as the current product (for dropdown navigation)
+  // Get products to show in the scroller with graceful fallbacks
   const contextProducts = useMemo(() => {
     if (!intelliPartsItems || !currentIntelliPartsItem) return [];
-    
-    // Get products from the same category as current product
-    const contextItems = intelliPartsItems.filter(item => 
-      item.category === currentIntelliPartsItem.category
+
+    const params = new URLSearchParams(window.location.search);
+    const selectedMachine = params.get('machine') || currentIntelliPartsItem.machine_name || '';
+
+    // 1) Try: same category + subcategory + selected machine
+    let candidates = intelliPartsItems.filter((item) =>
+      item.category === currentIntelliPartsItem.category &&
+      item.sub_category === currentIntelliPartsItem.sub_category &&
+      (!!selectedMachine ? item.machine_name === selectedMachine : true)
     );
-    
-    // Sort by sparepartspage_name for consistent ordering
-    return contextItems.sort((a, b) => 
+
+    // 2) Fallback: same category + subcategory (ignore machine) if none
+    if (candidates.length === 0) {
+      candidates = intelliPartsItems.filter((item) =>
+        item.category === currentIntelliPartsItem.category &&
+        item.sub_category === currentIntelliPartsItem.sub_category
+      );
+    }
+
+    // 3) Fallback: same category (broadest) if still none
+    if (candidates.length === 0) {
+      candidates = intelliPartsItems.filter((item) =>
+        item.category === currentIntelliPartsItem.category
+      );
+    }
+
+    // Ensure current item is included even if not found by the filters
+    const currentPath = currentIntelliPartsItem.sparepartspage_path;
+    if (currentPath && !candidates.some((c) => c.sparepartspage_path === currentPath)) {
+      candidates = [currentIntelliPartsItem, ...candidates];
+    }
+
+    return candidates.sort((a, b) =>
       a.sparepartspage_name.localeCompare(b.sparepartspage_name)
     );
   }, [intelliPartsItems, currentIntelliPartsItem]);
@@ -426,23 +451,25 @@ const ImageDetail: React.FC = () => {
     return false;
   });
 
-  // Prefer category/subcategory/name from query params, fallback to current product data
+  // Prefer category/subcategory/machine/name from query params, fallback to current IntelliParts data
   const searchParams = new URLSearchParams(window.location.search);
   const qCategory = searchParams.get('category') || currentProduct?.category;
   const qSubcategory = searchParams.get('subcategory') || currentProduct?.type;
-  const qName = searchParams.get('name') || currentProduct?.product_name;
+  const qMachine = searchParams.get('machine') || currentIntelliPartsItem?.machine_name;
+  const qName = searchParams.get('name') || currentIntelliPartsItem?.sparepartspage_name || currentProduct?.product_name;
 
-  // Breadcrumb component already renders Home; only pass category/subcategory/name
+  // Breadcrumb component already renders Home; pass category/subcategory/machine/name
   const breadcrumbItems = [
     ...(qCategory ? [{ label: qCategory, path: `/?category=${encodeURIComponent(qCategory)}` }] : []),
     ...(qSubcategory && qCategory ? [{ label: qSubcategory, path: `/?category=${encodeURIComponent(qCategory)}&subcategory=${encodeURIComponent(qSubcategory)}` }] : []),
+    ...(qMachine && qCategory && qSubcategory ? [{ label: qMachine, path: `/?category=${encodeURIComponent(qCategory)}&subcategory=${encodeURIComponent(qSubcategory)}&machine=${encodeURIComponent(qMachine)}` }] : []),
     ...(qName ? [{ label: qName, path: '#' }] : [])
   ];
   
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-4">
+    <div className="container mx-auto px-4 pt-4 pb-6">
+      <div className="mb-1">
         <Breadcrumb 
           items={breadcrumbItems} 
           products={contextProducts}
@@ -450,35 +477,30 @@ const ImageDetail: React.FC = () => {
           onProductSelect={handleIntelliPartsItemClick}
         />
       </div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold mb-2 text-gray-900">
-          {currentIntelliPartsItem?.sparepartspage_name || currentProduct?.product_name || currentProduct?.file_name || imageData.imageName.replace(/-/g, " ")}
-        </h1>
-        {currentProduct?.product_description && (
-          <p className="text-md text-gray-600 leading-relaxed">
-            {currentProduct.product_description}
-          </p>
-        )}
-      </div>
-      <div className="flex flex-col lg:flex-row gap-6">
-        <div className="w-full lg:w-2/3 bg-white p-4 rounded-lg shadow">
-          <Suspense fallback={<div className="w-full h-[580px] flex items-center justify-center">Loading image viewer...</div>}>
-            <InteractiveImage
-              imagePath={imagePath}
-              imageData={imageData}
-              highlightedNumber={highlightedNumber}
-              onCircleHover={handleCircleHover}
-              onCircleClick={handleCircleClick}
-            />
-          </Suspense>
+      <h1 className="text-2xl font-bold mb-4 text-gray-900">
+        {currentIntelliPartsItem?.sparepartspage_name || currentProduct?.product_name || currentProduct?.file_name || imageData.imageName.replace(/-/g, " ")}
+      </h1>
+      <div className="flex flex-col lg:flex-row gap-4">
+        <div className="w-full lg:w-2/3">
+          <div className="bg-white p-3 rounded-lg shadow border border-gray-200">
+            <Suspense fallback={<div className="w-full h-[520px] flex items-center justify-center">Loading image viewer...</div>}>
+              <InteractiveImage
+                imagePath={imagePath}
+                imageData={imageData}
+                highlightedNumber={highlightedNumber}
+                onCircleHover={handleCircleHover}
+                onCircleClick={handleCircleClick}
+              />
+            </Suspense>
+          </div>
         </div>
         <div
-          className="hidden lg:block w-full lg:w-1/3 bg-white p-4 rounded-lg shadow"
-          style={{ minHeight: "580px", height: "100%" }}
+          className="hidden lg:block w-full lg:w-1/3 bg-white p-3 rounded-lg shadow"
+          style={{ minHeight: "520px", height: "100%" }}
         >
-          <h2 className="text-lg font-semibold mb-2">Parts List</h2>
+          <h2 className="text-lg font-semibold mb-1">Parts List</h2>
           <div
-            style={{ height: "530px", maxHeight: "530px", overflow: "auto" }}
+            style={{ height: "480px", maxHeight: "480px", overflow: "auto" }}
           >
             <Suspense fallback={<div className="w-full h-full flex items-center justify-center">Loading parts data...</div>}>
               <DataTable
