@@ -3,11 +3,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { X } from 'lucide-react';
-import { IndexItem } from '@/utils/indexReader';
-
+// This filter supports both IndexItem (legacy) and IntelliPartsItem (current)
+// so we intentionally keep item typing broad and normalize field access.
 interface ProductFilterProps {
-  items: IndexItem[];
-  onFilterChange: (filteredItems: IndexItem[]) => void;
+  items: any[];
+  onFilterChange: (filteredItems: any[]) => void;
 }
 
 interface FilterState {
@@ -25,18 +25,27 @@ const ProductFilter: React.FC<ProductFilterProps> = ({ items, onFilterChange }) 
     type: 'all'
   });
 
-  // Get unique values for each filter
-  const uniqueBrands = Array.from(new Set(items.map(item => item.brand).filter(Boolean))).sort();
-  const uniqueModels = Array.from(new Set(items.map(item => item.model).filter(Boolean))).sort();
-  const uniqueCategories = Array.from(new Set(items.map(item => item.category).filter(Boolean))).sort();
-  const uniqueTypes = Array.from(new Set(items.map(item => item.type || item.subcategory).filter(Boolean))).sort();
+  // Helper to safely read string fields across item shapes
+  const getValue = (item: any, keys: string[]): string => {
+    for (const key of keys) {
+      const v = item?.[key];
+      if (typeof v === 'string' && v.trim().length > 0) return v;
+    }
+    return '';
+  };
+
+  // Get unique values for each filter across both schemas
+  const uniqueBrands = Array.from(new Set(items.map(item => getValue(item, ['brand'])).filter(Boolean))).sort();
+  const uniqueModels = Array.from(new Set(items.map(item => getValue(item, ['model', 'machine_name'])).filter(Boolean))).sort();
+  const uniqueCategories = Array.from(new Set(items.map(item => getValue(item, ['category'])).filter(Boolean))).sort();
+  const uniqueTypes = Array.from(new Set(items.map(item => getValue(item, ['type', 'subcategory', 'sub_category'])).filter(Boolean))).sort();
 
   // Filter items based on current filter state
   const filteredItems = items.filter(item => {
-    if (filters.brand && filters.brand !== 'all' && item.brand !== filters.brand) return false;
-    if (filters.model && filters.model !== 'all' && item.model !== filters.model) return false;
-    if (filters.category && filters.category !== 'all' && item.category !== filters.category) return false;
-    if (filters.type && filters.type !== 'all' && (item.type || item.subcategory) !== filters.type) return false;
+    if (filters.brand && filters.brand !== 'all' && getValue(item, ['brand']) !== filters.brand) return false;
+    if (filters.model && filters.model !== 'all' && getValue(item, ['model', 'machine_name']) !== filters.model) return false;
+    if (filters.category && filters.category !== 'all' && getValue(item, ['category']) !== filters.category) return false;
+    if (filters.type && filters.type !== 'all' && getValue(item, ['type', 'subcategory', 'sub_category']) !== filters.type) return false;
     return true;
   });
 
@@ -198,9 +207,7 @@ const ProductFilter: React.FC<ProductFilterProps> = ({ items, onFilterChange }) 
 
       {hasActiveFilters && (
         <div className="mt-4 pt-4 border-t border-gray-200">
-          <p className="text-sm text-gray-600">
-            Showing {filteredItems.length} of {items.length} products
-          </p>
+          <p className="text-sm text-gray-600">Showing {filteredItems.length} of {items.length} products</p>
         </div>
       )}
     </div>

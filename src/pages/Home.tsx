@@ -429,7 +429,7 @@ const Home: React.FC = () => {
             </div>
           ) : (
             <div className="text-center py-12">
-              <h1 className="text-2xl font-bold text-gray-900 mb-4">Welcome to Visual Data Linker</h1>
+              <h1 className="text-2xl font-bold text-gray-900 mb-4">Welcome to Swastik</h1>
               <p className="text-gray-600 mb-8">
                 Select a category from the sidebar to browse available parts and components.
 
@@ -438,16 +438,12 @@ const Home: React.FC = () => {
                 {categories.map((category) => (
                   <div
                     key={category.name}
-                    className="bg-white p-6 rounded-lg border border-gray-200 hover:border-blue-300 cursor-pointer transition-colors"
+                    className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm hover:shadow-md hover:border-blue-300 cursor-pointer transition-all duration-200 hover:-translate-y-0.5 h-36 flex items-center justify-center"
                     onClick={() => handleCategorySelect(category.name)}
                   >
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">{category.name}</h3>
-                    <p className="text-sm text-gray-600 mb-3">
-                      {category.subcategories.length} subcategories
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {category.items.length} total items
-                    </p>
+                    <div className="flex flex-col items-center text-center">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-3 leading-snug">{category.name}</h3>
+                    </div>
                   </div>
                 ))}
               </div>

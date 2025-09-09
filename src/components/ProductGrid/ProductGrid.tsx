@@ -85,16 +85,16 @@ const ProductCard: React.FC<ProductCardProps> = ({ item, onItemClick }) => {
     >
       <CardContent className="p-3">
         {/* Thumbnail */}
-        <div className="aspect-square mb-3 bg-gray-100 rounded-md overflow-hidden">
+        <div className="aspect-square mb-3 bg-white rounded-md border border-gray-200 flex items-center justify-center">
           {isLoading ? (
-            <div className="w-full h-full flex items-center justify-center bg-gray-100">
+            <div className="w-full h-full flex items-center justify-center bg-white">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
             </div>
           ) : (
             <img
               src={imageUrl}
               alt={item.sparepartspage_name || 'Product'}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+              className="max-w-full max-h-full object-contain"
               onError={(e) => {
                 const target = e.target as HTMLImageElement;
                 target.src = '/placeholder.svg';

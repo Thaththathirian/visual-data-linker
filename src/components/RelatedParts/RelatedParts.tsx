@@ -72,16 +72,16 @@ const RelatedPartCard: React.FC<RelatedPartCardProps> = ({ part, onPartClick, is
     >
       <CardContent className="p-3">
         {/* Thumbnail */}
-        <div className="aspect-square mb-3 bg-gray-100 rounded-md overflow-hidden">
+        <div className="aspect-square mb-3 bg-white rounded-md border border-gray-200 flex items-center justify-center">
           {isLoading ? (
-            <div className="w-full h-full flex items-center justify-center bg-gray-100">
+            <div className="w-full h-full flex items-center justify-center bg-white">
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
             </div>
           ) : (
             <img
               src={imageUrl}
               alt={isMachine ? part.machine_name : part.sparepartspage_name}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+              className="max-w-full max-h-full object-contain"
               onError={(e) => {
                 const target = e.target as HTMLImageElement;
                 target.src = '/placeholder.svg';
@@ -182,7 +182,7 @@ export const RelatedParts: React.FC<RelatedPartsProps> = ({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
               {relatedMachines.map((machine) => (
                 <RelatedPartCard 
                   key={`machine-${machine.machine_name}-${machine.sparepartspage_path}`} 
@@ -205,7 +205,7 @@ export const RelatedParts: React.FC<RelatedPartsProps> = ({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
               {otherPages.map((part) => (
                 <RelatedPartCard 
                   key={`part-${part.sparepartspage_path}`} 
