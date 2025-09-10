@@ -130,13 +130,39 @@ const ImageDetail: React.FC = () => {
   const currentIntelliPartsItem = useMemo(() => {
     if (!intelliPartsItems || !currentFolderName) return null;
     
-    // Try to find the IntelliParts item that matches the current folder
-    // Match by sparepartspage_path (which should correspond to the folder name)
-    const item = intelliPartsItems.find(item => 
-      item.sparepartspage_path === currentFolderName ||
-      item.sparepartspage_path === decodeURIComponent(currentFolderName)
-    );
+    // Get query parameters to help uniquely identify the specific item
+    const searchParams = new URLSearchParams(window.location.search);
+    const qName = searchParams.get('name');
+    const qMachine = searchParams.get('machine');
+    const qBrand = searchParams.get('brand');
     
+    // Try to find the IntelliParts item that matches the current folder
+    // First try to match by sparepartspage_path AND additional identifiers for uniqueness
+    let item = intelliPartsItems.find(item => {
+      const pathMatches = item.sparepartspage_path === currentFolderName ||
+                          item.sparepartspage_path === decodeURIComponent(currentFolderName);
+      
+      if (!pathMatches) return false;
+      
+      // If we have additional query parameters, use them to ensure uniqueness
+      if (qName || qMachine || qBrand) {
+        const nameMatches = !qName || item.sparepartspage_name === qName;
+        const machineMatches = !qMachine || item.machine_name === qMachine;
+        const brandMatches = !qBrand || item.brand === qBrand;
+        
+        return nameMatches && machineMatches && brandMatches;
+      }
+      
+      return true;
+    });
+    
+    // Fallback: if no unique match found, just use the first item with matching path
+    if (!item) {
+      item = intelliPartsItems.find(item => 
+        item.sparepartspage_path === currentFolderName ||
+        item.sparepartspage_path === decodeURIComponent(currentFolderName)
+      );
+    }
     
     return item;
   }, [intelliPartsItems, currentFolderName]);
@@ -357,12 +383,13 @@ const ImageDetail: React.FC = () => {
     
     // Navigate to the related item's folder with the same breadcrumb context
     // Use the current product's category, subcategory, and machine for the breadcrumb
+    // IMPORTANT: Always include the specific item's identifying information to ensure uniqueness
     const query = new URLSearchParams({
       category: currentIntelliPartsItem?.category || item.category || '',
       subcategory: currentIntelliPartsItem?.sub_category || item.sub_category || '',
-      machine: currentIntelliPartsItem?.machine_name || item.machine_name || '',
-      name: item.sparepartspage_name || '',
-      brand: item.brand || ''
+      machine: item.machine_name || '', // Use the clicked item's machine name
+      name: item.sparepartspage_name || '', // Use the clicked item's name
+      brand: item.brand || '' // Use the clicked item's brand
     }).toString();
     
     navigate(`/${encodeURIComponent(item.sparepartspage_path)}?${query}`);
