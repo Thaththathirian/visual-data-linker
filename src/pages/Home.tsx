@@ -387,8 +387,8 @@ const Home: React.FC = () => {
                     : (selectedMachine || selectedSubcategory || selectedCategory);
                   const brandLabel = selectedBrand ? ` (${selectedBrand} brand)` : '';
                   return filteredItems.length > 0
-                    ? `Showing ${filteredItems.length} results for ${displayLabel}${brandLabel}`
-                    : `No results found for ${displayLabel}${brandLabel}`;
+                    ? `Showing ${filteredItems.length} results`
+                    : `No results found`;
                 })()}
               </p>
             </div>

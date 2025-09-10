@@ -229,9 +229,9 @@ const ImageDetail: React.FC = () => {
       candidates = [currentIntelliPartsItem, ...candidates];
     }
 
-    return candidates.sort((a, b) =>
-      a.sparepartspage_name.localeCompare(b.sparepartspage_name)
-    );
+    // Return candidates in their original order (no sorting)
+    // This ensures the order matches what users see on the Home page
+    return candidates;
   }, [intelliPartsItems, currentIntelliPartsItem]);
 
   useEffect(() => {
@@ -478,20 +478,45 @@ const ImageDetail: React.FC = () => {
     return false;
   });
 
-  // Prefer category/subcategory/machine/name from query params, fallback to current IntelliParts data
+  // Build breadcrumb hierarchy with proper fallbacks
   const searchParams = new URLSearchParams(window.location.search);
-  const qCategory = searchParams.get('category') || currentProduct?.category;
-  const qSubcategory = searchParams.get('subcategory') || currentProduct?.type;
-  const qMachine = searchParams.get('machine') || currentIntelliPartsItem?.machine_name;
-  const qName = searchParams.get('name') || currentIntelliPartsItem?.sparepartspage_name || currentProduct?.product_name;
+  
+  // Get the most complete hierarchy available
+  const category = searchParams.get('category') || currentIntelliPartsItem?.category || currentProduct?.category;
+  const subcategory = searchParams.get('subcategory') || currentIntelliPartsItem?.sub_category || currentProduct?.type;
+  const machine = searchParams.get('machine') || currentIntelliPartsItem?.machine_name;
+  const name = searchParams.get('name') || currentIntelliPartsItem?.sparepartspage_name || currentProduct?.product_name;
 
-  // Breadcrumb component already renders Home; pass category/subcategory/machine/name
-  const breadcrumbItems = [
-    ...(qCategory ? [{ label: qCategory, path: `/?category=${encodeURIComponent(qCategory)}` }] : []),
-    ...(qSubcategory && qCategory ? [{ label: qSubcategory, path: `/?category=${encodeURIComponent(qCategory)}&subcategory=${encodeURIComponent(qSubcategory)}` }] : []),
-    ...(qMachine && qCategory && qSubcategory ? [{ label: qMachine, path: `/?category=${encodeURIComponent(qCategory)}&subcategory=${encodeURIComponent(qSubcategory)}&machine=${encodeURIComponent(qMachine)}` }] : []),
-    ...(qName ? [{ label: qName, path: '#' }] : [])
-  ];
+  // Build breadcrumb items with full hierarchy when available
+  const breadcrumbItems = [];
+  
+  if (category) {
+    breadcrumbItems.push({ 
+      label: category, 
+      path: `/?category=${encodeURIComponent(category)}` 
+    });
+  }
+  
+  if (subcategory && category) {
+    breadcrumbItems.push({ 
+      label: subcategory, 
+      path: `/?category=${encodeURIComponent(category)}&subcategory=${encodeURIComponent(subcategory)}` 
+    });
+  }
+  
+  if (machine && category && subcategory) {
+    breadcrumbItems.push({ 
+      label: machine, 
+      path: `/?category=${encodeURIComponent(category)}&subcategory=${encodeURIComponent(subcategory)}&machine=${encodeURIComponent(machine)}` 
+    });
+  }
+  
+  if (name) {
+    breadcrumbItems.push({ 
+      label: name, 
+      path: '#' 
+    });
+  }
   
 
   return (
