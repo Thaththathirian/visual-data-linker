@@ -49,17 +49,17 @@ const ScrollerItem: React.FC<{
   return (
     <button
       onClick={onClick}
-      className={`flex flex-col items-start justify-start shrink-0 select-none rounded-md border transition-colors focus:outline-none focus:ring-0 focus:ring-offset-0 overflow-hidden text-left px-2 py-1 w-full h-full ${
+      className={`flex flex-col items-start shrink-0 select-none rounded-md transition-colors focus:outline-none focus:ring-0 focus:ring-offset-0 text-left px-2 py-2 w-full h-full ${
         isActive
-          ? "border-blue-500 bg-blue-50"
-          : "border-gray-200 hover:border-gray-300 bg-white hover:bg-blue-50 active:bg-blue-100"
+          ? "bg-blue-100"
+          : "bg-white hover:bg-blue-50 active:bg-blue-100"
       }`}
       title={item.sparepartspage_name}
     >
-      <div className="w-full text-[11px] leading-tight font-medium text-gray-700 line-clamp-2 mb-1">
+      <div className="w-full text-[11px] leading-tight font-medium text-gray-700 line-clamp-2 mb-1 h-[28px] flex items-start">
         {item.sparepartspage_name}
       </div>
-      <div className="relative w-full aspect-[4/3] rounded-sm bg-gray-100 overflow-hidden">
+      <div className="relative w-full aspect-[4/3] rounded-sm overflow-hidden flex-1">
         {isImageLoaded && (
           <img
             src={imageUrl}
@@ -83,23 +83,31 @@ const ProductScroller: React.FC<ProductScrollerProps> = ({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(0);
 
   const currentIndex = useMemo(
     () => products.findIndex((p) => p.sparepartspage_path === currentProductPath),
     [products, currentProductPath]
   );
 
-  // Function to center the current product
-  const centerCurrentProduct = () => {
+  // Sync selectedIndex with currentIndex when currentProductPath changes
+  useEffect(() => {
+    if (currentIndex !== -1) {
+      setSelectedIndex(currentIndex);
+    }
+  }, [currentIndex]);
+
+  // Function to center the selected product
+  const centerSelectedProduct = () => {
     const container = scrollContainerRef.current;
-    if (!container || currentIndex === -1) return;
+    if (!container || selectedIndex === -1) return;
 
     const containerWidth = container.clientWidth;
     const scrollWidth = container.scrollWidth;
     
-    // Calculate the position to center the current item
+    // Calculate the position to center the selected item
     const itemWidth = scrollWidth / products.length;
-    const targetScrollLeft = (currentIndex * itemWidth) - (containerWidth / 2) + (itemWidth / 2);
+    const targetScrollLeft = (selectedIndex * itemWidth) - (containerWidth / 2) + (itemWidth / 2);
     
     // Ensure we don't scroll beyond bounds
     const maxScrollLeft = scrollWidth - containerWidth;
@@ -111,13 +119,13 @@ const ProductScroller: React.FC<ProductScrollerProps> = ({
     });
   };
 
-  // Center the current product when it changes
+  // Center the selected product when it changes
   useEffect(() => {
-    if (currentIndex !== -1) {
+    if (selectedIndex !== -1) {
       // Small delay to ensure DOM is updated
-      setTimeout(centerCurrentProduct, 100);
+      setTimeout(centerSelectedProduct, 100);
     }
-  }, [currentIndex, products.length]);
+  }, [selectedIndex, products.length]);
 
   // Check scroll state
   const checkScrollState = () => {
@@ -163,7 +171,7 @@ const ProductScroller: React.FC<ProductScrollerProps> = ({
   };
 
   return (
-    <div className={"ml-2 flex-1 min-w-0 " + className}>
+    <div className={"w-full " + className}>
       <div className="relative">
         {/* Left scroll button */}
         {canScrollLeft && (
@@ -189,25 +197,31 @@ const ProductScroller: React.FC<ProductScrollerProps> = ({
 
         <div 
           ref={scrollContainerRef}
-          className="w-full overflow-x-auto no-scrollbar"
+          className="w-full overflow-x-auto custom-thin-scrollbar mb-4 pb-2"
           onScroll={handleScroll}
+          style={{
+            scrollbarWidth: 'thin',
+            scrollbarColor: '#cbd5e1 #f1f5f9'
+          }}
         >
           <div
-            className="flex gap-2 md:gap-3 pr-1 items-start"
+            className="flex gap-2 md:gap-3 pl-8 pr-4 items-start justify-center"
             style={{
-              // use flex-basis to get 2/3/4 visible items depending on width
-              // Tailwind doesn't have basis fractions for arbitrary containers, so combine classes below
+              // Maintain fixed thumbnail sizes while allowing full width container
             }}
           >
             {products.map((item, idx) => (
               <div
                 key={item.sparepartspage_path}
-                className="snap-start basis-1/2 sm:basis-1/3 md:basis-1/4 lg:basis-1/4 xl:basis-1/4 max-w-[50%] sm:max-w-[33.333%] md:max-w-[25%] shrink-0"
+                className="snap-start w-[100px] h-[120px] sm:w-[120px] sm:h-[140px] md:w-[140px] md:h-[160px] shrink-0 flex items-start"
               >
                 <ScrollerItem
                   item={item}
                   isActive={idx === currentIndex}
-                  onClick={() => onProductSelect(item)}
+                  onClick={() => {
+                    setSelectedIndex(idx);
+                    onProductSelect(item);
+                  }}
                 />
               </div>
             ))}

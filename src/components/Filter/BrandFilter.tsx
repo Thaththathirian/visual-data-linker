@@ -29,7 +29,11 @@ export const BrandFilter: React.FC<BrandFilterProps> = ({
       <div className="flex flex-wrap gap-2">
         <Badge
           variant={selectedBrand === '' ? 'default' : 'outline'}
-          className="cursor-pointer hover:bg-gray-100 transition-colors"
+          className={`cursor-pointer transition-all duration-200 ${
+            selectedBrand === '' 
+              ? 'hover:bg-blue-600 hover:text-white hover:shadow-md' 
+              : 'hover:bg-gray-100 hover:text-gray-900'
+          }`}
           onClick={() => onBrandSelect('')}
         >
           All Brands
@@ -38,7 +42,11 @@ export const BrandFilter: React.FC<BrandFilterProps> = ({
           <Badge
             key={brand}
             variant={selectedBrand === brand ? 'default' : 'outline'}
-            className="cursor-pointer hover:bg-gray-100 transition-colors"
+            className={`cursor-pointer transition-all duration-200 ${
+              selectedBrand === brand 
+                ? 'hover:bg-blue-600 hover:text-white hover:shadow-md' 
+                : 'hover:bg-gray-100 hover:text-gray-900'
+            }`}
             onClick={() => onBrandSelect(brand)}
           >
             {brand}

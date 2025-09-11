@@ -525,11 +525,11 @@ const ImageDetail: React.FC = () => {
         <Breadcrumb 
           items={breadcrumbItems} 
           products={contextProducts}
-          currentProductPath={currentFolderName}
+          currentProductPath={currentIntelliPartsItem?.sparepartspage_path || currentFolderName}
           onProductSelect={handleIntelliPartsItemClick}
         />
       </div>
-      <h1 className="text-2xl font-bold mb-4 text-gray-900">
+      <h1 className="text-2xl font-bold mb-4 mt-8 text-gray-900">
         {currentIntelliPartsItem?.sparepartspage_name || currentProduct?.product_name || currentProduct?.file_name || imageData.imageName.replace(/-/g, " ")}
       </h1>
       <div className="flex flex-col lg:flex-row gap-4">
@@ -592,8 +592,8 @@ const ImageDetail: React.FC = () => {
             {relatedMachines.map((machineName) => (
               <div
                 key={machineName}
-                onClick={() => handleRelatedMachineClick({ machine_name: machineName } as IntelliPartsItem)}
-                className="bg-white p-4 rounded-lg shadow border border-gray-200 hover:border-blue-300 hover:shadow-md transition-all cursor-pointer"
+                // onClick={() => handleRelatedMachineClick({ machine_name: machineName } as IntelliPartsItem)}
+                className="bg-white p-4 rounded-lg shadow border border-gray-200 hover:border-blue-300 hover:shadow-md transition-all"
               >
                 <div className="aspect-[3/2] mb-3 bg-gray-100 rounded-md overflow-hidden">
                   <MachineImage machineName={machineName} />

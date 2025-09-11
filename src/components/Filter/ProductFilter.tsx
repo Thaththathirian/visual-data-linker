@@ -88,7 +88,7 @@ const ProductFilter: React.FC<ProductFilterProps> = ({ items, onFilterChange }) 
             variant="outline"
             size="sm"
             onClick={clearAllFilters}
-            className="text-gray-600 hover:text-gray-800"
+            className="text-gray-600 hover:text-gray-800 hover:bg-gray-50 hover:shadow-sm transition-all duration-200"
           >
             Clear All
           </Button>
@@ -113,10 +113,10 @@ const ProductFilter: React.FC<ProductFilterProps> = ({ items, onFilterChange }) 
             </SelectContent>
           </Select>
           {filters.category && filters.category !== 'all' && (
-            <Badge variant="secondary" className="flex items-center gap-1 w-fit">
+            <Badge variant="secondary" className="flex items-center gap-1 w-fit hover:bg-blue-100 hover:text-blue-800 hover:shadow-sm transition-all duration-200">
               {filters.category}
               <X 
-                className="h-3 w-3 cursor-pointer" 
+                className="h-3 w-3 cursor-pointer hover:text-blue-600" 
                 onClick={() => clearFilter('category')}
               />
             </Badge>
@@ -140,10 +140,10 @@ const ProductFilter: React.FC<ProductFilterProps> = ({ items, onFilterChange }) 
             </SelectContent>
           </Select>
           {filters.type && filters.type !== 'all' && (
-            <Badge variant="secondary" className="flex items-center gap-1 w-fit">
+            <Badge variant="secondary" className="flex items-center gap-1 w-fit hover:bg-blue-100 hover:text-blue-800 hover:shadow-sm transition-all duration-200">
               {filters.type}
               <X 
-                className="h-3 w-3 cursor-pointer" 
+                className="h-3 w-3 cursor-pointer hover:text-blue-600" 
                 onClick={() => clearFilter('type')}
               />
             </Badge>
@@ -167,10 +167,10 @@ const ProductFilter: React.FC<ProductFilterProps> = ({ items, onFilterChange }) 
             </SelectContent>
           </Select>
           {filters.brand && filters.brand !== 'all' && (
-            <Badge variant="secondary" className="flex items-center gap-1 w-fit">
+            <Badge variant="secondary" className="flex items-center gap-1 w-fit hover:bg-blue-100 hover:text-blue-800 hover:shadow-sm transition-all duration-200">
               {filters.brand}
               <X 
-                className="h-3 w-3 cursor-pointer" 
+                className="h-3 w-3 cursor-pointer hover:text-blue-600" 
                 onClick={() => clearFilter('brand')}
               />
             </Badge>
@@ -194,10 +194,10 @@ const ProductFilter: React.FC<ProductFilterProps> = ({ items, onFilterChange }) 
             </SelectContent>
           </Select>
           {filters.machine && filters.machine !== 'all' && (
-            <Badge variant="secondary" className="flex items-center gap-1 w-fit">
+            <Badge variant="secondary" className="flex items-center gap-1 w-fit hover:bg-blue-100 hover:text-blue-800 hover:shadow-sm transition-all duration-200">
               {filters.machine}
               <X 
-                className="h-3 w-3 cursor-pointer" 
+                className="h-3 w-3 cursor-pointer hover:text-blue-600" 
                 onClick={() => clearFilter('machine')}
               />
             </Badge>

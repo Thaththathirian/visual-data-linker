@@ -111,3 +111,30 @@
 .table-row-highlight {
   @apply animate-highlight;
 }
+
+/* Custom thin scrollbar styles */
+.custom-thin-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 #f1f5f9;
+}
+
+.custom-thin-scrollbar::-webkit-scrollbar {
+  height: 4px;
+  width: 4px;
+}
+
+.custom-thin-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 2px;
+  margin: 0 20px 8px 20px;
+}
+
+.custom-thin-scrollbar::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 2px;
+  min-width: 30px;
+}
+
+.custom-thin-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
