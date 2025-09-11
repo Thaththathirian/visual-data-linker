@@ -11,18 +11,18 @@ interface ProductFilterProps {
 }
 
 interface FilterState {
-  brand: string;
-  model: string;
   category: string;
   type: string;
+  brand: string;
+  machine: string;
 }
 
 const ProductFilter: React.FC<ProductFilterProps> = ({ items, onFilterChange }) => {
   const [filters, setFilters] = useState<FilterState>({
-    brand: 'all',
-    model: 'all',
     category: 'all',
-    type: 'all'
+    type: 'all',
+    brand: 'all',
+    machine: 'all'
   });
 
   // Helper to safely read string fields across item shapes
@@ -35,17 +35,17 @@ const ProductFilter: React.FC<ProductFilterProps> = ({ items, onFilterChange }) 
   };
 
   // Get unique values for each filter across both schemas
-  const uniqueBrands = Array.from(new Set(items.map(item => getValue(item, ['brand'])).filter(Boolean))).sort();
-  const uniqueModels = Array.from(new Set(items.map(item => getValue(item, ['model', 'machine_name'])).filter(Boolean))).sort();
   const uniqueCategories = Array.from(new Set(items.map(item => getValue(item, ['category'])).filter(Boolean))).sort();
   const uniqueTypes = Array.from(new Set(items.map(item => getValue(item, ['type', 'subcategory', 'sub_category'])).filter(Boolean))).sort();
+  const uniqueBrands = Array.from(new Set(items.map(item => getValue(item, ['brand'])).filter(Boolean))).sort();
+  const uniqueMachines = Array.from(new Set(items.map(item => getValue(item, ['model', 'machine_name'])).filter(Boolean))).sort();
 
   // Filter items based on current filter state
   const filteredItems = items.filter(item => {
-    if (filters.brand && filters.brand !== 'all' && getValue(item, ['brand']) !== filters.brand) return false;
-    if (filters.model && filters.model !== 'all' && getValue(item, ['model', 'machine_name']) !== filters.model) return false;
     if (filters.category && filters.category !== 'all' && getValue(item, ['category']) !== filters.category) return false;
     if (filters.type && filters.type !== 'all' && getValue(item, ['type', 'subcategory', 'sub_category']) !== filters.type) return false;
+    if (filters.brand && filters.brand !== 'all' && getValue(item, ['brand']) !== filters.brand) return false;
+    if (filters.machine && filters.machine !== 'all' && getValue(item, ['model', 'machine_name']) !== filters.machine) return false;
     return true;
   });
 
@@ -70,10 +70,10 @@ const ProductFilter: React.FC<ProductFilterProps> = ({ items, onFilterChange }) 
 
   const clearAllFilters = () => {
     setFilters({
-      brand: 'all',
-      model: 'all',
       category: 'all',
-      type: 'all'
+      type: 'all',
+      brand: 'all',
+      machine: 'all'
     });
   };
 
@@ -96,60 +96,6 @@ const ProductFilter: React.FC<ProductFilterProps> = ({ items, onFilterChange }) 
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Brand Filter */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Brand</label>
-          <Select value={filters.brand} onValueChange={(value) => handleFilterChange('brand', value)}>
-            <SelectTrigger>
-              <SelectValue placeholder="All Brands" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Brands</SelectItem>
-              {uniqueBrands.map(brand => (
-                <SelectItem key={brand} value={brand}>
-                  {brand}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {filters.brand && filters.brand !== 'all' && (
-            <Badge variant="secondary" className="flex items-center gap-1 w-fit">
-              {filters.brand}
-              <X 
-                className="h-3 w-3 cursor-pointer" 
-                onClick={() => clearFilter('brand')}
-              />
-            </Badge>
-          )}
-        </div>
-
-        {/* Model Filter */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Model</label>
-          <Select value={filters.model} onValueChange={(value) => handleFilterChange('model', value)}>
-            <SelectTrigger>
-              <SelectValue placeholder="All Models" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Models</SelectItem>
-              {uniqueModels.map(model => (
-                <SelectItem key={model} value={model}>
-                  {model}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {filters.model && filters.model !== 'all' && (
-            <Badge variant="secondary" className="flex items-center gap-1 w-fit">
-              {filters.model}
-              <X 
-                className="h-3 w-3 cursor-pointer" 
-                onClick={() => clearFilter('model')}
-              />
-            </Badge>
-          )}
-        </div>
-
         {/* Category Filter */}
         <div className="space-y-2">
           <label className="text-sm font-medium text-gray-700">Category</label>
@@ -179,13 +125,13 @@ const ProductFilter: React.FC<ProductFilterProps> = ({ items, onFilterChange }) 
 
         {/* Type Filter */}
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Type</label>
+          <label className="text-sm font-medium text-gray-700">Model</label>
           <Select value={filters.type} onValueChange={(value) => handleFilterChange('type', value)}>
             <SelectTrigger>
-              <SelectValue placeholder="All Types" />
+              <SelectValue placeholder="All Models" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Types</SelectItem>
+              <SelectItem value="all">All Models</SelectItem>
               {uniqueTypes.map(type => (
                 <SelectItem key={type} value={type}>
                   {type}
@@ -199,6 +145,60 @@ const ProductFilter: React.FC<ProductFilterProps> = ({ items, onFilterChange }) 
               <X 
                 className="h-3 w-3 cursor-pointer" 
                 onClick={() => clearFilter('type')}
+              />
+            </Badge>
+          )}
+        </div>
+
+        {/* Brand Filter */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700">Brand</label>
+          <Select value={filters.brand} onValueChange={(value) => handleFilterChange('brand', value)}>
+            <SelectTrigger>
+              <SelectValue placeholder="All Brands" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Brands</SelectItem>
+              {uniqueBrands.map(brand => (
+                <SelectItem key={brand} value={brand}>
+                  {brand}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {filters.brand && filters.brand !== 'all' && (
+            <Badge variant="secondary" className="flex items-center gap-1 w-fit">
+              {filters.brand}
+              <X 
+                className="h-3 w-3 cursor-pointer" 
+                onClick={() => clearFilter('brand')}
+              />
+            </Badge>
+          )}
+        </div>
+
+        {/* Machine Filter */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700">Machine</label>
+          <Select value={filters.machine} onValueChange={(value) => handleFilterChange('machine', value)}>
+            <SelectTrigger>
+              <SelectValue placeholder="All Machines" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Machines</SelectItem>
+              {uniqueMachines.map(machine => (
+                <SelectItem key={machine} value={machine}>
+                  {machine}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {filters.machine && filters.machine !== 'all' && (
+            <Badge variant="secondary" className="flex items-center gap-1 w-fit">
+              {filters.machine}
+              <X 
+                className="h-3 w-3 cursor-pointer" 
+                onClick={() => clearFilter('machine')}
               />
             </Badge>
           )}
