@@ -39,9 +39,12 @@ const ProductCard: React.FC<ProductCardProps> = ({ item, onItemClick }) => {
     loadImage();
   }, [item.machine_name, item.sparepartspage_path]);
 
+  // Generate unique key handling empty values
+  const uniqueKey = `${item.brand || 'unknown'}-${item.machine_name || 'unknown'}-${item.sparepartspage_name || 'unknown'}-${item.sparepartspage_path || 'unknown'}-${item.category || 'unknown'}-${item.sub_category || 'unknown'}`;
+
   return (
     <Card
-      key={`${item.brand}-${item.machine_name}-${item.sparepartspage_name}-${item.sparepartspage_path}`}
+      key={uniqueKey}
       className="hover:shadow-lg transition-all duration-200 cursor-pointer border border-gray-200 hover:border-blue-300 group"
       onClick={() => onItemClick(item)}
     >
@@ -68,7 +71,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ item, onItemClick }) => {
         {/* Title with fixed height */}
         <div className="h-10 mb-2 flex items-start">
           <h3 className="font-medium text-sm text-gray-900 line-clamp-2 leading-tight">
-            {item.sparepartspage_name}
+            {item.sparepartspage_name || `${item.machine_name} - Unnamed Part`}
           </h3>
         </div>
 

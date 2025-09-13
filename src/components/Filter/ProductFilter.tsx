@@ -40,13 +40,18 @@ const ProductFilter: React.FC<ProductFilterProps> = ({ items, onFilterChange }) 
   const uniqueBrands = Array.from(new Set(items.map(item => getValue(item, ['brand'])).filter(Boolean))).sort();
   const uniqueMachines = Array.from(new Set(items.map(item => getValue(item, ['model', 'machine_name'])).filter(Boolean))).sort();
 
+  // Check if items are already pre-filtered by category/subcategory
+  // If all items have the same category, don't show category filter
+  const hasMultipleCategories = uniqueCategories.length > 1;
+  const hasMultipleTypes = uniqueTypes.length > 1;
+
   // Filter items based on current filter state
-  // Skip category filtering if items are already pre-filtered by category (to avoid overriding strict category selection)
+  // Skip category/subcategory filtering if items are already pre-filtered (to avoid overriding strict category selection)
   const filteredItems = items.filter(item => {
     // Only apply category filter if we have multiple categories in the items (indicating not pre-filtered)
-    const hasMultipleCategories = uniqueCategories.length > 1;
     if (hasMultipleCategories && filters.category && filters.category !== 'all' && getValue(item, ['category']) !== filters.category) return false;
-    if (filters.type && filters.type !== 'all' && getValue(item, ['type', 'subcategory', 'sub_category']) !== filters.type) return false;
+    // Only apply type/subcategory filter if we have multiple types in the items (indicating not pre-filtered)
+    if (hasMultipleTypes && filters.type && filters.type !== 'all' && getValue(item, ['type', 'subcategory', 'sub_category']) !== filters.type) return false;
     if (filters.brand && filters.brand !== 'all' && getValue(item, ['brand']) !== filters.brand) return false;
     if (filters.machine && filters.machine !== 'all' && getValue(item, ['model', 'machine_name']) !== filters.machine) return false;
     return true;
@@ -98,60 +103,64 @@ const ProductFilter: React.FC<ProductFilterProps> = ({ items, onFilterChange }) 
         )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Category Filter */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Category</label>
-          <Select value={filters.category} onValueChange={(value) => handleFilterChange('category', value)}>
-            <SelectTrigger>
-              <SelectValue placeholder="All Categories" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Categories</SelectItem>
-              {uniqueCategories.map(category => (
-                <SelectItem key={category} value={category}>
-                  {category}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {filters.category && filters.category !== 'all' && (
-            <Badge variant="secondary" className="flex items-center gap-1 w-fit hover:bg-blue-100 hover:text-blue-800 hover:shadow-sm transition-all duration-200">
-              {filters.category}
-              <X 
-                className="h-3 w-3 cursor-pointer hover:text-blue-600" 
-                onClick={() => clearFilter('category')}
-              />
-            </Badge>
-          )}
-        </div>
+      <div className={`grid gap-4 ${hasMultipleCategories && hasMultipleTypes ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-4' : hasMultipleCategories || hasMultipleTypes ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1 md:grid-cols-2'}`}>
+        {/* Category Filter - only show if there are multiple categories */}
+        {hasMultipleCategories && (
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700">Category</label>
+            <Select value={filters.category} onValueChange={(value) => handleFilterChange('category', value)}>
+              <SelectTrigger>
+                <SelectValue placeholder="All Categories" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Categories</SelectItem>
+                {uniqueCategories.map(category => (
+                  <SelectItem key={category} value={category}>
+                    {category}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {filters.category && filters.category !== 'all' && (
+              <Badge variant="secondary" className="flex items-center gap-1 w-fit hover:bg-blue-100 hover:text-blue-800 hover:shadow-sm transition-all duration-200">
+                {filters.category}
+                <X 
+                  className="h-3 w-3 cursor-pointer hover:text-blue-600" 
+                  onClick={() => clearFilter('category')}
+                />
+              </Badge>
+            )}
+          </div>
+        )}
 
-        {/* Type Filter */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Model</label>
-          <Select value={filters.type} onValueChange={(value) => handleFilterChange('type', value)}>
-            <SelectTrigger>
-              <SelectValue placeholder="All Models" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Models</SelectItem>
-              {uniqueTypes.map(type => (
-                <SelectItem key={type} value={type}>
-                  {type}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {filters.type && filters.type !== 'all' && (
-            <Badge variant="secondary" className="flex items-center gap-1 w-fit hover:bg-blue-100 hover:text-blue-800 hover:shadow-sm transition-all duration-200">
-              {filters.type}
-              <X 
-                className="h-3 w-3 cursor-pointer hover:text-blue-600" 
-                onClick={() => clearFilter('type')}
-              />
-            </Badge>
-          )}
-        </div>
+        {/* Type Filter - only show if there are multiple types/subcategories */}
+        {hasMultipleTypes && (
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700">Model</label>
+            <Select value={filters.type} onValueChange={(value) => handleFilterChange('type', value)}>
+              <SelectTrigger>
+                <SelectValue placeholder="All Models" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Models</SelectItem>
+                {uniqueTypes.map(type => (
+                  <SelectItem key={type} value={type}>
+                    {type}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {filters.type && filters.type !== 'all' && (
+              <Badge variant="secondary" className="flex items-center gap-1 w-fit hover:bg-blue-100 hover:text-blue-800 hover:shadow-sm transition-all duration-200">
+                {filters.type}
+                <X 
+                  className="h-3 w-3 cursor-pointer hover:text-blue-600" 
+                  onClick={() => clearFilter('type')}
+                />
+              </Badge>
+            )}
+          </div>
+        )}
 
         {/* Brand Filter */}
         <div className="space-y-2">

@@ -107,8 +107,18 @@ const Home: React.FC = () => {
         }
         return false;
       });
-      console.log('[Filter] Path-based filtering result:', filtered.length, 'items');
-      return filtered;
+      
+      // Remove duplicates based on a combination of fields to handle empty values
+      const uniqueFiltered = filtered.filter((item, index, self) => {
+        const itemKey = `${item.category}-${item.sub_category}-${item.machine_name}-${item.sparepartspage_name || 'unnamed'}-${item.sparepartspage_path || 'no-path'}`;
+        return index === self.findIndex(t => {
+          const tKey = `${t.category}-${t.sub_category}-${t.machine_name}-${t.sparepartspage_name || 'unnamed'}-${t.sparepartspage_path || 'no-path'}`;
+          return tKey === itemKey;
+        });
+      });
+      
+      console.log('[Filter] Path-based filtering result:', uniqueFiltered.length, 'items (after deduplication)');
+      return uniqueFiltered;
     } else if (selectedMachine) {
       // If machine is selected, show items from that machine
       const filtered = getIntelliPartsByMachine(allItems, selectedMachine);
@@ -117,8 +127,18 @@ const Home: React.FC = () => {
     } else if (selectedSubcategory) {
       // If subcategory is selected, show items from that subcategory
       const filtered = getIntelliPartsBySubcategory(allItems, selectedCategory, selectedSubcategory);
-      console.log('[Filter] Subcategory-based filtering result:', filtered.length, 'items');
-      return filtered;
+      
+      // Remove duplicates based on a combination of fields to handle empty values
+      const uniqueFiltered = filtered.filter((item, index, self) => {
+        const itemKey = `${item.category}-${item.sub_category}-${item.machine_name}-${item.sparepartspage_name || 'unnamed'}-${item.sparepartspage_path || 'no-path'}`;
+        return index === self.findIndex(t => {
+          const tKey = `${t.category}-${t.sub_category}-${t.machine_name}-${t.sparepartspage_name || 'unnamed'}-${t.sparepartspage_path || 'no-path'}`;
+          return tKey === itemKey;
+        });
+      });
+      
+      console.log('[Filter] Subcategory-based filtering result:', uniqueFiltered.length, 'items (after deduplication)');
+      return uniqueFiltered;
     } else {
       // If only category is selected, show ALL items from that category with strict matching
       const filtered = allItems.filter((item: IntelliPartsItem) => {
@@ -134,14 +154,24 @@ const Home: React.FC = () => {
         }
         return matches;
       });
-      console.log('[Filter] Category-based filtering result:', filtered.length, 'items');
-      console.log('[Filter] Filtered items:', filtered.map(item => ({
+      
+      // Remove duplicates based on a combination of fields to handle empty values
+      const uniqueFiltered = filtered.filter((item, index, self) => {
+        const itemKey = `${item.category}-${item.sub_category}-${item.machine_name}-${item.sparepartspage_name || 'unnamed'}-${item.sparepartspage_path || 'no-path'}`;
+        return index === self.findIndex(t => {
+          const tKey = `${t.category}-${t.sub_category}-${t.machine_name}-${t.sparepartspage_name || 'unnamed'}-${t.sparepartspage_path || 'no-path'}`;
+          return tKey === itemKey;
+        });
+      });
+      
+      console.log('[Filter] Category-based filtering result:', uniqueFiltered.length, 'items (after deduplication)');
+      console.log('[Filter] Filtered items:', uniqueFiltered.map(item => ({
         name: item.sparepartspage_name,
         category: item.category,
         subcategory: item.sub_category,
         machine: item.machine_name
       })));
-      return filtered;
+      return uniqueFiltered;
     }
   };
 
@@ -160,7 +190,10 @@ const Home: React.FC = () => {
     return categoryFilteredItems.filter(item => item.brand === selectedBrand);
   }, [categoryFilteredItems, selectedBrand]);
 
-
+  // Final filtered items - start with brand filtered items, then apply ProductFilter
+  const finalFilteredItems = React.useMemo(() => {
+    return filteredItems.length > 0 ? filteredItems : brandFilteredItems;
+  }, [filteredItems, brandFilteredItems]);
 
   // Handle URL query parameters for navigation
   useEffect(() => {
@@ -457,8 +490,8 @@ const Home: React.FC = () => {
                     ? selectedPath[selectedPath.length - 1]
                     : (selectedMachine || selectedSubcategory || selectedCategory);
                   const brandLabel = selectedBrand ? ` (${selectedBrand} brand)` : '';
-                  return filteredItems.length > 0
-                    ? `Showing ${filteredItems.length} results`
+                  return finalFilteredItems.length > 0
+                    ? `Showing ${finalFilteredItems.length} results`
                     : `No results found`;
                 })()}
               </p>
@@ -484,8 +517,8 @@ const Home: React.FC = () => {
               />
               
               {/* Show the actual items/products, not just category info */}
-              {filteredItems.length > 0 ? (
-                <ProductGrid items={filteredItems} onItemClick={handleItemClick} />
+              {finalFilteredItems.length > 0 ? (
+                <ProductGrid items={finalFilteredItems} onItemClick={handleItemClick} />
               ) : (
                 <div className="text-center py-12">
                   <h2 className="text-xl font-semibold text-gray-900 mb-4">
