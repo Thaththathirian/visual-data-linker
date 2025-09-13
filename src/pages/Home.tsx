@@ -49,39 +49,110 @@ const Home: React.FC = () => {
   // Use only IntelliParts items - memoized to prevent recreation
   const allItems = React.useMemo(() => [...(intelliPartsItems || [])], [intelliPartsItems]);
   
-  // Get items for the selected category/subcategory/machine
+  // Get items for the selected category/subcategory/machine with strict filtering
   const getItemsForSelection = () => {
-    if (!selectedCategory) return [];
+    if (!selectedCategory) {
+      console.log('[Filter] No category selected, returning empty array');
+      return [];
+    }
+    
+    console.log('[Filter] Filtering for category:', selectedCategory);
+    console.log('[Filter] Selected subcategory:', selectedSubcategory);
+    console.log('[Filter] Selected machine:', selectedMachine);
+    console.log('[Filter] Selected path:', selectedPath);
     
     if (selectedPath && selectedPath.length > 0) {
       const targetLevels = selectedPath;
-      return allItems.filter((item: IntelliPartsItem) => {
+      const filtered = allItems.filter((item: IntelliPartsItem) => {
         const levels = [item.category, item.sub_category, item.machine_name].filter(Boolean);
         if (targetLevels.length === 1) {
           // Category clicked: include everything under that category
-          return levels[0] === targetLevels[0];
+          const matches = levels[0] === targetLevels[0];
+          if (!matches) {
+            console.log('[Filter] Item rejected - category mismatch:', {
+              itemCategory: levels[0],
+              targetCategory: targetLevels[0],
+              itemName: item.sparepartspage_name
+            });
+          }
+          return matches;
         } else if (targetLevels.length === 2) {
           // Subcategory clicked: include everything under that subcategory
-          return levels[0] === targetLevels[0] && levels[1] === targetLevels[1];
+          const matches = levels[0] === targetLevels[0] && levels[1] === targetLevels[1];
+          if (!matches) {
+            console.log('[Filter] Item rejected - subcategory mismatch:', {
+              itemCategory: levels[0],
+              itemSubcategory: levels[1],
+              targetCategory: targetLevels[0],
+              targetSubcategory: targetLevels[1],
+              itemName: item.sparepartspage_name
+            });
+          }
+          return matches;
         } else if (targetLevels.length === 3) {
           // Machine clicked: show only items from that machine
-          return levels[0] === targetLevels[0] && levels[1] === targetLevels[1] && levels[2] === targetLevels[2];
+          const matches = levels[0] === targetLevels[0] && levels[1] === targetLevels[1] && levels[2] === targetLevels[2];
+          if (!matches) {
+            console.log('[Filter] Item rejected - machine mismatch:', {
+              itemCategory: levels[0],
+              itemSubcategory: levels[1],
+              itemMachine: levels[2],
+              targetCategory: targetLevels[0],
+              targetSubcategory: targetLevels[1],
+              targetMachine: targetLevels[2],
+              itemName: item.sparepartspage_name
+            });
+          }
+          return matches;
         }
         return false;
       });
+      console.log('[Filter] Path-based filtering result:', filtered.length, 'items');
+      return filtered;
     } else if (selectedMachine) {
       // If machine is selected, show items from that machine
-      return getIntelliPartsByMachine(allItems, selectedMachine);
+      const filtered = getIntelliPartsByMachine(allItems, selectedMachine);
+      console.log('[Filter] Machine-based filtering result:', filtered.length, 'items');
+      return filtered;
     } else if (selectedSubcategory) {
       // If subcategory is selected, show items from that subcategory
-      return getIntelliPartsBySubcategory(allItems, selectedCategory, selectedSubcategory);
+      const filtered = getIntelliPartsBySubcategory(allItems, selectedCategory, selectedSubcategory);
+      console.log('[Filter] Subcategory-based filtering result:', filtered.length, 'items');
+      return filtered;
     } else {
-      // If only category is selected, show ALL items from that category
-      return getIntelliPartsByCategory(allItems, selectedCategory);
+      // If only category is selected, show ALL items from that category with strict matching
+      const filtered = allItems.filter((item: IntelliPartsItem) => {
+        const matches = item.category === selectedCategory;
+        if (!matches) {
+          console.log('[Filter] Item rejected - category mismatch:', {
+            itemCategory: item.category,
+            targetCategory: selectedCategory,
+            itemName: item.sparepartspage_name,
+            itemSubcategory: item.sub_category,
+            itemMachine: item.machine_name
+          });
+        }
+        return matches;
+      });
+      console.log('[Filter] Category-based filtering result:', filtered.length, 'items');
+      console.log('[Filter] Filtered items:', filtered.map(item => ({
+        name: item.sparepartspage_name,
+        category: item.category,
+        subcategory: item.sub_category,
+        machine: item.machine_name
+      })));
+      return filtered;
     }
   };
 
-  const categoryFilteredItems = getItemsForSelection();
+  const categoryFilteredItems = React.useMemo(() => {
+    return getItemsForSelection();
+  }, [selectedCategory, selectedSubcategory, selectedMachine, selectedPath, allItems]);
+
+  // Update filteredItems when category changes
+  React.useEffect(() => {
+    setFilteredItems(categoryFilteredItems);
+  }, [categoryFilteredItems]);
   
   // Apply brand filter to category filtered items
   const brandFilteredItems = React.useMemo(() => {
@@ -406,7 +477,7 @@ const Home: React.FC = () => {
                 onBrandSelect={handleBrandSelect}
               />
               
-              {/* Product Filter */}
+              {/* Product Filter - only apply additional filters, not category filtering */}
               <ProductFilter 
                 items={brandFilteredItems} 
                 onFilterChange={setFilteredItems} 

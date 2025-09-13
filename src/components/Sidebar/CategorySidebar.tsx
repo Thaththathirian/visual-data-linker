@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { ChevronDownIcon, ChevronRightIcon } from 'lucide-react';
 import { IntelliPartsCategoryGroup, IntelliPartsCategoryNode } from '@/utils/intelliPartsReader';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface CategorySidebarProps {
   categories?: IntelliPartsCategoryGroup[]; // IntelliParts category mode
@@ -94,7 +95,14 @@ const CategorySidebar: React.FC<CategorySidebarProps> = ({
                     : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
                 }`}
               >
-                <span className="truncate">{child.name}</span>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="truncate">{child.name}</span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{child.name}</p>
+                  </TooltipContent>
+                </Tooltip>
                 {child.children.size > 0 ? (
                   <div className="transition-transform duration-200 ease-in-out">
                     {isOpen ? <ChevronDownIcon className="h-4 w-4 flex-shrink-0" /> : <ChevronRightIcon className="h-4 w-4 flex-shrink-0" />}
@@ -102,9 +110,9 @@ const CategorySidebar: React.FC<CategorySidebarProps> = ({
                 ) : null}
               </button>
               <div className={`overflow-hidden transition-all duration-300 ease-in-out ${
-                isOpen && child.children.size > 0 ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+                isOpen && child.children.size > 0 ? 'max-h-80 opacity-100' : 'max-h-0 opacity-0'
               }`}>
-                <div className="ml-4 pt-1">
+                <div className="ml-4 pt-1 max-h-72 overflow-y-auto">
                   {renderNode(child, childPath)}
                 </div>
               </div>
@@ -116,8 +124,9 @@ const CategorySidebar: React.FC<CategorySidebarProps> = ({
   }, [expandedCategories, selectedPath, handleNodeClick]);
 
   return (
-    <div className="w-64 bg-white border-r border-gray-200 p-4 space-y-2">
-      <h2 className="text-lg font-semibold text-gray-900 mb-4">Categories</h2>
+    <TooltipProvider>
+      <div className="w-64 bg-white border-r border-gray-200 p-4 space-y-2">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">Categories</h2>
       {tree ? (
         renderNode(tree, [])
       ) : categories ? (
@@ -125,14 +134,28 @@ const CategorySidebar: React.FC<CategorySidebarProps> = ({
         <div key={category.name} className="space-y-1">
           {/* Main Category */}
           <button
-            onClick={() => toggleCategory(category.name)}
+            onClick={() => {
+              // First select the category (this will filter the products)
+              if (onCategorySelect) {
+                onCategorySelect(category.name);
+              }
+              // Then toggle the expansion state
+              toggleCategory(category.name);
+            }}
             className={`w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-md transition-colors ${
               selectedCategory === category.name
                 ? 'bg-blue-50 text-blue-700 border border-blue-200'
                 : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
             }`}
           >
-            <span className="truncate">{category.name}</span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="truncate">{category.name}</span>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{category.name}</p>
+              </TooltipContent>
+            </Tooltip>
             <div className="transition-transform duration-200 ease-in-out">
               {isExpanded(category.name) ? (
                 <ChevronDownIcon className="h-4 w-4 flex-shrink-0" />
@@ -144,9 +167,9 @@ const CategorySidebar: React.FC<CategorySidebarProps> = ({
 
           {/* Subcategories and Machines */}
           <div className={`overflow-hidden transition-all duration-300 ease-in-out ${
-            isExpanded(category.name) ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+            isExpanded(category.name) ? 'max-h-80 opacity-100' : 'max-h-0 opacity-0'
           }`}>
-            <div className="ml-4 space-y-1 pt-1">
+            <div className="ml-4 space-y-1 pt-1 max-h-72 overflow-y-auto">
               {category.subcategories.map((subcategory) => (
                 <div key={subcategory} className="space-y-1">
                   <button
@@ -157,16 +180,23 @@ const CategorySidebar: React.FC<CategorySidebarProps> = ({
                         : 'text-gray-600 hover:bg-gray-50 hover:text-gray-800'
                     }`}
                   >
-                    {subcategory}
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="truncate block">{subcategory}</span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{subcategory}</p>
+                      </TooltipContent>
+                    </Tooltip>
                   </button>
                   
                   {/* Show machines for this subcategory */}
                   <div className={`overflow-hidden transition-all duration-300 ease-in-out ${
                     selectedCategory === category.name && selectedSubcategory === subcategory 
-                      ? 'max-h-64 opacity-100' 
+                      ? 'max-h-60 opacity-100' 
                       : 'max-h-0 opacity-0'
                   }`}>
-                    <div className="ml-4 space-y-1 pt-1">
+                    <div className="ml-4 space-y-1 pt-1 max-h-48 overflow-y-auto">
                       {category.machines
                         .filter(machine => 
                           category.items.some(item => 
@@ -183,7 +213,14 @@ const CategorySidebar: React.FC<CategorySidebarProps> = ({
                               : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'
                           }`}
                         >
-                          {machine}
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="truncate block">{machine}</span>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>{machine}</p>
+                            </TooltipContent>
+                          </Tooltip>
                         </button>
                       ))}
                     </div>
@@ -195,7 +232,8 @@ const CategorySidebar: React.FC<CategorySidebarProps> = ({
         </div>
       ))
       ) : null}
-    </div>
+      </div>
+    </TooltipProvider>
   );
 };
 

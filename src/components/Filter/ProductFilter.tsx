@@ -41,8 +41,11 @@ const ProductFilter: React.FC<ProductFilterProps> = ({ items, onFilterChange }) 
   const uniqueMachines = Array.from(new Set(items.map(item => getValue(item, ['model', 'machine_name'])).filter(Boolean))).sort();
 
   // Filter items based on current filter state
+  // Skip category filtering if items are already pre-filtered by category (to avoid overriding strict category selection)
   const filteredItems = items.filter(item => {
-    if (filters.category && filters.category !== 'all' && getValue(item, ['category']) !== filters.category) return false;
+    // Only apply category filter if we have multiple categories in the items (indicating not pre-filtered)
+    const hasMultipleCategories = uniqueCategories.length > 1;
+    if (hasMultipleCategories && filters.category && filters.category !== 'all' && getValue(item, ['category']) !== filters.category) return false;
     if (filters.type && filters.type !== 'all' && getValue(item, ['type', 'subcategory', 'sub_category']) !== filters.type) return false;
     if (filters.brand && filters.brand !== 'all' && getValue(item, ['brand']) !== filters.brand) return false;
     if (filters.machine && filters.machine !== 'all' && getValue(item, ['model', 'machine_name']) !== filters.machine) return false;
