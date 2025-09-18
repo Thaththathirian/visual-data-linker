@@ -103,6 +103,7 @@ const ImageDetail: React.FC = () => {
   const [tableData, setTableData] = useState<TableRow[]>([]);
   const [imagePath, setImagePath] = useState<string>('/placeholder.svg');
   const [highlightedNumber, setHighlightedNumber] = useState<string | null>(null);
+  const [selectedNumber, setSelectedNumber] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [baseName, setBaseName] = useState<string | null>(null);
@@ -253,6 +254,7 @@ const ImageDetail: React.FC = () => {
             const matchingRow = cachedProductData.tableData.find(row => row.partNumber === partNumber);
             if (matchingRow) {
               setHighlightedNumber(matchingRow.number);
+              setSelectedNumber(matchingRow.number);
             }
           }
           
@@ -274,6 +276,7 @@ const ImageDetail: React.FC = () => {
             const matchingRow = cachedPageData.tableData.find(row => row.partNumber === partNumber);
             if (matchingRow) {
               setHighlightedNumber(matchingRow.number);
+              setSelectedNumber(matchingRow.number);
             }
           }
           
@@ -336,6 +339,7 @@ const ImageDetail: React.FC = () => {
           const matchingRow = tableRows.find(row => row.partNumber === partNumber);
           if (matchingRow) {
             setHighlightedNumber(matchingRow.number);
+            setSelectedNumber(matchingRow.number);
           }
         }
         
@@ -357,12 +361,25 @@ const ImageDetail: React.FC = () => {
     }
   }, [currentFolderName, partNumber]);
 
-  const handleCircleHover = (number: string | null) => setHighlightedNumber(number);
-  const handleRowHover = (number: string | null) => setHighlightedNumber(number);
+  const handleCircleHover = (number: string | null) => {
+    if (number === null) {
+      setHighlightedNumber(selectedNumber);
+    } else {
+      setHighlightedNumber(number);
+    }
+  };
+  const handleRowHover = (number: string | null) => {
+    if (number === null) {
+      setHighlightedNumber(selectedNumber);
+    } else {
+      setHighlightedNumber(number);
+    }
+  };
 
   // Click on image point or table row: highlight and scroll the parts table only
   const handleShapeOrRowClick = (number: string) => {
     setHighlightedNumber(number);
+    setSelectedNumber(number);
 
     // Try desktop row first, then mobile
     const rowEl =
@@ -381,6 +398,17 @@ const ImageDetail: React.FC = () => {
     const delta = rowRect.top - viewportRect.top;
     const target = viewport.scrollTop + delta - viewport.clientHeight / 2 + rowEl.clientHeight / 2;
     viewport.scrollTo({ top: Math.max(0, target), behavior: 'smooth' });
+
+    // Also ensure the corresponding image point is in view on the page (only if not visible)
+    const pointEl = document.getElementById(`point-${number}`);
+    if (pointEl) {
+      const pointRect = pointEl.getBoundingClientRect();
+      const fullyVisible = pointRect.top >= 0 && pointRect.bottom <= window.innerHeight;
+      if (!fullyVisible) {
+        const scrollY = window.scrollY + pointRect.top - (window.innerHeight / 2) + (pointEl.clientHeight / 2);
+        window.scrollTo({ top: Math.max(0, scrollY), behavior: 'smooth' });
+      }
+    }
   };
 
   const handleCircleClick = handleShapeOrRowClick;
