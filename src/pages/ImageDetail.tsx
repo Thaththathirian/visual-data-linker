@@ -360,15 +360,27 @@ const ImageDetail: React.FC = () => {
   const handleCircleHover = (number: string | null) => setHighlightedNumber(number);
   const handleRowHover = (number: string | null) => setHighlightedNumber(number);
 
+  // Click on image point or table row: highlight and scroll the parts table only
   const handleShapeOrRowClick = (number: string) => {
-    const partNum = numberToPartNumberMap[number];
-    if (!partNum) {
-      toast.error("Part number not found for this item.");
-      return;
-    }
-    const SWASTIK_URL = import.meta.env.VITE_SWASTIK_URL;
-    const url = `${SWASTIK_URL}/search?q=${encodeURIComponent(partNum)}`;
-    window.open(url, "_blank");
+    setHighlightedNumber(number);
+
+    // Try desktop row first, then mobile
+    const rowEl =
+      (document.getElementById(`row-desktop-${number}`) ||
+        document.getElementById(`row-mobile-${number}`)) as HTMLElement | null;
+
+    if (!rowEl) return;
+
+    // Find nearest Radix ScrollArea viewport to ensure only the table scrolls
+    const viewport = rowEl.closest('[data-radix-scroll-area-viewport]') as HTMLElement | null;
+    if (!viewport) return;
+
+    // Compute offset using bounding rects (robust for table elements)
+    const viewportRect = viewport.getBoundingClientRect();
+    const rowRect = rowEl.getBoundingClientRect();
+    const delta = rowRect.top - viewportRect.top;
+    const target = viewport.scrollTop + delta - viewport.clientHeight / 2 + rowEl.clientHeight / 2;
+    viewport.scrollTo({ top: Math.max(0, target), behavior: 'smooth' });
   };
 
   const handleCircleClick = handleShapeOrRowClick;
@@ -552,7 +564,7 @@ const ImageDetail: React.FC = () => {
         >
           <h2 className="text-lg font-semibold mb-1">Parts List</h2>
           <div
-            style={{ height: "480px", maxHeight: "480px", overflow: "auto" }}
+            style={{ height: "540px", maxHeight: "540px", overflow: "auto" }}
           >
             <Suspense fallback={<div className="w-full h-full flex items-center justify-center">Loading parts data...</div>}>
               <DataTable
@@ -560,6 +572,7 @@ const ImageDetail: React.FC = () => {
                 highlightedNumber={highlightedNumber}
                 onRowClick={handleRowClick}
                 onRowHover={handleRowHover}
+                rowIdPrefix="desktop"
               />
             </Suspense>
           </div>
@@ -572,13 +585,14 @@ const ImageDetail: React.FC = () => {
         style={{ minHeight: "200px" }}
       >
         <h2 className="text-lg font-semibold mb-2">Parts List</h2>
-        <div style={{ maxHeight: "530px", overflow: "auto" }}>
+        <div style={{ maxHeight: "560px", overflow: "auto" }}>
           <Suspense fallback={<div className="w-full h-64 flex items-center justify-center">Loading parts data...</div>}>
             <DataTable
               data={tableData}
               highlightedNumber={highlightedNumber}
               onRowClick={handleRowClick}
               onRowHover={handleRowHover}
+              rowIdPrefix="mobile"
             />
           </Suspense>
         </div>
