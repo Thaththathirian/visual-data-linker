@@ -592,7 +592,7 @@ const ImageDetail: React.FC = () => {
         >
           <h2 className="text-lg font-semibold mb-1">Parts List</h2>
           <div
-            style={{ height: "540px", maxHeight: "540px", overflow: "auto" }}
+            style={{ height: "540px" }}
           >
             <Suspense fallback={<div className="w-full h-full flex items-center justify-center">Loading parts data...</div>}>
               <DataTable
@@ -613,7 +613,7 @@ const ImageDetail: React.FC = () => {
         style={{ minHeight: "200px" }}
       >
         <h2 className="text-lg font-semibold mb-2">Parts List</h2>
-        <div style={{ maxHeight: "560px", overflow: "auto" }}>
+        <div style={{ height: "560px" }}>
           <Suspense fallback={<div className="w-full h-64 flex items-center justify-center">Loading parts data...</div>}>
             <DataTable
               data={tableData}

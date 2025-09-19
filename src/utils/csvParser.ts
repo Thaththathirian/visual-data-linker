@@ -180,6 +180,15 @@ export const parseCSV = async (csvContent: string): Promise<TableRow[]> => {
 
   console.log(`[CSV Parser] Total processed rows: ${processedRows.length}`);
 
+  // If no number column was found or all numbers are empty, generate sequential numbers
+  const hasValidNumbers = processedRows.some(row => row.number.trim() !== '');
+  if (!hasValidNumbers) {
+    console.log(`[CSV Parser] No valid numbers found, generating sequential numbers starting from 1`);
+    processedRows.forEach((row, index) => {
+      row.number = (index + 1).toString();
+    });
+  }
+  
   const finalRows = processedRows.filter(row => row.number.trim() !== ''); // Skip rows with no number
   console.log(`[CSV Parser] Final rows after filtering empty numbers: ${finalRows.length}`);
 

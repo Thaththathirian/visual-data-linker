@@ -177,7 +177,7 @@ const ProductScroller: React.FC<ProductScrollerProps> = ({
         {canScrollLeft && (
           <button
             onClick={scrollLeft}
-            className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white border border-gray-200 rounded-full p-1 shadow-md hover:shadow-lg transition-shadow"
+            className="absolute left-2 top-1/2 -translate-y-1/2 z-10 bg-white border border-gray-200 rounded-full p-1 shadow-md hover:shadow-lg transition-shadow"
             aria-label="Scroll left"
           >
             <ChevronLeft className="w-4 h-4 text-gray-600" />
@@ -188,7 +188,7 @@ const ProductScroller: React.FC<ProductScrollerProps> = ({
         {canScrollRight && (
           <button
             onClick={scrollRight}
-            className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white border border-gray-200 rounded-full p-1 shadow-md hover:shadow-lg transition-shadow"
+            className="absolute right-2 top-1/2 -translate-y-1/2 z-10 bg-white border border-gray-200 rounded-full p-1 shadow-md hover:shadow-lg transition-shadow"
             aria-label="Scroll right"
           >
             <ChevronRight className="w-4 h-4 text-gray-600" />
@@ -205,7 +205,7 @@ const ProductScroller: React.FC<ProductScrollerProps> = ({
           }}
         >
           <div
-            className="flex gap-2 md:gap-3 pl-8 pr-4 items-start justify-center"
+            className="flex gap-2 md:gap-3 pl-2 pr-2 items-start justify-start"
             style={{
               // Maintain fixed thumbnail sizes while allowing full width container
             }}

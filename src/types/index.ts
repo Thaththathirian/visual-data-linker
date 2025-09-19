@@ -3,6 +3,7 @@ export interface Coordinate {
   id: string;
   x: number;
   y: number;
+  number: string;
   partNumber: string;
   description: string;
 }
