@@ -2,14 +2,14 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { CategorySidebar } from '@/components/Sidebar';
+// import { CategorySidebar } from '@/components/Sidebar';
 import { ProductGrid } from '@/components/ProductGrid';
 import { ProductFilter, BrandFilter } from '@/components/Filter';
 import { 
   readIntelliPartsFromLocal, 
   groupIntelliPartsByCategory, 
   getIntelliPartsBySubcategory, 
-  buildIntelliPartsCategoryTree,
+  // buildIntelliPartsCategoryTree,
   getIntelliPartsByMachine,
   getIntelliPartsByCategory
 } from '@/utils/intelliPartsReader';
@@ -53,10 +53,10 @@ const Home: React.FC = () => {
     intelliPartsItems ? groupIntelliPartsByCategory(intelliPartsItems) : [], 
     [intelliPartsItems]
   );
-  const categoryTree = React.useMemo(() => 
-    intelliPartsItems ? buildIntelliPartsCategoryTree(intelliPartsItems) : undefined, 
-    [intelliPartsItems]
-  );
+  // const categoryTree = React.useMemo(() => 
+  //   intelliPartsItems ? buildIntelliPartsCategoryTree(intelliPartsItems) : undefined, 
+  //   [intelliPartsItems]
+  // );
   
   // Use only IntelliParts items - memoized to prevent recreation
   const allItems = React.useMemo(() => [...(intelliPartsItems || [])], [intelliPartsItems]);
@@ -421,7 +421,7 @@ const Home: React.FC = () => {
   if (isLoading) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center">
-        <div className="flex items-center bg-white/70 rounded-md px-3 py-2 shadow-sm">
+        <div className="flex items-center bg.white/70 rounded-md px-3 py-2 shadow-sm">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
           <span className="ml-2">Loading categories...</span>
         </div>
@@ -447,20 +447,6 @@ const Home: React.FC = () => {
 
   return (
     <div className="flex min-h-screen bg-gray-50">
-      {/* Left Sidebar */}
-      <CategorySidebar
-        tree={categoryTree}
-        categories={categories}
-        selectedPath={selectedPath}
-        selectedCategory={selectedCategory}
-        selectedSubcategory={selectedSubcategory}
-        selectedMachine={selectedMachine}
-        onCategorySelect={handleCategorySelect}
-        onSubcategorySelect={handleSubcategorySelect}
-        onMachineSelect={handleMachineSelect}
-        onSelectPath={handleSelectPath}
-      />
-
       {/* Main Content */}
       <div className="flex-1">
         {/* Header with Breadcrumbs */}
@@ -549,8 +535,7 @@ const Home: React.FC = () => {
             <div className="text-center py-12">
               <h1 className="text-2xl font-bold text-gray-900 mb-4">Welcome to Swastik</h1>
               <p className="text-gray-600 mb-8">
-                Select a category from the sidebar to browse available parts and components.
-
+                Select a category to browse available parts and components.
               </p>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-4xl mx-auto">
                 {categories.map((category) => (

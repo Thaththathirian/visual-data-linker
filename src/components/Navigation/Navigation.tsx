@@ -1,211 +1,253 @@
 
-import React, { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { ChevronDown, Menu, X } from "lucide-react";
-import { Link } from "react-router-dom";
+import React, { useMemo, useRef, useState, useEffect } from "react";
+import { Menu, X, ChevronDown } from "lucide-react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { readIntelliPartsFromLocal, groupIntelliPartsByCategory } from "@/utils/intelliPartsReader";
+import { createPortal } from "react-dom";
 
-interface NavItem {
-  name: string;
-  path: string;
-  dropdown?: NavDropdownItem[];
-}
-
-interface NavDropdownItem {
-  name: string;
-  path: string;
-}
-
-const navItems: NavItem[] = [
-  {
-    name: "Sewing Machines",
-    path: "/categories/sewing-machines",
-    dropdown: [
-      { name: "Industrial", path: "/categories/sewing-machines/industrial" },
-      { name: "Domestic", path: "/categories/sewing-machines/domestic" },
-    ],
-  },
-  {
-    name: "Accessories",
-    path: "/categories/accessories",
-    dropdown: [
-      { name: "Needles", path: "/categories/accessories/needles" },
-      { name: "Bobbins", path: "/categories/accessories/bobbins" },
-    ],
-  },
-  { name: "Spare Parts", path: "/categories/spare-parts" },
-  { name: "Events", path: "/events" },
-  { name: "Downloads", path: "/downloads" },
-  { name: "Blogs & Articles", path: "/blogs" },
-  { name: "Support Community", path: "/support" },
-];
+const CLOSE_DELAY_MS = 220;
 
 const Navigation: React.FC = () => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [activeDropdown, setActiveDropdown] = useState<number | null>(null);
+	const navigate = useNavigate();
+	const location = useLocation();
+	const [isOpen, setIsOpen] = useState(false);
+	const [activeIndex, setActiveIndex] = useState<number | null>(null);
+	const [activeSub, setActiveSub] = useState<string | null>(null);
+	const [flyoutLeft, setFlyoutLeft] = useState(false);
+	const [flyout, setFlyout] = useState<{
+		top: number;
+		left: number;
+		items: string[];
+		category: string;
+		sub: string;
+	} | null>(null);
+	const [isPinned, setIsPinned] = useState(false);
+	const closeTimerRef = useRef<number | null>(null);
+	const navRef = useRef<HTMLDivElement>(null);
+	const flyoutRef = useRef<HTMLDivElement>(null);
+	const flyoutScrollRef = useRef<HTMLDivElement>(null);
+	const [showScrollUp, setShowScrollUp] = useState(false);
+	const [showScrollDown, setShowScrollDown] = useState(false);
 
-  const toggleDropdown = (index: number) => {
-    setActiveDropdown(activeDropdown === index ? null : index);
-  };
+	const { data: items } = useQuery({ queryKey: ["intelliPartsDataNav"], queryFn: readIntelliPartsFromLocal });
+	const categories = useMemo(() => (items ? groupIntelliPartsByCategory(items) : []), [items]);
 
-  const closeMenu = () => {
-    setIsOpen(false);
-    setActiveDropdown(null);
-  };
+	// Derive current category from URL (?category=... or catpath=Cat>Sub>...)
+	const currentCategoryFromUrl = useMemo(() => {
+		const sp = new URLSearchParams(location.search);
+		const catPath = sp.get("catpath") || "";
+		if (catPath) return catPath.split(">")[0].trim();
+		return sp.get("category") || "";
+	}, [location.search]);
 
-  // Prevent navigation on all links
-  const handleClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-  };
+	useEffect(() => {
+		const handleClickOutside = (e: MouseEvent) => {
+			const inNav = navRef.current?.contains(e.target as Node);
+			const inFly = flyoutRef.current?.contains(e.target as Node);
+			if (!inNav && !inFly) {
+				closeMenus();
+			}
+		};
+		document.addEventListener("mousedown", handleClickOutside);
+		return () => document.removeEventListener("mousedown", handleClickOutside);
+	}, []);
 
-  const dropdownVariants = {
-    hidden: { opacity: 0, height: 0 },
-    visible: { opacity: 1, height: "auto" },
-  };
+	const updateFlyoutScrollButtons = () => {
+		const c = flyoutScrollRef.current;
+		if (!c) { setShowScrollUp(false); setShowScrollDown(false); return; }
+		setShowScrollUp(c.scrollTop > 0);
+		setShowScrollDown(c.scrollTop + c.clientHeight < c.scrollHeight);
+	};
 
-  return (
-    <nav className="bg-[#1d67cdb3] text-white">
-      <div className="container mx-auto px-4">
-        {/* Mobile Toggle Button */}
-        <div className="flex items-center justify-between p-4 md:hidden">
-          <span className="font-semibold">Menu</span>
-          <button onClick={() => setIsOpen(!isOpen)}>
-            {isOpen ? (
-              <X className="h-6 w-6" />
-            ) : (
-              <Menu className="h-6 w-6" />
-            )}
-          </button>
-        </div>
+	useEffect(() => {
+		if (!flyout) { setShowScrollUp(false); setShowScrollDown(false); return; }
+		// allow DOM paint then compute
+		requestAnimationFrame(updateFlyoutScrollButtons);
+	}, [flyout]);
 
-        {/* Desktop Navigation */}
-        <div className="hidden md:flex">
-          <ul className="flex">
-            {navItems.map((item, index) => (
-              <li key={index} className="relative group">
-                {item.dropdown ? (
-                  <>
-                    <button
-                      className="flex items-center px-4 py-3 hover:bg-custom-blue transition-colors duration-200"
-                      onClick={() => toggleDropdown(index)}
-                      onMouseEnter={() => setActiveDropdown(index)}
-                      onMouseLeave={() => setActiveDropdown(null)}
-                    >
-                      {item.name}
-                      <ChevronDown className="h-4 w-4 ml-1" />
-                    </button>
-                    <AnimatePresence>
-                      {activeDropdown === index && (
-                        <motion.div
-                          initial="hidden"
-                          animate="visible"
-                          exit="hidden"
-                          variants={dropdownVariants}
-                          transition={{ duration: 0.2 }}
-                          className="absolute left-0 mt-0 w-48 bg-white shadow-lg z-50"
-                          onMouseEnter={() => setActiveDropdown(index)}
-                          onMouseLeave={() => setActiveDropdown(null)}
-                        >
-                          <ul className="py-1">
-                            {item.dropdown.map((dropdownItem, dropdownIndex) => (
-                              <li key={dropdownIndex}>
-                                <Link
-                                  to="/"
-                                  className="block px-4 py-2 text-gray-800 hover:bg-gray-100"
-                                  onClick={handleClick}
-                                >
-                                  {dropdownItem.name}
-                                </Link>
-                              </li>
-                            ))}
-                          </ul>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </>
-                ) : (
-                  <Link
-                    to="/"
-                    className="block px-4 py-3 hover:bg-custom-blue transition-colors duration-200"
-                    onClick={handleClick}
-                  >
-                    {item.name}
-                  </Link>
-                )}
-              </li>
-            ))}
-          </ul>
-        </div>
+	const closeMenus = () => {
+		setActiveIndex(null);
+		setActiveSub(null);
+		setFlyout(null);
+		setIsPinned(false);
+		setIsOpen(false);
+	};
 
-        {/* Mobile Navigation */}
-        <AnimatePresence>
-          {isOpen && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              className="md:hidden"
-            >
-              <ul className="bg-custom-blue">
-                {navItems.map((item, index) => (
-                  <li key={index} className="border-b border-custom-blue">
-                    {item.dropdown ? (
-                      <>
-                        <button
-                          className="flex items-center justify-between w-full px-4 py-3"
-                          onClick={() => toggleDropdown(index)}
-                        >
-                          {item.name}
-                          <ChevronDown
-                            className={`h-4 w-4 transition-transform duration-200 ${
-                              activeDropdown === index ? "rotate-180" : ""
-                            }`}
-                          />
-                        </button>
-                        <AnimatePresence>
-                          {activeDropdown === index && (
-                            <motion.div
-                              initial="hidden"
-                              animate="visible"
-                              exit="hidden"
-                              variants={dropdownVariants}
-                              transition={{ duration: 0.2 }}
-                              className="bg-gray-800"
-                            >
-                              <ul>
-                                {item.dropdown.map((dropdownItem, dropdownIndex) => (
-                                  <li key={dropdownIndex}>
-                                    <Link
-                                      to="/"
-                                      className="block pl-8 pr-4 py-2 hover:bg-gray-700"
-                                      onClick={handleClick}
-                                    >
-                                      {dropdownItem.name}
-                                    </Link>
-                                  </li>
-                                ))}
-                              </ul>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </>
-                    ) : (
-                      <Link
-                        to="/"
-                        className="block px-4 py-3"
-                        onClick={handleClick}
-                      >
-                        {item.name}
-                      </Link>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-    </nav>
-  );
+	const clearCloseTimer = () => {
+		if (closeTimerRef.current) {
+			window.clearTimeout(closeTimerRef.current);
+			closeTimerRef.current = null;
+		}
+	};
+	const scheduleClose = () => {
+		if (isPinned) return; // don't close when pinned
+		clearCloseTimer();
+		closeTimerRef.current = window.setTimeout(() => {
+			setActiveIndex(null);
+			setActiveSub(null);
+			setFlyout(null);
+		}, CLOSE_DELAY_MS);
+	};
+
+	const openCategory = (category: string) => {
+		setIsPinned(true);
+		navigate(`/?${new URLSearchParams({ category, catpath: category }).toString()}`);
+	};
+	const openSubcategory = (category: string, sub: string) => {
+		setIsPinned(true);
+		navigate(`/?${new URLSearchParams({ category, subcategory: sub, catpath: `${category}>${sub}` }).toString()}`);
+	};
+	const openMachine = (category: string, sub: string, machine: string) => {
+		// Last level selection: navigate and immediately close all dropdowns
+		setIsPinned(false);
+		closeMenus();
+		navigate(`/?${new URLSearchParams({ category, subcategory: sub, machine, catpath: `${category}>${sub}>${machine}` }).toString()}`);
+	};
+
+	const getMachinesFor = (category: string, sub: string): string[] => {
+		if (!items) return [];
+		const s = new Set<string>();
+		for (const it of items) {
+			if (it.category === category && it.sub_category === sub && it.machine_name) s.add(it.machine_name);
+		}
+		return Array.from(s);
+	};
+
+	return (
+		<nav className="bg-[#1d67cdb3] text-white text-sm">
+			<div className="container mx-auto px-4" ref={navRef}>
+				<div className="flex items-center justify-between p-2 md:hidden">
+					<span className="font-semibold">Menu</span>
+					<button onClick={() => setIsOpen(!isOpen)}>{isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}</button>
+				</div>
+
+				<div className="hidden md:flex">
+					<ul className="flex flex-wrap">
+						{categories.map((cat, index) => {
+							const isUrlActive = currentCategoryFromUrl && cat.name === currentCategoryFromUrl;
+							const isHoverActive = activeIndex === index;
+							return (
+								<li key={cat.name} className="relative group">
+									<button
+										className={`px-3 py-2 transition-colors duration-200 flex items-center gap-1 ${isUrlActive || isHoverActive ? 'bg-custom-blue/60' : 'hover:bg-custom-blue'}`}
+										onMouseEnter={() => { clearCloseTimer(); setActiveIndex(index); setActiveSub(null); setFlyout(null); setIsPinned(false); }}
+										onMouseLeave={scheduleClose}
+										onClick={() => {
+											// Toggle: if this menu already open, close; else open (no navigation)
+											if (activeIndex === index) { closeMenus(); }
+											else { clearCloseTimer(); setActiveIndex(index); setActiveSub(null); setFlyout(null); setIsPinned(false); }
+										}}
+									>
+										<span className="whitespace-nowrap">{cat.name}</span>
+										<ChevronDown className="h-3.5 w-3.5 opacity-80" />
+									</button>
+									{activeIndex === index && (cat.subcategories?.length > 0 || cat.machines?.length > 0) ? (
+										<div
+											className="absolute left-0 mt-0 w-72 bg-white text-gray-900 shadow-lg z-50 overflow-visible"
+											onMouseEnter={clearCloseTimer}
+											onMouseLeave={scheduleClose}
+										>
+											<div className="max-h-[60vh] overflow-y-auto overflow-x-visible">
+												<ul className="py-1">
+													{(cat.subcategories && cat.subcategories.length > 0 ? cat.subcategories : cat.machines || []).map((label: string) => {
+														const machines = cat.subcategories && cat.subcategories.length > 0 ? getMachinesFor(cat.name, label) : [];
+														const isActive = activeSub === label;
+														return (
+															<li key={label} className="relative">
+																<button
+																	className={`block w-full text-left px-3 py-1 flex items-center justify-between transition-colors ${isActive ? 'bg-blue-50 text-blue-700 border-l-2 border-blue-500' : 'hover:bg-blue-50'}`}
+																	onMouseEnter={(e) => {
+																	clearCloseTimer();
+																	setActiveSub(label);
+																	const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+																	const width = 256;
+																	const rightSpace = window.innerWidth - rect.right;
+																	const leftSpace = rect.left;
+																	const useLeft = rightSpace < width && leftSpace > rightSpace;
+																	setFlyoutLeft(useLeft);
+																	const left = useLeft ? rect.left - width - 8 : rect.right + 8;
+																	const top = Math.max(8, Math.min(window.innerHeight - 8, rect.top));
+																	setFlyout(machines.length > 0 ? { top, left, items: machines, category: cat.name, sub: label } : null);
+																}}
+																onMouseLeave={scheduleClose}
+																onClick={() => { openSubcategory(cat.name, label); if (machines.length === 0) { closeMenus(); } }}
+															>
+																<span className="truncate">{label}</span>
+																{machines.length > 0 ? <ChevronDown className="h-3.5 w-3.5 rotate-[-90deg] opacity-70" /> : null}
+															</button>
+														</li>
+													);
+												})}
+											</ul>
+										</div>
+									</div>
+								) : null}
+							</li>
+						);
+						})}
+					</ul>
+				</div>
+
+				{isOpen ? (
+					<div className="md:hidden">
+						<ul className="bg-custom-blue">
+							{categories.map((cat) => (
+								<li key={cat.name} className="border-b border-custom-blue">
+									<button className="w-full text-left px-3 py-2" onClick={() => openCategory(cat.name)}>
+										{cat.name}
+									</button>
+								</li>
+							))}
+						</ul>
+					</div>
+				) : null}
+			</div>
+
+			{/* Portal flyout for second-level to avoid clipping/scroll */}
+			{flyout && createPortal(
+				<div
+					ref={flyoutRef}
+					className="fixed z-[1000] w-64 bg-white text-gray-900 shadow-lg border border-gray-100"
+					style={{ top: flyout.top, left: flyout.left, maxHeight: `calc(100vh - ${flyout.top + 8}px)` }}
+					onMouseEnter={() => { clearCloseTimer(); updateFlyoutScrollButtons(); }}
+					onMouseLeave={scheduleClose}
+				>
+					<div ref={flyoutScrollRef} className="relative max-h-[40vh] overflow-y-scroll" onScroll={updateFlyoutScrollButtons}>
+						<ul className="py-1">
+							{flyout.items.map((m) => (
+								<li key={m}>
+									<button className="block w-full text-left px-3 py-1 hover:bg-blue-50" onClick={() => openMachine(flyout.category, flyout.sub, m)}>
+										{m}
+									</button>
+								</li>
+							))}
+						</ul>
+						{/* Scroll controls */}
+						{showScrollUp && (
+							<button
+								type="button"
+								className="absolute top-0 left-0 right-0 h-6 bg-gradient-to-b from-white/90 to-transparent text-gray-600 text-xs"
+								onClick={() => { const c = flyoutScrollRef.current; if (c) { c.scrollBy({ top: -120, behavior: 'smooth' }); }}}
+							>
+								▲
+							</button>
+						)}
+						{showScrollDown && (
+							<button
+								type="button"
+								className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-white/90 to-transparent text-gray-600 text-xs"
+								onClick={() => { const c = flyoutScrollRef.current; if (c) { c.scrollBy({ top: 120, behavior: 'smooth' }); }}}
+							>
+								▼
+							</button>
+						)}
+					</div>
+				</div>,
+				document.body
+			)}
+		</nav>
+	);
 };
 
 export default Navigation;
