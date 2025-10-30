@@ -99,10 +99,41 @@ const Navigation: React.FC = () => {
 		navigate(`/?${new URLSearchParams({ category, subcategory: sub, catpath: `${category}>${sub}` }).toString()}`);
 	};
 	const openMachine = (category: string, sub: string, machine: string) => {
-		// Last level selection: navigate and immediately close all dropdowns
+		// Last level selection: try to navigate directly to coordinates page for first matching product
+		const firstProduct = (items || []).find(it => it.category === category && it.sub_category === sub && it.machine_name === machine && it.sparepartspage_path);
+		if (firstProduct && firstProduct.sparepartspage_path) {
+			closeMenus();
+			const query = new URLSearchParams({
+				category: firstProduct.category || '',
+				subcategory: firstProduct.sub_category || '',
+				machine: firstProduct.machine_name || '',
+				name: firstProduct.sparepartspage_name || '',
+				brand: firstProduct.brand || ''
+			}).toString();
+			navigate(`/${encodeURIComponent(firstProduct.sparepartspage_path)}?${query}`);
+			return;
+		}
+		// Fallback to category/subcategory/machine listing
 		setIsPinned(false);
 		closeMenus();
 		navigate(`/?${new URLSearchParams({ category, subcategory: sub, machine, catpath: `${category}>${sub}>${machine}` }).toString()}`);
+	};
+
+	const navigateToFirstProductForSub = (category: string, sub: string): boolean => {
+		const firstProduct = (items || []).find(it => it.category === category && it.sub_category === sub && it.sparepartspage_path);
+		if (firstProduct && firstProduct.sparepartspage_path) {
+			closeMenus();
+			const query = new URLSearchParams({
+				category: firstProduct.category || '',
+				subcategory: firstProduct.sub_category || '',
+				machine: firstProduct.machine_name || '',
+				name: firstProduct.sparepartspage_name || '',
+				brand: firstProduct.brand || ''
+			}).toString();
+			navigate(`/${encodeURIComponent(firstProduct.sparepartspage_path)}?${query}`);
+			return true;
+		}
+		return false;
 	};
 
 	const getMachinesFor = (category: string, sub: string): string[] => {
@@ -171,11 +202,25 @@ const Navigation: React.FC = () => {
 																	setFlyout(machines.length > 0 ? { top, left, items: machines, category: cat.name, sub: label } : null);
 																}}
 																onMouseLeave={scheduleClose}
-																onClick={() => { openSubcategory(cat.name, label); if (machines.length === 0) { closeMenus(); } }}
-															>
+																onClick={() => {
+																	if (cat.subcategories && cat.subcategories.length > 0) {
+																		// We are clicking a subcategory label
+																		if (machines.length === 0) {
+																			if (!navigateToFirstProductForSub(cat.name, label)) {
+																				openSubcategory(cat.name, label);
+																			}
+																		} else {
+																			openSubcategory(cat.name, label);
+																		}
+																	} else {
+																		// No subcategories: labels are machines; open coordinates directly
+																		openMachine(cat.name, '', label);
+																	}
+															}}
+														>
 																<span className="truncate">{label}</span>
 																{machines.length > 0 ? <ChevronDown className="h-3.5 w-3.5 rotate-[-90deg] opacity-70" /> : null}
-															</button>
+														</button>
 														</li>
 													);
 												})}
