@@ -10,10 +10,10 @@ interface LayoutProps {
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="flex flex-col">
       <Header />
       <Navigation />
-      <main className="flex-grow container mx-auto px-4">{children}</main>
+      <main className="container mx-auto px-4">{children}</main>
       <Footer />
     </div>
   );

@@ -37,6 +37,18 @@ const Home: React.FC = () => {
     staleTime: 30 * 60 * 1000, // 30 minutes - longer since we have our own cache
   });
 
+  // Hide the global footer while Home is loading
+  useEffect(() => {
+    if (isLoading) {
+      document.body.classList.add('hide-footer');
+    } else {
+      document.body.classList.remove('hide-footer');
+    }
+    return () => {
+      document.body.classList.remove('hide-footer');
+    };
+  }, [isLoading]);
+
   const categories = React.useMemo(() => 
     intelliPartsItems ? groupIntelliPartsByCategory(intelliPartsItems) : [], 
     [intelliPartsItems]
@@ -408,9 +420,11 @@ const Home: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-        <span className="ml-2">Loading categories...</span>
+      <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div className="flex items-center bg-white/70 rounded-md px-3 py-2 shadow-sm">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <span className="ml-2">Loading categories...</span>
+        </div>
       </div>
     );
   }

@@ -102,6 +102,11 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* When Home is loading, body gets hide-footer to suppress the global footer */
+  .hide-footer footer {
+    display: none;
+  }
 }
 
 .circle-highlight {
