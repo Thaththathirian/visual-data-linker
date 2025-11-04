@@ -5,19 +5,156 @@ import { useQuery } from '@tanstack/react-query';
 // import { CategorySidebar } from '@/components/Sidebar';
 import { ProductGrid } from '@/components/ProductGrid';
 import { ProductFilter, BrandFilter } from '@/components/Filter';
-import { 
-  readIntelliPartsFromLocal, 
-  groupIntelliPartsByCategory, 
-  getIntelliPartsBySubcategory, 
+import {
+  readIntelliPartsFromLocal,
+  groupIntelliPartsByCategory,
+  getIntelliPartsBySubcategory,
   // buildIntelliPartsCategoryTree,
   getIntelliPartsByMachine,
-  getIntelliPartsByCategory
+  getIntelliPartsByCategory,
+  getMachineThumbnailPath,
+  getMachineThumbnailFromDrive
 } from '@/utils/intelliPartsReader';
-import { ChevronRightIcon, HomeIcon } from 'lucide-react';
+import { ChevronRightIcon, HomeIcon, Check, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { IntelliPartsItem } from '@/types';
 import dataCache from '@/utils/dataCache';
+
+// MachineCard component to display machine with image and product count
+interface MachineCardProps {
+  machine: string;
+  category: string;
+  subcategory: string | null;
+  allItems: IntelliPartsItem[];
+  onClick: () => void;
+}
+
+const MachineCard: React.FC<MachineCardProps> = ({ machine, category, subcategory, allItems, onClick }) => {
+  const [imageUrl, setImageUrl] = React.useState<string>('/placeholder.svg');
+  const [isLoading, setIsLoading] = React.useState(true);
+
+  // Calculate product count for this machine
+  const productCount = React.useMemo(() => {
+    // Get all items for this machine
+    let machineItems: IntelliPartsItem[];
+    if (subcategory) {
+      machineItems = allItems.filter((item: IntelliPartsItem) =>
+        item.category === category &&
+        item.sub_category === subcategory &&
+        item.machine_name === machine
+      );
+    } else {
+      machineItems = allItems.filter((item: IntelliPartsItem) =>
+        item.category === category &&
+        item.machine_name === machine
+      );
+    }
+
+    // Count unique products by sparepartspage_path or sparepartspage_name
+    const uniqueProducts = new Set<string>();
+    machineItems.forEach(item => {
+      if (item.sparepartspage_path && item.sparepartspage_path.trim() !== '') {
+        uniqueProducts.add(item.sparepartspage_path);
+      } else if (item.sparepartspage_name && item.sparepartspage_name.trim() !== '') {
+        uniqueProducts.add(item.sparepartspage_name);
+      } else {
+        // Fallback: use composite key
+        const compositeKey = `${item.category || ''}_${item.sub_category || ''}_${item.machine_name || ''}_${item.sparepartspage_name || ''}`;
+        uniqueProducts.add(compositeKey);
+      }
+    });
+
+    // If no unique products found but items exist, return item count
+    return uniqueProducts.size > 0 ? uniqueProducts.size : machineItems.length;
+  }, [machine, category, subcategory, allItems]);
+
+  // Load machine image
+  React.useEffect(() => {
+    const loadMachineImage = async () => {
+      try {
+        setIsLoading(true);
+        
+        // Create cache key for this machine thumbnail
+        const cacheKey = `machineThumbnail:${machine}`;
+        
+        // Check cache first
+        const cachedUrl = dataCache.getImageUrl(cacheKey);
+        if (cachedUrl) {
+          setImageUrl(cachedUrl);
+          setIsLoading(false);
+          return;
+        }
+        
+        // First, try to get machine thumbnail from Google Drive
+        const driveMachineImage = await getMachineThumbnailFromDrive(machine);
+        if (driveMachineImage) {
+          setImageUrl(driveMachineImage);
+          dataCache.setImageUrl(cacheKey, driveMachineImage);
+        } else {
+          // Fallback to local machine thumbnail
+          const machineThumbnailPath = getMachineThumbnailPath(machine);
+          const response = await fetch(machineThumbnailPath);
+          if (response.ok) {
+            setImageUrl(machineThumbnailPath);
+            dataCache.setImageUrl(cacheKey, machineThumbnailPath);
+          } else {
+            setImageUrl('/placeholder.svg');
+            dataCache.setImageUrl(cacheKey, '/placeholder.svg');
+          }
+        }
+      } catch (error) {
+        console.error('Error loading machine image:', error);
+        setImageUrl('/placeholder.svg');
+        const cacheKey = `machineThumbnail:${machine}`;
+        dataCache.setImageUrl(cacheKey, '/placeholder.svg');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadMachineImage();
+  }, [machine]);
+
+  return (
+    <Card
+      className="hover:shadow-lg transition-all duration-200 cursor-pointer border border-gray-200 hover:border-blue-300 group"
+      onClick={onClick}
+    >
+      <CardContent className="p-3">
+        {/* Machine Image */}
+        <div className="aspect-square mb-3 bg-white rounded-md border border-gray-200 flex items-center justify-center overflow-hidden">
+          {isLoading ? (
+            <div className="w-full h-full flex items-center justify-center bg-gray-100">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            </div>
+          ) : (
+            <img
+              src={imageUrl}
+              alt={machine}
+              className="max-w-full max-h-full object-contain"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                target.src = '/placeholder.svg';
+              }}
+            />
+          )}
+        </div>
+        
+        {/* Machine Name */}
+        <h3 className="text-lg font-semibold text-gray-900 mb-1 line-clamp-2">{machine}</h3>
+        
+        {/* Product Count */}
+        <p className="text-sm text-gray-500">
+          {productCount} {productCount === 1 ? 'product' : 'products'}
+        </p>
+      </CardContent>
+    </Card>
+  );
+};
 
 const Home: React.FC = () => {
   const navigate = useNavigate();
@@ -29,6 +166,8 @@ const Home: React.FC = () => {
   const [breadcrumbs, setBreadcrumbs] = useState<string[]>([]);
   const [filteredItems, setFilteredItems] = useState<IntelliPartsItem[]>([]);
   const [selectedBrand, setSelectedBrand] = useState<string>('');
+  const [selectedBrandFilters, setSelectedBrandFilters] = useState<string[]>([]);
+  const [selectedMachineFilters, setSelectedMachineFilters] = useState<string[]>([]);
 
   // Fetch IntelliParts data from local folder
   const { data: intelliPartsItems, isLoading, error } = useQuery({
@@ -49,6 +188,12 @@ const Home: React.FC = () => {
     };
   }, [isLoading]);
 
+  // Clear filters when category or subcategory changes
+  useEffect(() => {
+    setSelectedBrandFilters([]);
+    setSelectedMachineFilters([]);
+  }, [selectedCategory, selectedSubcategory]);
+
   const categories = React.useMemo(() => 
     intelliPartsItems ? groupIntelliPartsByCategory(intelliPartsItems) : [], 
     [intelliPartsItems]
@@ -58,9 +203,97 @@ const Home: React.FC = () => {
   //   [intelliPartsItems]
   // );
   
-  // Use only IntelliParts items - memoized to prevent recreation
+    // Use only IntelliParts items - memoized to prevent recreation
   const allItems = React.useMemo(() => [...(intelliPartsItems || [])], [intelliPartsItems]);
-  
+
+  // Get items for the selected category
+  const categoryItems = React.useMemo(() => {
+    if (!selectedCategory) return [];
+    return allItems.filter((item: IntelliPartsItem) => item.category === selectedCategory);
+  }, [selectedCategory, allItems]);
+
+  // Get unique subcategories for the selected category
+  const availableSubcategories = React.useMemo(() => {
+    if (!selectedCategory) return [];
+    const subcats = new Set<string>();
+    categoryItems.forEach(item => {
+      if (item.sub_category && item.sub_category.trim() !== '') {
+        subcats.add(item.sub_category);
+      }
+    });
+    return Array.from(subcats).sort();
+  }, [selectedCategory, categoryItems]);
+
+  // Get items for the selected category + subcategory (for extracting machines)
+  const subcategoryItems = React.useMemo(() => {
+    if (!selectedCategory || !selectedSubcategory) return [];
+    return allItems.filter((item: IntelliPartsItem) =>
+      item.category === selectedCategory && item.sub_category === selectedSubcategory
+    );
+  }, [selectedCategory, selectedSubcategory, allItems]);
+
+    // Get source items for machines page (for filtering)
+  const machinesPageSourceItems = React.useMemo(() => {
+    if (!selectedCategory) return [];
+    if (selectedSubcategory) {
+      return subcategoryItems;
+    } else if (availableSubcategories.length === 0) {
+      return categoryItems;
+    } else {
+      return [];
+    }
+  }, [selectedCategory, selectedSubcategory, subcategoryItems, categoryItems, availableSubcategories]);
+
+  // Get available brands for machines page filtering
+  const availableBrandsForMachines = React.useMemo(() => {
+    if (!selectedCategory) return [];
+    const brands = new Set<string>();
+    machinesPageSourceItems.forEach(item => {
+      if (item.brand && item.brand.trim() !== '') {
+        brands.add(item.brand);
+      }
+    });
+    return Array.from(brands).sort();
+  }, [machinesPageSourceItems]);
+
+  // Get all available machines for machines page filtering
+  const allAvailableMachines = React.useMemo(() => {
+    if (!selectedCategory) return [];
+    const machines = new Set<string>();
+    machinesPageSourceItems.forEach(item => {
+      if (item.machine_name && item.machine_name.trim() !== '') {
+        machines.add(item.machine_name);
+      }
+    });
+    return Array.from(machines).sort();
+  }, [machinesPageSourceItems]);
+
+  // Get unique machines - filtered by brand and machine filters
+  const availableMachines = React.useMemo(() => {
+    if (!selectedCategory) return [];
+
+    // Start with all machines
+    let filteredMachines = allAvailableMachines;
+
+    // Filter by selected brand filters
+    if (selectedBrandFilters.length > 0) {
+      const brandFilteredMachines = new Set<string>();
+      machinesPageSourceItems.forEach(item => {
+        if (item.brand && selectedBrandFilters.includes(item.brand) && item.machine_name) {
+          brandFilteredMachines.add(item.machine_name);
+        }
+      });
+      filteredMachines = filteredMachines.filter(m => brandFilteredMachines.has(m));
+    }
+
+    // Filter by selected machine filters (if any)
+    if (selectedMachineFilters.length > 0) {
+      filteredMachines = filteredMachines.filter(m => selectedMachineFilters.includes(m));
+    }
+
+    return filteredMachines;
+  }, [selectedCategory, allAvailableMachines, selectedBrandFilters, selectedMachineFilters, machinesPageSourceItems]);
+
   // Get items for the selected category/subcategory/machine with strict filtering
   const getItemsForSelection = () => {
     if (!selectedCategory) {
@@ -486,49 +719,284 @@ const Home: React.FC = () => {
             <div className="mt-2">
               <p className="text-sm text-gray-500">
                 {(() => {
-                  const displayLabel = selectedPath && selectedPath.length > 0
-                    ? selectedPath[selectedPath.length - 1]
-                    : (selectedMachine || selectedSubcategory || selectedCategory);
-                  const brandLabel = selectedBrand ? ` (${selectedBrand} brand)` : '';
-                  return finalFilteredItems.length > 0
-                    ? `Showing ${finalFilteredItems.length} results`
-                    : `No results found`;
+                  // Show count based on current view
+                  if (selectedMachine || (selectedPath && selectedPath.length >= 3)) {
+                    // Products view
+                    return finalFilteredItems.length > 0
+                      ? `Showing ${finalFilteredItems.length} products`
+                      : `No products found`;
+                  } else if (availableSubcategories.length > 0 && !selectedSubcategory) {
+                    // Subcategories view
+                    return `Showing ${availableSubcategories.length} ${availableSubcategories.length === 1 ? 'subcategory' : 'subcategories'}`;
+                  } else if (availableMachines.length > 0) {
+                    // Machines view
+                    return `Showing ${availableMachines.length} ${availableMachines.length === 1 ? 'machine' : 'machines'}`;
+                  } else {
+                    // Fallback to products
+                    return finalFilteredItems.length > 0
+                      ? `Showing ${finalFilteredItems.length} results`
+                      : `No results found`;
+                  }
                 })()}
               </p>
             </div>
           )}
         </div>
 
-        {/* Main Content Area */}
+                {/* Main Content Area */}
         <div className="p-6">
           {selectedCategory ? (
             <div>
-              {/* Brand Filter */}
-              <BrandFilter 
-                items={categoryFilteredItems} 
-                selectedBrand={selectedBrand}
-                onBrandSelect={handleBrandSelect}
-              />
-              
-              {/* Product Filter - only apply additional filters, not category filtering */}
-              <ProductFilter 
-                items={brandFilteredItems} 
-                onFilterChange={setFilteredItems} 
-              />
-              
-              {/* Show the actual items/products, not just category info */}
-              {finalFilteredItems.length > 0 ? (
-                <ProductGrid items={finalFilteredItems} onItemClick={handleItemClick} />
-              ) : (
-                <div className="text-center py-12">
-                  <h2 className="text-xl font-semibold text-gray-900 mb-4">
-                    No items found for {selectedMachine || selectedSubcategory || selectedCategory}
-                    {selectedBrand && ` (${selectedBrand} brand)`}
-                  </h2>
-                  <p className="text-gray-600">
-                    This category doesn't have any items yet.
-                  </p>
-                </div>
+              {/* Show products when machine is selected */}
+              {(selectedMachine || (selectedPath && selectedPath.length >= 3)) ? (
+                <>
+                  {/* Product Filter - only apply additional filters when machine is selected */}
+                  <ProductFilter
+                    items={categoryFilteredItems}
+                    onFilterChange={setFilteredItems}
+                  />
+
+                  {/* Show the actual items/products */}
+                  {finalFilteredItems.length > 0 ? (
+                    <ProductGrid items={finalFilteredItems} onItemClick={handleItemClick} />    
+                  ) : (
+                    <div className="text-center py-12">
+                      <h2 className="text-xl font-semibold text-gray-900 mb-4">
+                        No items found for {selectedMachine || selectedSubcategory || selectedCategory}
+                        {selectedBrand && ` (${selectedBrand} brand)`}
+                      </h2>
+                      <p className="text-gray-600">
+                        This machine doesn't have any items yet.
+                      </p>
+                    </div>
+                  )}
+                </>
+                            ) : (
+                <>
+                  {/* Show subcategories if they exist and none is selected */}
+                  {availableSubcategories.length > 0 && !selectedSubcategory ? (
+                    <div>
+                      <h2 className="text-2xl font-bold text-gray-900 mb-6">{selectedCategory}</h2>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {availableSubcategories.map((subcategory) => (
+                          <div
+                            key={subcategory}
+                            className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm hover:shadow-md hover:border-blue-300 cursor-pointer transition-all duration-200 hover:-translate-y-0.5"
+                            onClick={() => handleSubcategorySelect(selectedCategory, subcategory)}
+                          >
+                            <h3 className="text-lg font-semibold text-gray-900">{subcategory}</h3>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                                            {/* Show machines if subcategory is selected OR if no subcategories exist */}
+                      {availableMachines.length > 0 || allAvailableMachines.length > 0 ? (
+                        <div>
+                          <h2 className="text-2xl font-bold text-gray-900 mb-6">
+                            {selectedSubcategory ? selectedSubcategory : 'Select a Machine'}                                                                    
+                          </h2>
+                          
+                          {/* Brand and Machine Filters */}
+                          {(availableBrandsForMachines.length > 1 || allAvailableMachines.length > 1) && (
+                            <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-6">
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {/* Brand Filter */}
+                                {availableBrandsForMachines.length > 1 && (
+                                  <div className="space-y-2">
+                                    <label className="text-sm font-medium text-gray-700">Filter by Brand</label>
+                                    <Select
+                                      value=""
+                                      onValueChange={(value) => {
+                                        if (value && !selectedBrandFilters.includes(value)) {
+                                          setSelectedBrandFilters([...selectedBrandFilters, value]);
+                                        }
+                                      }}
+                                    >
+                                      <SelectTrigger>
+                                        <SelectValue placeholder="Select brands..." />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {availableBrandsForMachines.map((brand) => (
+                                          <SelectItem 
+                                            key={brand} 
+                                            value={brand}
+                                            className={selectedBrandFilters.includes(brand) ? "bg-blue-50" : ""}
+                                          >
+                                            <div className="flex items-center">
+                                              <div className="w-5 flex-shrink-0">
+                                                {selectedBrandFilters.includes(brand) && (
+                                                  <Check className="h-4 w-4 text-blue-600" />
+                                                )}
+                                              </div>
+                                              <span className={selectedBrandFilters.includes(brand) ? "font-medium" : ""}>{brand}</span>
+                                            </div>
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                    {/* Selected Brand Badges */}
+                                    {selectedBrandFilters.length > 0 && (
+                                      <div className="flex flex-wrap gap-2 mt-2">
+                                        {selectedBrandFilters.map((brand) => (
+                                          <Badge
+                                            key={brand}
+                                            variant="secondary"
+                                            className="flex items-center gap-1 hover:bg-blue-100 hover:text-blue-800 transition-all duration-200"
+                                          >
+                                            {brand}
+                                            <X
+                                              className="h-3 w-3 cursor-pointer hover:text-blue-600"
+                                              onClick={() => {
+                                                setSelectedBrandFilters(selectedBrandFilters.filter(b => b !== brand));
+                                              }}
+                                            />
+                                          </Badge>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+
+                                {/* Machine Filter */}
+                                {allAvailableMachines.length > 1 && (
+                                  <div className="space-y-2">
+                                    <label className="text-sm font-medium text-gray-700">Filter by Machine</label>
+                                    <Select
+                                      value=""
+                                      onValueChange={(value) => {
+                                        if (value && !selectedMachineFilters.includes(value)) {
+                                          setSelectedMachineFilters([...selectedMachineFilters, value]);
+                                        }
+                                      }}
+                                    >
+                                      <SelectTrigger>
+                                        <SelectValue placeholder="Select machines..." />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {allAvailableMachines.map((machine) => (
+                                          <SelectItem 
+                                            key={machine} 
+                                            value={machine}
+                                            className={selectedMachineFilters.includes(machine) ? "bg-blue-50" : ""}
+                                          >
+                                            <div className="flex items-center">
+                                              <div className="w-5 flex-shrink-0">
+                                                {selectedMachineFilters.includes(machine) && (
+                                                  <Check className="h-4 w-4 text-blue-600" />
+                                                )}
+                                              </div>
+                                              <span className={selectedMachineFilters.includes(machine) ? "font-medium" : ""}>{machine}</span>
+                                            </div>
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                    {/* Selected Machine Badges */}
+                                    {selectedMachineFilters.length > 0 && (
+                                      <div className="flex flex-wrap gap-2 mt-2">
+                                        {selectedMachineFilters.map((machine) => (
+                                          <Badge
+                                            key={machine}
+                                            variant="secondary"
+                                            className="flex items-center gap-1 hover:bg-blue-100 hover:text-blue-800 transition-all duration-200"
+                                          >
+                                            {machine}
+                                            <X
+                                              className="h-3 w-3 cursor-pointer hover:text-blue-600"
+                                              onClick={() => {
+                                                setSelectedMachineFilters(selectedMachineFilters.filter(m => m !== machine));
+                                              }}
+                                            />
+                                          </Badge>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+
+                                {/* Clear All Button */}
+                                {(selectedBrandFilters.length > 0 || selectedMachineFilters.length > 0) && (
+                                  <div className="md:col-span-2 flex justify-end">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => {
+                                        setSelectedBrandFilters([]);
+                                        setSelectedMachineFilters([]);
+                                      }}
+                                      className="text-gray-600 hover:text-gray-800 hover:bg-gray-50"
+                                    >
+                                      Clear All
+                                    </Button>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                                                    {/* Machines Grid */}
+                          {availableMachines.length > 0 ? (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                              {availableMachines.map((machine) => (
+                                <MachineCard
+                                  key={machine}
+                                  machine={machine}
+                                  category={selectedCategory}
+                                  subcategory={selectedSubcategory || null}       
+                                  allItems={allItems}
+                                  onClick={() => handleMachineSelect(selectedCategory, selectedSubcategory || '', machine)}                                       
+                                />
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-center py-12">
+                              <h2 className="text-xl font-semibold text-gray-900 mb-4">
+                                No machines found
+                                {selectedBrandFilters.length > 0 && ` (${selectedBrandFilters.length} brand filter${selectedBrandFilters.length > 1 ? 's' : ''})`}
+                                {selectedMachineFilters.length > 0 && ` (${selectedMachineFilters.length} machine filter${selectedMachineFilters.length > 1 ? 's' : ''})`}
+                              </h2>
+                              <p className="text-gray-600">
+                                Try adjusting your filters to see more results.
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <>
+                          {/* Brand Filter - only show when no subcategories/machines to display */}
+                          <BrandFilter
+                            items={categoryFilteredItems}
+                            selectedBrand={selectedBrand}
+                            onBrandSelect={handleBrandSelect}
+                          />
+
+                          {/* Product Filter - only apply additional filters, not category filtering */}
+                          <ProductFilter
+                            items={brandFilteredItems}
+                            onFilterChange={setFilteredItems}
+                          />
+
+                          {/* Show the actual items/products, not just category info */}
+                          {finalFilteredItems.length > 0 ? (
+                            <ProductGrid items={finalFilteredItems} onItemClick={handleItemClick} />    
+                          ) : (
+                            <div className="text-center py-12">
+                              <h2 className="text-xl font-semibold text-gray-900 mb-4">
+                                No items found for {selectedMachine || selectedSubcategory || selectedCategory}                                                                                     
+                                {selectedBrand && ` (${selectedBrand} brand)`}
+                              </h2>
+                              <p className="text-gray-600">
+                                This category doesn't have any items yet.
+                              </p>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </>
+                  )}
+                </>
               )}
             </div>
           ) : (
