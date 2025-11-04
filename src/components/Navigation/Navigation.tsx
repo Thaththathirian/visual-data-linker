@@ -31,7 +31,8 @@ const Navigation: React.FC = () => {
 	const [showScrollDown, setShowScrollDown] = useState(false);
 
 	const { data: items } = useQuery({ queryKey: ["intelliPartsDataNav"], queryFn: readIntelliPartsFromLocal });
-	const categories = useMemo(() => (items ? groupIntelliPartsByCategory(items) : []), [items]);
+	const REQUEST_LABEL = 'Request a Catalogue';
+	const categories = useMemo(() => ([{ name: REQUEST_LABEL, subcategories: [], machines: [] }]), []);
 
 	// Derive current category from URL (?category=... or catpath=Cat>Sub>...)
 	const currentCategoryFromUrl = useMemo(() => {
@@ -160,18 +161,25 @@ const Navigation: React.FC = () => {
 							const isHoverActive = activeIndex === index;
 							return (
 								<li key={cat.name} className="relative group">
-									<button
+							<button
 										className={`px-3 py-2 transition-colors duration-200 flex items-center gap-1 ${isUrlActive || isHoverActive ? 'bg-custom-blue/60' : 'hover:bg-custom-blue'}`}
-										onMouseEnter={() => { clearCloseTimer(); setActiveIndex(index); setActiveSub(null); setFlyout(null); setIsPinned(false); }}
+								onMouseEnter={() => { clearCloseTimer(); setActiveIndex(index); setActiveSub(null); setFlyout(null); setIsPinned(false); }}
 										onMouseLeave={scheduleClose}
-										onClick={() => {
-											// Toggle: if this menu already open, close; else open (no navigation)
-											if (activeIndex === index) { closeMenus(); }
-											else { clearCloseTimer(); setActiveIndex(index); setActiveSub(null); setFlyout(null); setIsPinned(false); }
-										}}
+								onClick={() => {
+									if (cat.name === REQUEST_LABEL) {
+										closeMenus();
+										navigate(`/?${new URLSearchParams({ requestCatalogue: '1' }).toString()}`);
+										return;
+									}
+									// Toggle: if this menu already open, close; else open (no navigation)
+									if (activeIndex === index) { closeMenus(); }
+									else { clearCloseTimer(); setActiveIndex(index); setActiveSub(null); setFlyout(null); setIsPinned(false); }
+								}}
 									>
-										<span className="whitespace-nowrap">{cat.name}</span>
-										<ChevronDown className="h-3.5 w-3.5 opacity-80" />
+								<span className="whitespace-nowrap">{cat.name}</span>
+								{(cat.subcategories && cat.subcategories.length > 0) || (cat.machines && cat.machines.length > 0) ? (
+									<ChevronDown className="h-3.5 w-3.5 opacity-80" />
+								) : null}
 									</button>
 									{activeIndex === index && (cat.subcategories?.length > 0 || cat.machines?.length > 0) ? (
 										<div
@@ -239,7 +247,16 @@ const Navigation: React.FC = () => {
 						<ul className="bg-custom-blue">
 							{categories.map((cat) => (
 								<li key={cat.name} className="border-b border-custom-blue">
-									<button className="w-full text-left px-3 py-2" onClick={() => openCategory(cat.name)}>
+									<button
+										className="w-full text-left px-3 py-2"
+										onClick={() => {
+											if (cat.name === REQUEST_LABEL) {
+												navigate(`/?${new URLSearchParams({ requestCatalogue: '1' }).toString()}`);
+												return;
+											}
+											openCategory(cat.name);
+										}}
+									>
 										{cat.name}
 									</button>
 								</li>
