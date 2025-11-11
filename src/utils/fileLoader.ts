@@ -2,6 +2,7 @@
 import { TableRow, ImageData } from "@/types";
 import { toast } from "sonner";
 import dataCache from "./dataCache";
+import { isServerSource, buildServerFileUrl } from "./dataSource";
 
 // Remove static Google Drive imports; we'll import on demand inside functions
 
@@ -36,6 +37,176 @@ const cachedFetch = async (url: string, options = {}): Promise<Response> => {
   }
 };
 
+const SERVER_IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp', 'gif'];
+
+const withServerProductsPrefix = (relativeProduct: string): string => {
+  const trimmed = (relativeProduct || '').trim().replace(/^\/+/, '');
+  if (!trimmed) return 'Products';
+  return trimmed.startsWith('Products/') ? trimmed : `Products/${trimmed}`;
+};
+
+const serverResourceExists = async (url: string): Promise<boolean> => {
+  try {
+    const headResponse = await fetch(url, { method: 'HEAD' });
+    if (headResponse.ok) return true;
+    if (headResponse.status === 405) {
+      const getResponse = await fetch(url, { method: 'GET' });
+      return getResponse.ok;
+    }
+    return false;
+  } catch (err) {
+    console.warn(`[Server] Resource check failed for ${url}:`, err);
+    return false;
+  }
+};
+
+const fetchServerText = async (url: string): Promise<string | null> => {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) return null;
+    const text = await response.text();
+    return text.trim() ? text : null;
+  } catch (err) {
+    console.error(`[Server] Failed to fetch text from ${url}:`, err);
+    return null;
+  }
+};
+
+const fetchServerJson = async (url: string): Promise<any | null> => {
+  const text = await fetchServerText(url);
+  if (!text) return null;
+  try {
+    return JSON.parse(text.replace(/^\uFEFF/, ''));
+  } catch (err) {
+    console.error(`[Server] Failed to parse JSON from ${url}:`, err);
+    return null;
+  }
+};
+
+const attemptServerFile = async (relativeProduct: string, candidate: string): Promise<string | null> => {
+  const url = buildServerFileUrl(relativeProduct, candidate);
+  if (!url) return null;
+  const exists = await serverResourceExists(url);
+  return exists ? url : null;
+};
+
+const resolveServerImageUrl = async (relativeProduct: string, fileName?: string): Promise<string | null> => {
+  const candidates: string[] = [];
+  const folderBaseName = relativeProduct.includes('/')
+    ? relativeProduct.split('/').pop()
+    : relativeProduct;
+  const serverProductPath = relativeProduct.startsWith('Machine Images')
+    ? relativeProduct
+    : withServerProductsPrefix(relativeProduct);
+
+  if (fileName) {
+    for (const ext of SERVER_IMAGE_EXTENSIONS) {
+      candidates.push(`${fileName}.${ext}`);
+    }
+  }
+
+  if (!fileName && folderBaseName) {
+    for (const ext of SERVER_IMAGE_EXTENSIONS) {
+      candidates.push(`${folderBaseName}.${ext}`);
+    }
+  }
+
+  // Default fallbacks
+  ['thumbnail.png', 'image.png', 'main.png'].forEach(candidate => candidates.push(candidate));
+
+  for (const candidate of candidates) {
+    const url = await attemptServerFile(serverProductPath, candidate);
+    if (url) return url;
+  }
+
+  return null;
+};
+
+const fetchServerCsv = async (
+  relativeProduct: string,
+  baseName?: string
+): Promise<{ text: string; url: string } | null> => {
+  const candidates: string[] = [];
+  const folderBaseName = relativeProduct.includes('/')
+    ? relativeProduct.split('/').pop()
+    : relativeProduct;
+  if (baseName) candidates.push(`${baseName}.csv`);
+  if (!baseName && folderBaseName) candidates.push(`${folderBaseName}.csv`);
+  candidates.push('data.csv');
+
+  const serverPath = withServerProductsPrefix(relativeProduct);
+
+  for (const candidate of candidates) {
+    const url = buildServerFileUrl(serverPath, candidate);
+    if (!url) continue;
+    const text = await fetchServerText(url);
+    if (text) return { text, url };
+  }
+
+  return null;
+};
+
+const fetchServerJsonData = async (
+  relativeProduct: string,
+  baseName?: string
+): Promise<{ data: any; url: string } | null> => {
+  const candidates: string[] = [];
+  const folderBaseName = relativeProduct.includes('/')
+    ? relativeProduct.split('/').pop()
+    : relativeProduct;
+  if (baseName) {
+    candidates.push(`${baseName}.json`);
+    candidates.push(`${baseName}-coordinates.json`);
+    candidates.push(`${baseName.replace(/_/g, '')}.json`);
+    candidates.push(`${baseName.replace(/_/g, '')}-coordinates.json`);
+  }
+  if (!baseName && folderBaseName) {
+    candidates.push(`${folderBaseName}.json`);
+    candidates.push(`${folderBaseName}-coordinates.json`);
+    candidates.push(`${folderBaseName.replace(/_/g, '')}.json`);
+    candidates.push(`${folderBaseName.replace(/_/g, '')}-coordinates.json`);
+  }
+  candidates.push('coordinates.json');
+  candidates.push('data.json'); // fallback
+
+  const serverPath = withServerProductsPrefix(relativeProduct);
+
+  for (const candidate of candidates) {
+    const url = buildServerFileUrl(serverPath, candidate);
+    if (!url) continue;
+    const json = await fetchServerJson(url);
+    if (json && typeof json === 'object') return { data: json, url };
+  }
+
+  return null;
+};
+
+const checkServerFiles = async (relativeProduct: string, baseName?: string) => {
+  const imageUrl = await resolveServerImageUrl(relativeProduct, baseName);
+  const csvResult = await fetchServerCsv(relativeProduct, baseName);
+  const jsonResult = await fetchServerJsonData(relativeProduct, baseName);
+
+  let detectedBase: string | null = baseName || null;
+  if (!detectedBase) {
+    if (csvResult) detectedBase = 'data';
+    else if (jsonResult && typeof jsonResult.data.imageName === 'string') {
+      detectedBase = jsonResult.data.imageName.replace(/\.[^/.]+$/, '');
+    }
+  }
+
+  return {
+    hasJson: !!jsonResult,
+    hasCsv: !!csvResult,
+    hasImage: !!imageUrl,
+    baseName: detectedBase,
+    imageUrl,
+    json: jsonResult?.data ?? null,
+    jsonUrl: jsonResult?.url ?? null,
+    csvText: csvResult?.text ?? null,
+    csvUrl: csvResult?.url ?? null
+  };
+};
+
 /**
  * Gets the appropriate base path for data files - same path for both dev and prod
  */
@@ -66,6 +237,16 @@ export const getImagePath = async (relativeProduct: string, fileName?: string): 
   if (cachedUrl) {
     console.log(`[Cache] Using cached image path for ${relativeProduct}`);
     return cachedUrl;
+  }
+
+  if (isServerSource()) {
+    console.log("[Server] getImagePath using server assets for", { relativeProduct, fileName });
+    const url = await resolveServerImageUrl(relativeProduct, fileName);
+    if (url) {
+      dataCache.setImageUrl(cacheKey, url);
+      return url;
+    }
+    return null;
   }
 
   console.log("[Drive] getImagePath using Google Drive for", { relativeProduct, fileName });
@@ -129,6 +310,18 @@ export const parseCSVFile = async (relativeProduct: string, fileName?: string): 
   }
 
   try {
+    if (isServerSource()) {
+      console.log("[Server] parseCSVFile using server assets for", { relativeProduct, fileName });
+      const csvResult = await fetchServerCsv(relativeProduct, fileName);
+      if (csvResult) {
+        const { parseCSV } = await import('@/utils/csvParser');
+        const parsedData = await parseCSV(csvResult.text);
+        dataCache.setCsvData(cacheKey, parsedData);
+        return parsedData;
+      }
+      return [];
+    }
+
     console.log("[Drive] parseCSVFile using Google Drive for", { relativeProduct, fileName });
     const { findFolderByExactName, fetchCsvRowsInFolder, listFilesInFolder } = await import('@/utils/googleDrive');
     const { parseCSV } = await import('@/utils/csvParser');
@@ -245,6 +438,16 @@ export const loadImageData = async (relativeProduct: string, fileName?: string):
   }
 
   try {
+    if (isServerSource()) {
+      console.log("[Server] loadImageData using server assets for", { relativeProduct, fileName });
+      const jsonResult = await fetchServerJsonData(relativeProduct, fileName);
+      if (jsonResult && typeof jsonResult.data === 'object' && typeof jsonResult.data.imageName === 'string' && Array.isArray(jsonResult.data.coordinates)) {
+        dataCache.setJsonData(cacheKey, jsonResult.data);
+        return jsonResult.data;
+      }
+      return null;
+    }
+
     const { findFolderByExactName, fetchJsonInFolderByCandidates, listFilesInFolder } = await import('@/utils/googleDrive');
     
     console.log("[Drive] loadImageData using Google Drive for", { relativeProduct, fileName });
@@ -328,6 +531,19 @@ export const checkFolderContents = async (relativeProduct: string): Promise<{
     return cachedData;
   }
 
+  if (isServerSource()) {
+    console.log("[Server] checkFolderContents using server assets for", { relativeProduct });
+    const result = await checkServerFiles(relativeProduct);
+    const summary = {
+      hasJson: result.hasJson,
+      hasCsv: result.hasCsv,
+      hasImage: result.hasImage,
+      baseName: result.baseName
+    };
+    dataCache.set(cacheKey, summary);
+    return summary;
+  }
+
   const { findFolderByExactName, listFilesInFolder, findImageFileInFolder } = await import('@/utils/googleDrive');
   const { fetchCsvRowsInFolder } = await import('@/utils/googleDrive');
   
@@ -390,6 +606,11 @@ export const checkFolderContents = async (relativeProduct: string): Promise<{
  */
 export const getAvailableFolders = async (): Promise<string[]> => {
   try {
+    if (isServerSource()) {
+      console.warn("[Server] getAvailableFolders is not supported for server source. Returning empty list.");
+      return [];
+    }
+
     const { isDriveEnabled, getRootFolderId, listAllSubfoldersRecursive } = await import('@/utils/googleDrive');
     if (!isDriveEnabled()) {
       console.warn("[Drive] is disabled or misconfigured. No local data fallback. Configure VITE_USE_GOOGLE_DRIVE and credentials.");
@@ -418,6 +639,46 @@ export const getAllFilesFromFolder = async (relativeProduct: string): Promise<{
   allFiles: any[];
 }> => {
   try {
+    if (isServerSource()) {
+      console.log("[Server] Getting all files from server folder:", relativeProduct);
+      const result = await checkServerFiles(relativeProduct);
+      const files: any[] = [];
+      const images = result.imageUrl
+        ? [{
+            id: `${relativeProduct}-image`,
+            name: result.baseName ? `${result.baseName}.png` : 'image.png',
+            downloadUrl: result.imageUrl,
+            type: 'image'
+          }]
+        : [];
+      const csvFiles = result.csvUrl
+        ? [{
+            id: `${relativeProduct}-csv`,
+            name: result.baseName ? `${result.baseName}.csv` : 'data.csv',
+            downloadUrl: result.csvUrl,
+            type: 'csv'
+          }]
+        : [];
+      const jsonFiles = result.jsonUrl
+        ? [{
+            id: `${relativeProduct}-json`,
+            name: result.baseName ? `${result.baseName}.json` : 'coordinates.json',
+            downloadUrl: result.jsonUrl,
+            type: 'json'
+          }]
+        : [];
+
+      files.push(...images, ...csvFiles, ...jsonFiles);
+
+      return {
+        folder: { name: relativeProduct },
+        images,
+        csvFiles,
+        jsonFiles,
+        allFiles: files
+      };
+    }
+
     console.log("[Drive] Getting all files from folder:", relativeProduct);
     const { findFolderByExactName, listFilesInFolder, getDriveDownloadUrl } = await import('@/utils/googleDrive');
     
@@ -509,6 +770,16 @@ export const getProductThumbnail = async (productPath: string): Promise<string |
   }
 
   try {
+    if (isServerSource()) {
+      console.log("[Server] Getting product thumbnail from server for:", productPath);
+      const url = await resolveServerImageUrl(productPath);
+      if (url) {
+        dataCache.setImageUrl(cacheKey, url);
+        return url;
+      }
+      return null;
+    }
+
     console.log("[Drive] Getting product thumbnail for:", productPath);
     const { findFolderByExactName, listFilesInFolder, getDriveDownloadUrl } = await import('@/utils/googleDrive');
     

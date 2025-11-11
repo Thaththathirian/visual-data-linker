@@ -1,4 +1,5 @@
 import dataCache from "@/utils/dataCache";
+import { isServerSource, buildServerFileUrl } from "./dataSource";
 
 export interface IndexItem {
   id: string;
@@ -42,27 +43,41 @@ export const readIndexFromDrive = async (): Promise<IndexItem[]> => {
     return dataCache.getIndexData()!;
   }
 
-  const rootFolderId = import.meta.env.VITE_DRIVE_ROOT_FOLDER_ID;
-  if (!rootFolderId) {
-    throw new Error('VITE_DRIVE_ROOT_FOLDER_ID environment variable is required. Please set it in your .env file.');
-  }
+  let csvContent: string | null = null;
 
-  const { listFilesInFolder, getDriveDownloadUrl } = await import('./googleDrive');
-  const files = await listFilesInFolder(rootFolderId);
-  const indexFile = files.find(file => file.name.toLowerCase() === 'index.csv');
-  if (!indexFile) {
-    throw new Error('No index.csv file found in the root folder. Please upload an index.csv file to your Google Drive root folder.');
-  }
+  if (isServerSource()) {
+    console.log('[Server] Reading index.csv from server');
+    const serverIndexUrl = buildServerFileUrl('', 'index.csv');
+    if (!serverIndexUrl) {
+      throw new Error('Server base URL for IntelliParts is not configured. Set VITE_DEV_INTELLIPARTS_BASE_URL / VITE_PROD_INTELLIPARTS_BASE_URL.');
+    }
+    const res = await fetch(serverIndexUrl);
+    if (!res.ok) throw new Error(`Failed to fetch server index.csv: ${res.status} ${res.statusText}`);
+    csvContent = await res.text();
+    if (!csvContent.trim()) throw new Error('Server index.csv file is empty. Please add data to the file.');
+  } else {
+    const rootFolderId = import.meta.env.VITE_DRIVE_ROOT_FOLDER_ID;
+    if (!rootFolderId) {
+      throw new Error('VITE_DRIVE_ROOT_FOLDER_ID environment variable is required. Please set it in your .env file.');
+    }
 
-  const downloadUrl = getDriveDownloadUrl(indexFile.id);
-  if (!downloadUrl) {
-    throw new Error('Failed to generate download URL. Please check your VITE_DRIVE_API_KEY.');
-  }
+    const { listFilesInFolder, getDriveDownloadUrl } = await import('./googleDrive');
+    const files = await listFilesInFolder(rootFolderId);
+    const indexFile = files.find(file => file.name.toLowerCase() === 'index.csv');
+    if (!indexFile) {
+      throw new Error('No index.csv file found in the root folder. Please upload an index.csv file to your Google Drive root folder.');
+    }
 
-  const res = await fetch(downloadUrl);
-  if (!res.ok) throw new Error(`Failed to fetch index.csv: ${res.status} ${res.statusText}`);
-  const csvContent = await res.text();
-  if (!csvContent.trim()) throw new Error('index.csv file is empty. Please add data to the file.');
+    const downloadUrl = getDriveDownloadUrl(indexFile.id);
+    if (!downloadUrl) {
+      throw new Error('Failed to generate download URL. Please check your VITE_DRIVE_API_KEY.');
+    }
+
+    const res = await fetch(downloadUrl);
+    if (!res.ok) throw new Error(`Failed to fetch index.csv: ${res.status} ${res.statusText}`);
+    csvContent = await res.text();
+    if (!csvContent.trim()) throw new Error('index.csv file is empty. Please add data to the file.');
+  }
 
   const { parse } = await import('papaparse');
   const normalizeHeader = (h: string) => String(h || '').trim();

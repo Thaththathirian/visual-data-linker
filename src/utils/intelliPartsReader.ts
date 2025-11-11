@@ -1,6 +1,7 @@
 import { IntelliPartsItem } from "@/types";
 import { parseIntelliPartsCSV } from "./csvParser";
 import dataCache from "./dataCache";
+import { isServerSource, buildServerFileUrl } from "./dataSource";
 
 // Convert local index.csv format to IntelliParts format
 const convertIndexToIntelliParts = async (csvContent: string): Promise<IntelliPartsItem[]> => {
@@ -73,6 +74,29 @@ export const readIntelliPartsFromLocal = async (): Promise<IntelliPartsItem[]> =
   }
 
   try {
+    if (isServerSource()) {
+      console.log('[Server] Reading IntelliParts index from server');
+      const serverIndexUrl = buildServerFileUrl('', 'index.csv');
+      if (!serverIndexUrl) {
+        throw new Error('Server base URL for IntelliParts is not configured. Set VITE_DEV_INTELLIPARTS_BASE_URL / VITE_PROD_INTELLIPARTS_BASE_URL.');
+      }
+
+      const response = await fetch(serverIndexUrl);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch server index.csv: ${response.status} ${response.statusText}`);
+      }
+
+      const csvContent = await response.text();
+      if (!csvContent.trim()) {
+        throw new Error('Server index.csv file is empty');
+      }
+
+      const items = await parseIntelliPartsCSV(csvContent);
+      console.log('[Server] Loaded IntelliParts items from server:', items.length);
+      dataCache.setIntelliPartsData(items);
+      return items;
+    }
+
     // First try to read from Google Drive
     const rootFolderId = import.meta.env.VITE_DRIVE_ROOT_FOLDER_ID;
     if (rootFolderId) {
@@ -237,6 +261,10 @@ export const getIntelliPartsByBrand = (items: IntelliPartsItem[], brand: string)
 
 export const getMachineThumbnailPath = (machineName: string): string => {
   // Return the path to the machine thumbnail in Machine Images folder
+  if (isServerSource()) {
+    const url = buildServerFileUrl('Machine Images', `${machineName}.png`);
+    if (url) return url;
+  }
   return `/IntelliParts/Machine Images/${machineName}.png`;
 };
 
@@ -255,6 +283,27 @@ export const getMachineThumbnailFromDrive = async (machineName: string): Promise
   }
 
   try {
+    if (isServerSource()) {
+      console.log('[Server] Getting machine thumbnail from server:', machineName);
+      const url = buildServerFileUrl('Machine Images', `${machineName}.png`);
+      if (url) {
+        const exists = await fetch(url, { method: 'HEAD' })
+          .then(async res => {
+            if (res.ok) return true;
+            if (res.status === 405) {
+              return await fetch(url, { method: 'GET' }).then(getRes => getRes.ok).catch(() => false);
+            }
+            return false;
+          })
+          .catch(() => false);
+        if (exists) {
+          dataCache.setImageUrl(cacheKey, url);
+          return url;
+        }
+      }
+      return null;
+    }
+
     const { isDriveEnabled, findFolderByExactName, listFilesInFolder, getDriveDownloadUrl } = await import('@/utils/googleDrive');
     
     if (!isDriveEnabled()) {
@@ -324,6 +373,10 @@ export const getMachineThumbnailFromDrive = async (machineName: string): Promise
 
 export const getProductImagePath = (productPath: string): string => {
   // Return the path to the product image
+  if (isServerSource()) {
+    const url = buildServerFileUrl(`Products/${productPath}`, 'image.png');
+    if (url) return url;
+  }
   return `/IntelliParts/Products/${productPath}/image.png`;
 };
 
