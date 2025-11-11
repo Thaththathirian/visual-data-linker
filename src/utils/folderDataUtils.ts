@@ -1,4 +1,4 @@
-import folderStructure from '../data/folderStructure.json';
+import { getAvailableFolders } from '@/utils/fileLoader';
 
 export interface FolderItem {
   type: 'folder' | string;
@@ -18,70 +18,53 @@ export interface DirectoryContents {
 }
 
 // Get folder contents by path (replaces /api/directory)
-export function getDirectoryContents(folderPath: string): DirectoryContents[] {
+export async function getDirectoryContents(folderPath: string): Promise<DirectoryContents[]> {
   if (!folderPath) {
-    return folderStructure;
+    const { getRootFolderId, listSubfolders } = await import('@/utils/googleDrive');
+    const rootId = getRootFolderId();
+    if (!rootId) return [];
+    const subs = await listSubfolders(rootId);
+    return subs.map(s => ({ type: 'folder', name: s.name, path: s.name, itemCount: undefined }));
   }
-
-  const pathParts = folderPath.split('/').filter(Boolean);
-  let currentLevel: FolderItem[] = folderStructure;
-
-  // Navigate to the requested folder
-  for (const part of pathParts) {
-    const folder = currentLevel.find(item => item.type === 'folder' && item.name === part);
-    if (!folder || !folder.children) {
-      return [];
-    }
-    currentLevel = folder.children;
-  }
-
-  // Convert to the same format as the old API
-  return currentLevel.map(item => {
-    if (item.type === 'folder') {
-      return {
-        type: 'folder',
-        name: item.name,
-        path: item.path,
-        itemCount: item.itemCount
-      };
-    } else {
-      return {
-        type: item.extension?.replace('.', '') || 'file',
-        name: item.name,
-        path: item.path,
-        size: 0 // We don't have size info in the generated data
-      };
-    }
-  });
+  const { resolveFolderByPath, resolveFolderByNameUnderRoot, listSubfolders, listFilesInFolder } = await import('@/utils/googleDrive');
+  const driveFolder = folderPath.includes('/')
+    ? await resolveFolderByPath(folderPath)
+    : await resolveFolderByNameUnderRoot(folderPath);
+  if (!driveFolder) return [];
+  const subfolders = await listSubfolders(driveFolder.id);
+  const folderEntries: DirectoryContents[] = subfolders.map(sf => ({
+    type: 'folder',
+    name: sf.name,
+    path: `${folderPath}/${sf.name}`.replace(/\/+/g, '/'),
+    itemCount: undefined,
+  }));
+  const files = await listFilesInFolder(driveFolder.id);
+  const fileEntries: DirectoryContents[] = files
+    .filter(f => f.mimeType !== 'application/vnd.google-apps.folder')
+    .map(f => {
+      const name = f.name;
+      const ext = (name.split('.').pop() || '').toLowerCase();
+      const type = ['json','csv','png','jpg','jpeg','webp','gif'].includes(ext) ? ext : 'file';
+      return { type, name, path: `${folderPath}/${name}`.replace(/\/+/g, '/'), size: 0 } as DirectoryContents;
+    });
+  return [...folderEntries, ...fileEntries];
 }
 
 // Get file content by path (replaces /api/file)
 export function getFileContent(filePath: string): string | null {
-  // For now, we'll return null since we're not storing file contents in the JSON
-  // You can extend this to read actual files if needed
   return null;
 }
 
 // Get the complete folder structure
-export function getFolderStructure(): FolderItem[] {
-  return folderStructure;
+export async function getFolderStructure(): Promise<FolderItem[]> {
+  const all = await getAvailableFolders();
+  return all.map(p => ({ type: 'folder', name: p.split('/').pop() || p, path: p }));
 }
 
 // Search for files/folders by name
-export function searchItems(query: string): FolderItem[] {
-  const results: FolderItem[] = [];
-  
-  function searchRecursive(items: FolderItem[], query: string) {
-    for (const item of items) {
-      if (item.name.toLowerCase().includes(query.toLowerCase())) {
-        results.push(item);
-      }
-      if (item.children) {
-        searchRecursive(item.children, query);
-      }
-    }
-  }
-  
-  searchRecursive(folderStructure, query);
-  return results;
+export async function searchItems(query: string): Promise<FolderItem[]> {
+  const all = await getAvailableFolders();
+  return all
+    .filter(p => p.toLowerCase().includes(query.toLowerCase()))
+    .map(p => ({ type: 'folder', name: p.split('/').pop() || p, path: p }));
 }

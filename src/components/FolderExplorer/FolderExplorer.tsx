@@ -42,24 +42,34 @@ const FolderExplorer: React.FC<FolderExplorerProps> = ({
       
       // Determine which immediate child folders have working coordinates
       const folderItems = contents.filter(item => item.type === 'folder') as FolderItem[];
-      const results = await Promise.all(
-        folderItems.map(async f => {
-          const childPath = path ? `${path}/${f.name}` : f.name;
-          const has = await folderHasWorkingCoordinates(childPath);
-          return [childPath, has] as const;
-        })
-      );
-      const map: Record<string, boolean> = {};
-      for (const [p, has] of results) map[p] = has;
-      setHighlightedFolders(map);
+      // Defer highlighting checks; don't block main list rendering
+      (async () => {
+        const results = await Promise.all(
+          folderItems.map(async f => {
+            const childPath = path ? `${path}/${f.name}` : f.name;
+            const has = await folderHasWorkingCoordinates(childPath);
+            return [childPath, has] as const;
+          })
+        );
+        const map: Record<string, boolean> = {};
+        for (const [p, has] of results) map[p] = has;
+        setHighlightedFolders(map);
+      })();
       
-      // Check if this folder has coordinate data (JSON + CSV + PNG)
-      const hasJson = contents.some(item => item.type === 'json' && (item as FileItem).hasCoordinates);
-      const hasCsv = contents.some(item => item.type === 'csv');
-      const hasImage = contents.some(item => ['png', 'jpg', 'jpeg'].includes(item.type));
+      // Check if this folder has a complete set based on base name matching
+      const files = contents.filter(item => item.type !== 'folder') as FileItem[];
       
-      if (hasJson && hasCsv && hasImage) {
-        // Navigate to the existing ImageDetail page with the full path
+      const toBase = (name: string) => name
+        .replace(/\.(json|csv|png|jpe?g|webp|gif)$/i, '')
+        .replace(/-coordinates$/i, '');
+      
+      const jsonBases = new Set(files.filter(f => f.type === 'json').map(f => toBase(f.name)));
+      const csvBases = new Set(files.filter(f => f.type === 'csv').map(f => toBase(f.name)));
+      const imageBases = new Set(files.filter(f => ['png','jpg','jpeg','webp','gif'].includes(f.type)).map(f => toBase(f.name)));
+      
+      const completeBase = Array.from(jsonBases).find(b => csvBases.has(b) && imageBases.has(b));
+      
+      if (completeBase) {
         navigate(`/${encodeURIComponent(path)}`);
         return;
       }
@@ -181,12 +191,12 @@ const FolderExplorer: React.FC<FolderExplorerProps> = ({
             .map((item) => (
               <Card 
                 key={item.name} 
-                className={`hover:shadow-lg transition-shadow cursor-pointer border-2 hover:border-blue-300 ${highlightedFolders[currentPath ? `${currentPath}/${item.name}` : item.name] ? 'border-blue-300 bg-blue-50' : 'border-blue-100'}`}
+                className={`hover:shadow-lg transition-shadow cursor-pointer border-2 hover:border-blue-300 ${highlightedFolders[currentPath ? `${currentPath}/${item.name}` : item.name] ? 'border-indigo-400 bg-indigo-50' : 'border-blue-100'}`}
                 onClick={() => handleFolderClick(item as FolderItem)}
               >
                 <CardContent className="p-4">
                   <div className="flex items-center space-x-3">
-                    <FolderIcon className={`h-8 w-8 ${highlightedFolders[currentPath ? `${currentPath}/${item.name}` : item.name] ? 'text-blue-700' : 'text-blue-600'}`} />
+                    <FolderIcon className={`h-8 w-8 ${highlightedFolders[currentPath ? `${currentPath}/${item.name}` : item.name] ? 'text-indigo-600' : 'text-blue-600'}`} />
                     <div className="flex-1 min-w-0">
                       <h3 className="font-medium text-sm truncate">{item.name}</h3>
                       <p className="text-xs text-gray-500">

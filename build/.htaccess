@@ -1,0 +1,11 @@
+
+# Enable Rewrite Engine
+RewriteEngine On
+
+# Set index.html as the default index file
+DirectoryIndex index.html
+
+# Redirect all requests that are not actual files or directories to index.html
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^.*$ /index.html [L]

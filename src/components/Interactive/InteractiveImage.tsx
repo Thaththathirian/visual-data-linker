@@ -83,6 +83,7 @@ const CoordinatePoint = memo(
 
     return (
       <div
+        id={`point-${coord.number}`}
         className="absolute"
         style={{
           left: `${scaledX}px`,

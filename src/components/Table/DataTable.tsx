@@ -17,6 +17,7 @@ interface DataTableProps {
   highlightedNumber: string | null;
   onRowClick: (number: string) => void;
   onRowHover: (number: string | null) => void;
+  rowIdPrefix?: string;
 }
 
 const DataTable: React.FC<DataTableProps> = ({
@@ -24,6 +25,7 @@ const DataTable: React.FC<DataTableProps> = ({
   highlightedNumber,
   onRowClick,
   onRowHover,
+  rowIdPrefix,
 }) => {
   if (!data || data.length === 0) {
     return (
@@ -45,7 +47,7 @@ const DataTable: React.FC<DataTableProps> = ({
   }
   
   return (
-    <ScrollArea className="h-full max-h-[500px]">
+    <ScrollArea className="h-full max-h-[560px]">
       <Table>
         <TableHeader className="bg-gray-50 sticky top-0 z-10">
           <ShadcnTableRow>
@@ -59,6 +61,7 @@ const DataTable: React.FC<DataTableProps> = ({
           {data.map((row) => (
             <motion.tr
               key={row.id}
+              id={rowIdPrefix ? `row-${rowIdPrefix}-${row.number}` : undefined}
               className={`cursor-pointer hover:bg-orange-50 ${
                 highlightedNumber === row.number ? "bg-orange-100" : ""
               }`}
